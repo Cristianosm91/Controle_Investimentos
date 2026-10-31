@@ -598,7 +598,7 @@ select {
 }
 
 .grafico .eixo {
-  font-size: 11px;
+  font-size: 9px;
   fill: var(--sutil);
 }
 
@@ -606,8 +606,8 @@ select {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem 1rem;
-  font-size: 0.8rem;
-  min-height: 1.3rem;
+  font-size: 0.75rem;
+  min-height: 1.2rem;
   margin-top: 0.3rem;
 }
 
@@ -710,6 +710,79 @@ select {
 
 .radar-tabela td .sutil {
   margin-top: 0.2rem;
+}
+
+/* ---------- status do ativo ---------- */
+
+.status-filtros {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.status-filtros label {
+  display: flex;
+  flex: 1 1 220px;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.status-filtros select {
+  min-height: 2.4rem;
+}
+
+.status-resumo {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.status-resumo .painel {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.status-resumo strong {
+  font-size: 1.15rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.status-ativo .painel {
+  margin-top: 1rem;
+}
+
+.status-distribuicao {
+  max-width: 720px;
+}
+
+.status-eventos th,
+.status-eventos td {
+  white-space: nowrap;
+}
+
+.status-titulo-eventos {
+  align-items: baseline;
+}
+
+.status-titulo-eventos h2 {
+  margin-top: 0;
+}
+
+.status-paginacao {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.status-ativo button {
+  border-radius: 0;
+  text-transform: uppercase;
 }
 
 /* ---------- imposto de renda ---------- */
