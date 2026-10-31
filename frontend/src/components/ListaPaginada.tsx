@@ -28,6 +28,8 @@ interface Props<T> {
   /** Conteúdo da última coluna de cada linha (ex.: editar/excluir). */
   acoes?: (item: T) => ReactNode;
   filtroTicker?: boolean;
+  /** Parâmetros fixos da consulta (ex.: { evento: "ALUGUEL" }). */
+  filtrosFixos?: Record<string, string>;
 }
 
 export function ListaPaginada<T>({
@@ -40,13 +42,22 @@ export function ListaPaginada<T>({
   topo,
   acoes,
   filtroTicker = true,
+  filtrosFixos,
 }: Props<T>) {
   const [ticker, setTicker] = useState("");
   const [inicio, setInicio] = useState("");
   const [fim, setFim] = useState("");
   const [pagina, setPagina] = useState(0);
 
-  const params = { investidores: filtroInvestidores, ticker, inicio, fim, limite: POR_PAGINA, deslocamento: pagina * POR_PAGINA };
+  const params = {
+    ...filtrosFixos,
+    investidores: filtroInvestidores,
+    ticker,
+    inicio,
+    fim,
+    limite: POR_PAGINA,
+    deslocamento: pagina * POR_PAGINA,
+  };
   const { data, isLoading, error } = useQuery({
     queryKey: [recurso, params],
     queryFn: () => api.get<Pagina<T>>(`/${recurso}${query(params)}`),

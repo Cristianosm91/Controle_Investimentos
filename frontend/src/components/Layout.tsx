@@ -8,6 +8,7 @@ export const PAGINAS = [
   { caminho: "/portfolio", rotulo: "Portfólio", icone: "💼" },
   { caminho: "/dashboard", rotulo: "Rentabilidade", icone: "📈" },
   { caminho: "/proventos", rotulo: "Proventos", icone: "💰" },
+  { caminho: "/aluguel", rotulo: "Aluguel (BTC)", icone: "🤝" },
   { caminho: "/operacoes", rotulo: "Operações", icone: "🔁" },
   { caminho: "/caixa", rotulo: "Caixa", icone: "🏦" },
   { caminho: "/alocacao", rotulo: "Alocação", icone: "⚖️" },

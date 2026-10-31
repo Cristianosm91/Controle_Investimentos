@@ -33,6 +33,7 @@ from app.models import (
     PrejuizoInicial,
     Provento,
 )
+from app.services import aluguel
 from app.services.carteira import carregar_posicoes
 
 ORIGEM = "planilha"
@@ -72,13 +73,6 @@ PARAMETROS_DARF = {
 
 # Colunas do quadro "Transportar o prejuízo" (config.parâmetros) → grupo de compensação.
 PREJUIZO_COLUNAS = {7: "COMUM", 8: "DAYTRADE", 9: "FII"}
-
-# Lançamentos de aluguel (BTC) no extrato da corretora (aba Página117).
-_BTC = (
-    ("CREDITO REF. TAXA DE REMUNERACAO BTC", "valor"),
-    ("DEBITO CBLC IRRF S/ RENDIMENTO DE BTC", "irrf"),
-    ("TAXA DE INTERMEDIACAO DOADOR", "taxas"),
-)
 
 
 # ---------- conversões ----------
@@ -296,51 +290,31 @@ class Importador:
             self.sessao.merge(obj)
             self.estatisticas["índices mensais"] += 1
 
-    def _ativo_por_raiz(self, raiz: str, ticker: str | None) -> Ativo | None:
-        """O extrato do BTC traz só a raiz (MGLU); a taxa traz o ticker completo (MGLU3)."""
-        if ticker and ticker in self.ativos:
-            return self.ativos[ticker]
-        candidatos = sorted(
-            (a for t, a in self.ativos.items() if t.startswith(raiz) and t[len(raiz):].isdigit() and a.moeda == "BRL"),
-            key=lambda a: (sem_acento(a.classe) != "ACAO", a.ticker),
-        )
-        if len(candidatos) > 1:
-            lista = ", ".join(a.ticker for a in candidatos)
-            self.avisos.append(f"aluguel {raiz}: vários tickers ({lista}) — usado {candidatos[0].ticker}")
-        return candidatos[0] if candidatos else None
-
     def importar_aluguel(self, wb) -> None:
         """Aba Página117 (extrato da corretora): remuneração, IRRF e taxa do BTC → provento ALUGUEL por data e ativo."""
         aba = next((n for n in wb.sheetnames if sem_acento(n).startswith("PAGINA117")), None)
         if aba is None:
             return
-        grupos: dict[tuple[date, str], dict] = {}
-        for _, l in linhas(wb, aba, 2):
+        brutas = []
+        for numero, l in linhas(wb, aba, 2):
             dia, historico, ticker = data(col(l, 1)), texto(col(l, 2)), texto(col(l, 3))
-            if not (dia and historico and ticker):
-                continue
-            h = sem_acento(historico)
-            campo = next((c for prefixo, c in _BTC if h.startswith(prefixo)), None)
-            if campo is None:
-                continue  # TEDs, multas, dividendos: já lançados em outras abas
-            ticker = ticker.upper()
-            zero = Decimal(0)
-            g = grupos.setdefault((dia, ticker[:4]), {"valor": zero, "irrf": zero, "taxas": zero, "ticker": None})
-            g[campo] += abs(decimal(col(l, 4)))
-            if len(ticker) > 4:
-                g["ticker"] = ticker
+            # Só converte o valor das linhas de BTC (TEDs, multas etc. podem ter formatos diversos).
+            if dia and historico and ticker and aluguel.classificar(historico):
+                brutas.append((numero, dia, historico, ticker, decimal(col(l, 4))))
 
-        for (dia, raiz), g in sorted(grupos.items()):
-            ativo = self._ativo_por_raiz(raiz, g["ticker"])
+        for g in aluguel.agrupar(brutas):
+            ativo, candidatos = aluguel.ativo_por_raiz(self.ativos.values(), g.raiz, g.ticker)
+            if len(candidatos) > 1:
+                self.avisos.append(f"aluguel {g.raiz}: vários tickers ({', '.join(candidatos)}) — usado {ativo.ticker}")
             if ativo is None:
-                self.avisos.append(f"aluguel {raiz} em {dia:%d/%m/%Y}: ativo não cadastrado — ignorado")
+                self.avisos.append(f"aluguel {g.raiz} em {g.data:%d/%m/%Y}: ativo não cadastrado — ignorado")
                 continue
-            hash_ = self._hash(aba, dia, raiz, g["valor"], g["irrf"], g["taxas"])
+            hash_ = self._hash(aba, g.data, g.raiz, g.valor, g.irrf, g.taxas)
             if not self._novo(Provento, hash_):
                 continue
             self.sessao.add(Provento(
-                investidor=self.investidor, ativo=ativo, data_pagamento=dia, evento="ALUGUEL", valor=g["valor"],
-                irrf=g["irrf"], taxas=g["taxas"], moeda="BRL", cambio=Decimal(1), origem=ORIGEM, hash_origem=hash_,
+                investidor=self.investidor, ativo=ativo, data_pagamento=g.data, evento="ALUGUEL", valor=g.valor,
+                irrf=g.irrf, taxas=g.taxas, moeda="BRL", cambio=Decimal(1), origem=ORIGEM, hash_origem=hash_,
             ))
             self.estatisticas["aluguéis (BTC) importados"] += 1
 

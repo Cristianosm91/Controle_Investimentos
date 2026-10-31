@@ -385,6 +385,34 @@ export interface ResultadoExtrato {
   corretoras_criadas: string[];
 }
 
+export interface TotaisAluguel {
+  bruto: number;
+  taxas: number;
+  irrf: number;
+  liquido: number;
+}
+
+export interface ResumoAluguel {
+  anos: number[];
+  totais: TotaisAluguel;
+  lancamentos: number;
+  por_ativo: (TotaisAluguel & { ticker: string; lancamentos: number; ultimo: string })[];
+  por_mes: (TotaisAluguel & { mes: string })[];
+}
+
+export interface ItemAluguel {
+  data: string;
+  ticker: string | null;
+  raiz: string;
+  valor: number;
+  taxas: number;
+  irrf: number;
+  linhas: number[];
+  status: "novo" | "duplicado" | "verificar" | "sem_ativo";
+  motivo: string | null;
+  hash: string;
+}
+
 export type Benchmark = "ibov" | "ifix" | "cdi" | "ipca";
 
 export interface MesRentabilidade {
