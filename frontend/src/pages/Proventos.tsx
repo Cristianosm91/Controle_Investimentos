@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { AcoesLinha } from "../components/AcoesLinha";
 import { FormProvento } from "../components/FormLancamentos";
+import { ImportarExtrato } from "../components/ImportarExtrato";
 import { ListaPaginada, type ColunaLista } from "../components/ListaPaginada";
 import { MatrizProventos } from "../components/MatrizProventos";
 import { useDominio } from "../cadastros";
@@ -13,6 +14,7 @@ export function Proventos() {
   const { data: dominio } = useDominio();
   const [edicao, setEdicao] = useState<Provento | "novo" | null>(null);
   const [aba, setAba] = useState<"lancamentos" | "matriz">("lancamentos");
+  const [importando, setImportando] = useState(false);
   const nome = (id: number) => investidores.find((i) => i.id === id)?.nome ?? id;
 
   const colunas: ColunaLista<Provento>[] = [
@@ -53,7 +55,14 @@ export function Proventos() {
         filtroInvestidores={filtro}
         colunas={colunas}
         chave={(p) => p.id}
-        cabecalho={<button onClick={() => setEdicao("novo")}>+ Novo provento</button>}
+        cabecalho={
+          <>
+            <button className="secundario" onClick={() => setImportando(true)}>
+              Importar extrato B3
+            </button>
+            <button onClick={() => setEdicao("novo")}>+ Novo provento</button>
+          </>
+        }
         topo={abas}
         acoes={(p) => (
           <AcoesLinha
@@ -66,6 +75,7 @@ export function Proventos() {
       />
       )}
       {edicao && <FormProvento provento={edicao === "novo" ? undefined : edicao} aoFechar={() => setEdicao(null)} />}
+      {importando && <ImportarExtrato aoFechar={() => setImportando(false)} />}
     </>
   );
 }
