@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..models import Ativo, Cotacao, CotacaoMoeda
+from ..models import Ativo, AtivoRadar, Cotacao, CotacaoMoeda
 from ..providers.base import AtivoRef, ProvedorCotacao
 from ..providers.bcb import ProvedorBcb
 from ..providers.yahoo import ProvedorYahoo
@@ -24,11 +24,17 @@ class ResultadoAtualizacao:
     sem_cotacao: list[str] = field(default_factory=list)
 
 
-def ativos_com_posicao(sessao: Session) -> list[Ativo]:
+def ativos_monitorados(sessao: Session) -> list[Ativo]:
     ids = {p.ativo_id for p in carregar_posicoes(sessao, None).values() if p.aberta}
-    if not ids:
-        return []
-    return list(sessao.scalars(select(Ativo).where(Ativo.id.in_(ids), Ativo.cotacao_automatica)))
+    acompanhados = select(AtivoRadar.ativo_id)
+    return list(
+        sessao.scalars(
+            select(Ativo).where(
+                Ativo.cotacao_automatica,
+                Ativo.id.in_(ids) | Ativo.id.in_(acompanhados),
+            )
+        )
+    )
 
 
 def atualizar_cotacoes(
@@ -37,7 +43,7 @@ def atualizar_cotacoes(
     """Consulta os provedores em ordem; cada um só recebe os ativos que os anteriores não resolveram."""
     provedores = provedores if provedores is not None else provedores_padrao()
     ativos_padrao = ativos is None
-    ativos = list(ativos if ativos is not None else ativos_com_posicao(sessao))
+    ativos = list(ativos if ativos is not None else ativos_monitorados(sessao))
     pendentes = {a.ticker: a for a in ativos}
     resultado = ResultadoAtualizacao()
 

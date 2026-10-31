@@ -199,6 +199,17 @@ class Fundamento(Base):
     atualizado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
+class AtivoRadar(Base):
+    """Ativo acompanhado no Radar, mesmo sem posição na carteira."""
+
+    __tablename__ = "ativo_radar"
+    __table_args__ = (UniqueConstraint("ativo_id", name="uq_ativo_radar_ativo"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    ativo_id: Mapped[int] = mapped_column(ForeignKey("ativo.id", ondelete="CASCADE"))
+    criado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
 class IndiceMensal(Base):
     __tablename__ = "indice_mensal"
 

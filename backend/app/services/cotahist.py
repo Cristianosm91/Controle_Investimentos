@@ -19,7 +19,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..db import insert_upsert
-from ..models import Ativo, Cotacao, Operacao
+from ..models import Ativo, AtivoRadar, Cotacao, Operacao
 
 log = logging.getLogger(__name__)
 
@@ -101,10 +101,13 @@ class ResultadoCarga:
 
 
 def _ativos_b3(sessao: Session) -> dict[str, int]:
-    """Ativos da B3 que já tiveram operação (inclui posições encerradas, úteis para histórico)."""
+    """Ativos B3 com operação ou no Radar, incluindo posições encerradas."""
     consulta = (
         select(Ativo.ticker, Ativo.id)
-        .where(Ativo.mercado == "BVMF", Ativo.id.in_(select(Operacao.ativo_id).distinct()))
+        .where(
+            Ativo.mercado == "BVMF",
+            Ativo.id.in_(select(Operacao.ativo_id).distinct()) | Ativo.id.in_(select(AtivoRadar.ativo_id)),
+        )
     )
     return {t: i for t, i in sessao.execute(consulta)}
 
@@ -194,6 +197,8 @@ def carregar_historico(sessao: Session, desde_ano: int | None = None, ate_ano: i
     if desde_ano is None:
         primeira = sessao.scalar(select(func.min(Operacao.data)))
         desde_ano = primeira.year if primeira else date.today().year
+        if sessao.scalar(select(AtivoRadar.id).limit(1)) is not None:
+            desde_ano = min(desde_ano, (date.today() - timedelta(days=370)).year)
     ate_ano = ate_ano or date.today().year
     return _carregar(sessao, (f"COTAHIST_A{ano}" for ano in range(desde_ano, ate_ano + 1)))
 

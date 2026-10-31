@@ -1,7 +1,7 @@
 import re
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Annotated, Generic, TypeVar
+from typing import Annotated, Generic, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, PlainSerializer, field_validator, model_validator
 
@@ -563,6 +563,44 @@ class FundamentoOut(BaseModel):
     fii_preco_m2: Num | None
     fii_numero_imoveis: int | None
     fii_numero_unidades: int | None
+
+
+class RadarOut(BaseModel):
+    ativo_id: int
+    ticker: str
+    nome: str | None
+    classe: str
+    moeda: str
+    tem_posicao: bool
+    cotacao: Num | None
+    cotacao_data: date | None
+    cotacao_fonte: str | None
+    variacao_1d_pct: Num | None
+    variacao_7d_pct: Num | None
+    variacao_14d_pct: Num | None
+    drawdown_60d_pct: Num | None
+    minimo_52s: Num | None
+    maximo_52s: Num | None
+    preco_teto_graham: Num | None
+    upside_graham_pct: Num | None
+    preco_lucro: Num | None
+    preco_valor_patrimonial: Num | None
+    dividend_yield: Num | None
+    roe: Num | None
+    roic: Num | None
+    fii_ffo_yield: Num | None
+    data_ref_fundamentos: date | None
+    yoc_12m: Num | None
+
+
+class RadarNovoIn(BaseModel):
+    ticker: str = Field(pattern=r"^[A-Z0-9]{4,16}$")
+    classe: Literal["AÇÃO", "FII", "FIAGRO"] = "AÇÃO"
+
+    @field_validator("ticker", mode="before")
+    @classmethod
+    def _ticker(cls, valor: str) -> str:
+        return valor.strip().upper()
 
 
 class Pagina(BaseModel, Generic[T]):
