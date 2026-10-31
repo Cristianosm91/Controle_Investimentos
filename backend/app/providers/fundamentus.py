@@ -178,5 +178,5 @@ def buscar_fiis(cliente: httpx.Client) -> dict[str, dict[str, Decimal | int | st
 def cliente_http() -> httpx.Client:
     return httpx.Client(
         timeout=httpx.Timeout(30),
-        headers={"User-Agent": "ControleInv/0.1 (local investment tracker)"},
+        headers={"User-Agent": "InvestHub/0.1 (local investment tracker)"},
     )

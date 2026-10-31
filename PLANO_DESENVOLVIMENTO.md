@@ -1,4 +1,4 @@
-# Plano de Desenvolvimento — ControleInv (Aplicação Web de Controle de Investimentos)
+# Plano de Desenvolvimento — InvestHub+ (Aplicação Web de Controle de Investimentos)
 
 > Base de análise: `Ref/Cris v7.0 DLP Gestão de Investimentos (Gratuita).xlsx` e a exportação HTML em `Ref/HTML/` (47 abas).
 > Objetivo: substituir a planilha do Google Sheets por uma aplicação web com as mesmas funcionalidades, sem depender de fórmulas `QUERY`/`IMPORTXML`/Apps Script.
@@ -188,7 +188,7 @@ A planilha usa a função `GOOGLEFINANCE()`, que **só existe dentro do Google S
 **Conclusão:** a planilha-ponte é a **segunda fonte** (fallback) — gratuita, oficial e lê todos os tickers numa única chamada.
 
 **Como funciona a planilha-ponte:**
-1. Planilha separada `ControleInv-Cotacoes` com coluna A = tickers (o app escreve a lista) e colunas B.. = `GOOGLEFINANCE(A2;"price")`, `"changepct"`, `"high52"`, `"low52"` etc.
+1. Planilha separada `InvestHub-Cotacoes` com coluna A = tickers (o app escreve a lista) e colunas B.. = `GOOGLEFINANCE(A2;"price")`, `"changepct"`, `"high52"`, `"low52"` etc.
 2. O app lê o intervalo via **API do Google Sheets** (conta de serviço, JSON fora do Git) em uma única requisição. Cota gratuita: 300 leituras/min.
 3. A planilha contém **só tickers e preços** — nenhuma posição, valor ou CPF.
 

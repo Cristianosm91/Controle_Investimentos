@@ -8,7 +8,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SAWarning
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-from .config import normalizar_url, settings
+from .config import db_padrao, migrar_banco_legado, normalizar_url, settings
 
 warnings.filterwarnings("ignore", message=".*does \\*not\\* support Decimal objects natively.*", category=SAWarning)
 
@@ -18,6 +18,8 @@ class Base(DeclarativeBase):
 
 
 def criar_engine(url: str | None = None) -> Engine:
+    if url is None and not settings.database_url and settings.db_path == db_padrao():
+        migrar_banco_legado(settings.db_path)
     url = normalizar_url(url or settings.db_url)
     if not url.startswith("sqlite"):
         # pre_ping/recycle: serviços gerenciados (ex.: Neon) encerram conexões ociosas.

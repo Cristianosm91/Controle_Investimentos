@@ -75,7 +75,7 @@ export function Parametros() {
       </form>
       <p className="sutil">
         Câmbio dos lançamentos no exterior: PTAX de venda da data (Lei 14.754/2023), definido em <code>.env</code>{" "}
-        (<code>CONTROLEINV_PTAX_DIAS_UTEIS_ANTES</code>). Parâmetros de IR ficam em Configurações → Imposto de renda.
+        (<code>INVESTHUB_PTAX_DIAS_UTEIS_ANTES</code>). Parâmetros de IR ficam em Configurações → Imposto de renda.
       </p>
     </>
   );

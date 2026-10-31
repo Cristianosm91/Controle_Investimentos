@@ -3,7 +3,8 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { api } from "./api";
 import type { Grupo, Investidor } from "./tipos";
 
-const CHAVE = "controleinv.investidores";
+const CHAVE = "investhub.investidores";
+const CHAVE_LEGADA = "controleinv.investidores";
 
 interface ContextoInvestidor {
   investidores: Investidor[];
@@ -19,7 +20,8 @@ const Contexto = createContext<ContextoInvestidor | null>(null);
 
 function lerSalvo(): number[] {
   try {
-    const valor = JSON.parse(localStorage.getItem(CHAVE) ?? "[]");
+    const valor = JSON.parse(localStorage.getItem(CHAVE) ?? localStorage.getItem(CHAVE_LEGADA) ?? "[]");
+    localStorage.removeItem(CHAVE_LEGADA);
     return Array.isArray(valor) ? valor.filter((n) => Number.isInteger(n)) : [];
   } catch {
     return [];
