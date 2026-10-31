@@ -10,6 +10,40 @@ function Pct({ valor }: { valor: number | null }) {
   return <span className={classeSinal(valor)}>{percentual(valor)}</span>;
 }
 
+function PrecoAlvo({ item }: { item: ItemRadar }) {
+  const cliente = useQueryClient();
+  const [texto, setTexto] = useState(item.preco_alvo === null ? "" : String(item.preco_alvo));
+  const salvar = useMutation({
+    mutationFn: (valor: number | null) => api.put(`/radar/${item.ativo_id}/alvo`, { preco_alvo: valor }),
+    onSuccess: () => {
+      cliente.invalidateQueries({ queryKey: ["radar"] });
+      cliente.invalidateQueries({ queryKey: ["alertas"] });
+    },
+  });
+  const gravar = () => {
+    const valor = texto.trim() === "" ? null : Number(texto.replace(",", "."));
+    if (valor !== null && !(valor > 0)) return;
+    if (valor !== item.preco_alvo) salvar.mutate(valor);
+  };
+  return (
+    <>
+      <input
+        className="radar-alvo"
+        inputMode="decimal"
+        placeholder="—"
+        aria-label={`Preço-alvo de ${item.ticker}`}
+        title="Gera um alerta quando a cotação ficar igual ou abaixo deste preço"
+        value={texto}
+        onChange={(e) => setTexto(e.target.value)}
+        onBlur={gravar}
+        onKeyDown={(e) => e.key === "Enter" && (e.currentTarget as HTMLInputElement).blur()}
+      />
+      {item.atingiu_alvo && <div className="etiqueta alerta-media">atingiu</div>}
+      {salvar.error && <div className="negativo">{(salvar.error as Error).message}</div>}
+    </>
+  );
+}
+
 export function Radar() {
   const { filtro } = useInvestidor();
   const cliente = useQueryClient();
@@ -135,6 +169,7 @@ export function Radar() {
               <tr>
                 <th>Ativo</th>
                 <th className="num">Cotação</th>
+                <th className="num">Preço-alvo</th>
                 <th className="num">Variação 1d / 7d / 14d</th>
                 <th className="num">Drawdown 60d</th>
                 <th className="num">Mín. / máx. 52s</th>
@@ -159,6 +194,9 @@ export function Radar() {
                   <td className="num" title={item.cotacao_fonte ?? "Sem cotação"}>
                     {moeda(item.cotacao, item.moeda)}
                     <div className="sutil">{data(item.cotacao_data)}</div>
+                  </td>
+                  <td className="num">
+                    <PrecoAlvo item={item} />
                   </td>
                   <td className="num">
                     <Pct valor={item.variacao_1d_pct} /> / <Pct valor={item.variacao_7d_pct} /> /{" "}

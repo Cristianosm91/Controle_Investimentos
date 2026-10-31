@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { AcoesLinha } from "../components/AcoesLinha";
+import { AgendaProventos } from "../components/AgendaProventos";
 import { FormProvento } from "../components/FormLancamentos";
 import { ImportarExtrato } from "../components/ImportarExtrato";
 import { ListaPaginada, type ColunaLista } from "../components/ListaPaginada";
@@ -13,7 +14,7 @@ export function Proventos() {
   const { filtro, investidores } = useInvestidor();
   const { data: dominio } = useDominio();
   const [edicao, setEdicao] = useState<Provento | "novo" | null>(null);
-  const [aba, setAba] = useState<"lancamentos" | "matriz">("lancamentos");
+  const [aba, setAba] = useState<"lancamentos" | "matriz" | "agenda">("lancamentos");
   const [importando, setImportando] = useState(false);
   const nome = (id: number) => investidores.find((i) => i.id === id)?.nome ?? id;
 
@@ -37,16 +38,19 @@ export function Proventos() {
       <button className={aba === "matriz" ? "aba ativa" : "aba"} onClick={() => setAba("matriz")}>
         Matriz mensal
       </button>
+      <button className={aba === "agenda" ? "aba ativa" : "aba"} onClick={() => setAba("agenda")}>
+        Agenda e projeção
+      </button>
     </div>
   );
 
   return (
     <>
-      {aba === "matriz" ? (
+      {aba !== "lancamentos" ? (
         <section>
           <h1>Proventos</h1>
           {abas}
-          <MatrizProventos filtro={filtro} />
+          {aba === "matriz" ? <MatrizProventos filtro={filtro} /> : <AgendaProventos />}
         </section>
       ) : (
       <ListaPaginada<Provento>

@@ -22,6 +22,8 @@ from .api import (
     ir,
     lancamentos,
     modelos,
+    monitoramento,
+    planejamento,
     radar,
     rentabilidade,
     status,
@@ -45,7 +47,7 @@ app = FastAPI(title="InvestHub+", version=__version__, lifespan=ciclo_de_vida)
 
 for modulo in (
     cadastros, ativos, lancamentos, carteira, atualizacoes, rentabilidade, configuracoes, alocacao, ir, fundamentos, radar,
-    status, valuation, cripto, backup, exportacao, extratos, aluguel, modelos,
+    status, valuation, cripto, backup, exportacao, extratos, aluguel, modelos, planejamento, monitoramento,
 ):
     app.include_router(modulo.router, prefix="/api")
 

@@ -55,8 +55,9 @@ def test_previa_e_importacao_idempotente(cliente):
     assert itens["WEGE"]["ticker"] == "WEGE3" and itens["WEGE"]["status"] == "novo"
     assert itens["ABCD"]["status"] == "sem_ativo"
 
-    assert enviar(cliente, "importar", EXTRATO, investidor_id=inv).json() == {"gravados": 2}
-    assert enviar(cliente, "importar", EXTRATO, investidor_id=inv).json() == {"gravados": 0}
+    primeiro = enviar(cliente, "importar", EXTRATO, investidor_id=inv).json()
+    assert primeiro["gravados"] == 2 and primeiro["lote_id"]
+    assert enviar(cliente, "importar", EXTRATO, investidor_id=inv).json() == {"gravados": 0, "lote_id": None}
     status = {i["raiz"]: i["status"] for i in enviar(cliente, "previa", EXTRATO, investidor_id=inv).json()}
     assert status == {"ABCD": "sem_ativo", "MGLU": "duplicado", "WEGE": "duplicado"}
 
@@ -74,7 +75,7 @@ def test_existente_com_outro_valor_vai_para_verificar(cliente):
     itens = {i["raiz"]: i for i in enviar(cliente, "previa", EXTRATO, investidor_id=inv).json()}
     assert itens["MGLU"]["status"] == "verificar"
     r = enviar(cliente, "importar", EXTRATO, investidor_id=inv, incluir=itens["MGLU"]["hash"])
-    assert r.json() == {"gravados": 2}
+    assert r.json()["gravados"] == 2
 
 
 def test_resumo(cliente):

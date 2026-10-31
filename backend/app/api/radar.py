@@ -3,7 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from ..models import Ativo, AtivoRadar
-from ..schemas import RadarNovoIn, RadarOut
+from ..schemas import PrecoAlvoIn, RadarNovoIn, RadarOut
 from ..services import radar as servico
 from .deps import InvestidoresDep, SessaoDep, obter_ou_404
 
@@ -59,9 +59,21 @@ def listar(sessao: SessaoDep, investidores: InvestidoresDep):
             fii_ffo_yield=linha.fundamento.fii_ffo_yield if linha.fundamento else None,
             data_ref_fundamentos=linha.fundamento.data_ref if linha.fundamento else None,
             yoc_12m=linha.yoc_12m,
+            preco_alvo=linha.preco_alvo,
+            atingiu_alvo=bool(linha.preco_alvo and linha.cotacao and linha.cotacao.preco <= linha.preco_alvo),
         )
         for linha in servico.listar(sessao, investidores)
     ]
+
+
+@router.put("/{ativo_id}/alvo", status_code=204)
+def definir_preco_alvo(ativo_id: int, dados: PrecoAlvoIn, sessao: SessaoDep):
+    registro = sessao.scalar(select(AtivoRadar).where(AtivoRadar.ativo_id == ativo_id))
+    if registro is None:
+        raise HTTPException(404, "Ativo não está no Radar")
+    registro.preco_alvo = dados.preco_alvo
+    sessao.commit()
+    return Response(status_code=204)
 
 
 @router.post("/{ativo_id}", status_code=201)

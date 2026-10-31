@@ -105,6 +105,7 @@ def test_parametros_e_saldo_de_caixa(cliente, base):
         "caixa_data_inicio": None, "caixa_no_portfolio": False,
         "ir_ano_inicio": None, "ir_bdr_como_acao": False, "ir_daytrade_no_limite": False,
         "ir_opcoes_no_limite": False, "ir_outras_classes_no_limite": False, "ir_subscricao_fii_isenta": False,
+        "alerta_desvio_pp": 5, "alerta_vencimento_dias": 30, "alerta_cotacao_dias": 5,
     }
     cliente.post("/api/caixa", json={"investidor_id": base["inv"], "corretora_id": base["corretora"], "data": "2026-01-02",
                                      "evento": "APORTE", "valor": 10000})

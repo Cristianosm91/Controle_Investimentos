@@ -91,10 +91,13 @@ def test_importar_negociacao_e_reimportar(cliente):
     inv = investidor(cliente)
     r = enviar(cliente, "importar", NEGOCIACAO, investidor_id=inv, incluir="7")
     assert r.status_code == 200, r.text
-    assert r.json() == {
+    resultado = r.json()
+    lote_id = resultado.pop("lote_id")
+    assert resultado == {
         "operacoes": 7, "proventos": 0, "ativos_criados": ["PETR4", "HGLG11", "VALE3", "ITUB4", "PETRA400"],
         "corretoras_criadas": ["XP", "INTER"],
     }
+    assert lote_id
     ops = cliente.get("/api/operacoes", params={"investidores": inv}).json()
     assert ops["total"] == 7
     vale = [o for o in ops["itens"] if o["ticker"] == "VALE3"]

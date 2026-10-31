@@ -127,6 +127,7 @@ export function ImportarExtrato({ aoFechar }: { aoFechar: () => void }) {
               <> Ativos cadastrados: {importar.data.ativos_criados.join(", ")} (confira a classe em Configurações).</>
             )}
             {importar.data.corretoras_criadas.length > 0 && <> Corretoras: {importar.data.corretoras_criadas.join(", ")}.</>}
+            {importar.data.lote_id !== null && <> Para desfazer esta importação, use Configurações → Importações.</>}
             <div className="acoes">
               <button onClick={aoFechar}>Fechar</button>
             </div>

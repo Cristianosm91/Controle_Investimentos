@@ -11,10 +11,12 @@ import { Configuracoes } from "./pages/Configuracoes";
 import { Cripto } from "./pages/Cripto";
 import { EmConstrucao } from "./pages/EmConstrucao";
 import { ImpostoRenda } from "./pages/ImpostoRenda";
+import { Metas } from "./pages/Metas";
 import { Operacoes } from "./pages/Operacoes";
 import { Portfolio } from "./pages/Portfolio";
 import { Proventos } from "./pages/Proventos";
 import { Radar } from "./pages/Radar";
+import { RendaFixa } from "./pages/RendaFixa";
 import { Rentabilidade } from "./pages/Rentabilidade";
 import { Resumo } from "./pages/Resumo";
 import { StatusAtivo } from "./pages/StatusAtivo";
@@ -32,8 +34,10 @@ const prontas: Record<string, JSX.Element> = {
   "/operacoes": <Operacoes />,
   "/proventos": <Proventos />,
   "/aluguel": <Aluguel />,
+  "/renda-fixa": <RendaFixa />,
   "/caixa": <Caixa />,
   "/alocacao": <Alocacao />,
+  "/metas": <Metas />,
   "/radar": <Radar />,
   "/ir": <ImpostoRenda />,
   "/status": <StatusAtivo />,
