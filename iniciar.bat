@@ -38,14 +38,26 @@ if errorlevel 1 (
 echo Compilando a interface...
 pushd frontend
 if not exist "node_modules" (
-    call npm install --no-fund --no-audit || (popd & exit /b 1)
+    call npm install --no-fund --no-audit || (popd & goto :sem_compilar)
 ) else (
     powershell -NoProfile -Command "$m = Get-Item 'node_modules\.package-lock.json' -ErrorAction SilentlyContinue; if (-not $m -or (Get-Item 'package-lock.json').LastWriteTime -gt $m.LastWriteTime) { exit 1 }; exit 0"
-    if errorlevel 1 call npm install --no-fund --no-audit || (popd & exit /b 1)
+    if errorlevel 1 call npm install --no-fund --no-audit || (popd & goto :sem_compilar)
 )
-call npm run build || (popd & exit /b 1)
+call npm run build || (popd & goto :sem_compilar)
 popd
 exit /b 0
+
+:sem_compilar
+rem A API nao depende do Node.js: sem ele, a interface ja compilada continua utilizavel.
+if exist "frontend\dist\index.html" (
+    echo.
+    echo Aviso: nao foi possivel compilar a interface - o Node.js pode estar indisponivel.
+    echo Usando a interface ja compilada, que pode estar desatualizada. Recompile com "npm run build" em frontend.
+    echo.
+    exit /b 0
+)
+echo Nao foi possivel compilar a interface e nao ha versao compilada em frontend\dist.
+exit /b 1
 
 :erro
 echo.

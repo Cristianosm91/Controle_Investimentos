@@ -14,8 +14,9 @@ frontend/dist/
 *.db-journal
 credenciais*.json
 
-# Relatórios de QA locais (contêm caminhos e usuário da máquina)
+# Relatórios de QA/segurança locais (contêm caminhos e usuário da máquina; informação interna restrita)
 qa-report/
+security-report/
 
 # Planilha pessoal de referência
 Ref/

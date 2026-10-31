@@ -15,12 +15,14 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
+from itertools import islice
 
 from openpyxl import load_workbook
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..models import Ativo, Investidor, Provento
+from ..seguranca import LINHAS_MAXIMAS, tamanho_descompactado_excedido
 from . import lotes
 
 EVENTO = "ALUGUEL"
@@ -173,15 +175,24 @@ def _ler_tabela(conteudo: bytes) -> list[tuple]:
         raise ExtratoInvalido("Arquivo maior que 5 MB")
     if zipfile.is_zipfile(io.BytesIO(conteudo)):
         try:
+            excedido = tamanho_descompactado_excedido(conteudo)
+        except zipfile.BadZipFile as erro:
+            raise ExtratoInvalido("Planilha .xlsx corrompida") from erro
+        if excedido:
+            raise ExtratoInvalido("Planilha grande demais quando descompactada")
+        try:
             livro = load_workbook(io.BytesIO(conteudo), read_only=True, data_only=True)
         except Exception as erro:
             raise ExtratoInvalido(f"Não foi possível abrir a planilha: {erro}") from erro
         try:
             planilha = livro.worksheets[0]
             planilha.reset_dimensions()  # arquivos com dimensão "A1" seriam lidos só até a primeira linha
-            return [tuple(linha) for linha in planilha.iter_rows(values_only=True)]
+            linhas = [tuple(linha) for linha in islice(planilha.iter_rows(values_only=True), LINHAS_MAXIMAS + 1)]
         finally:
             livro.close()
+        if len(linhas) > LINHAS_MAXIMAS:
+            raise ExtratoInvalido(f"Planilha com mais de {LINHAS_MAXIMAS} linhas: divida o período do extrato")
+        return linhas
     for codificacao in ("utf-8-sig", "cp1252"):
         try:
             texto = conteudo.decode(codificacao)
