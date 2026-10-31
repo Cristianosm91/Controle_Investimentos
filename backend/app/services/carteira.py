@@ -13,7 +13,7 @@ from .posicao import ZERO, Movimento, Posicao, calcular_posicoes, consolidar
 
 
 def carregar_posicoes(
-    sessao: Session, investidor_ids: Sequence[int] | None, ate: date | None = None
+    sessao: Session, investidor_ids: Sequence[int] | None, ate: date | None = None, ativo_ids: set[int] | None = None
 ) -> dict[tuple[int, int], Posicao]:
     consulta = select(
         Operacao.id, Operacao.investidor_id, Operacao.ativo_id, Operacao.data, Operacao.evento,
@@ -21,6 +21,8 @@ def carregar_posicoes(
     )
     if investidor_ids:
         consulta = consulta.where(Operacao.investidor_id.in_(investidor_ids))
+    if ativo_ids is not None:
+        consulta = consulta.where(Operacao.ativo_id.in_(ativo_ids))
     if ate:
         consulta = consulta.where(Operacao.data <= ate)
     movimentos = (
@@ -32,13 +34,17 @@ def carregar_posicoes(
     return calcular_posicoes(movimentos)
 
 
-def _proventos_liquidos(sessao: Session, investidor_ids: Sequence[int] | None) -> dict[tuple[int, int], Decimal]:
+def _proventos_liquidos(
+    sessao: Session, investidor_ids: Sequence[int] | None, ativo_ids: set[int] | None = None
+) -> dict[tuple[int, int], Decimal]:
     liquido = func.sum((Provento.valor - Provento.irrf - Provento.taxas) * Provento.cambio)
     consulta = select(Provento.investidor_id, Provento.ativo_id, liquido).group_by(
         Provento.investidor_id, Provento.ativo_id
     )
     if investidor_ids:
         consulta = consulta.where(Provento.investidor_id.in_(investidor_ids))
+    if ativo_ids is not None:
+        consulta = consulta.where(Provento.ativo_id.in_(ativo_ids))
     return {(i, a): Decimal(str(v or 0)) for i, a, v in sessao.execute(consulta)}
 
 
@@ -97,10 +103,14 @@ class LinhaCarteira:
 
 
 def montar_carteira(
-    sessao: Session, investidor_ids: Sequence[int] | None, consolidado: bool, somente_abertas: bool = True
+    sessao: Session,
+    investidor_ids: Sequence[int] | None,
+    consolidado: bool,
+    somente_abertas: bool = True,
+    ativo_ids: set[int] | None = None,
 ) -> list[LinhaCarteira]:
-    posicoes = carregar_posicoes(sessao, investidor_ids)
-    proventos = _proventos_liquidos(sessao, investidor_ids)
+    posicoes = carregar_posicoes(sessao, investidor_ids, ativo_ids=ativo_ids)
+    proventos = _proventos_liquidos(sessao, investidor_ids, ativo_ids)
 
     if consolidado:
         por_chave: dict[tuple[int | None, int], Posicao] = {

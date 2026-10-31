@@ -603,6 +603,52 @@ class RadarNovoIn(BaseModel):
         return valor.strip().upper()
 
 
+# ---------- Status do ativo ----------
+
+class ParcelaLucroOut(BaseModel):
+    categoria: Literal["aberto", "swing", "daytrade", "proventos"]
+    rotulo: str
+    valor: Num | None
+
+
+class EventoStatusOut(BaseModel):
+    id: int
+    ativo_id: int
+    ticker: str
+    data: date
+    tipo: Literal["operacao", "provento"]
+    evento: str
+    rotulo: str
+    investidor_id: int
+    quantidade: Num | None
+    preco: Num | None
+    valor_brl: Num | None
+    moeda: str
+    daytrade: bool
+    participacao: Num
+
+
+class StatusAtivoOut(BaseModel):
+    escopo: Literal["ativo", "carteira", "book"]
+    escopo_id: int
+    nome: str
+    ativos: int
+    investido: Num
+    mercado: Num | None
+    lucro_aberto: Num | None
+    lucro_swing: Num
+    lucro_daytrade: Num
+    proventos_total: Num
+    proventos_12m: Num
+    yoc_12m: Num | None
+    lucro_total: Num | None
+    distribuicao: list[ParcelaLucroOut]
+    total_eventos: int
+    eventos: list[EventoStatusOut]
+    limite: int
+    deslocamento: int
+
+
 class Pagina(BaseModel, Generic[T]):
     total: int
     itens: list[T]
