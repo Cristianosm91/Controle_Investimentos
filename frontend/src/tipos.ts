@@ -144,6 +144,50 @@ export interface ItemRadar {
   yoc_12m: number | null;
 }
 
+export interface ParcelaLucro {
+  categoria: "aberto" | "swing" | "daytrade" | "proventos";
+  rotulo: string;
+  valor: number | null;
+}
+
+export interface EventoStatus {
+  id: number;
+  ativo_id: number;
+  ticker: string;
+  data: string;
+  tipo: "operacao" | "provento";
+  evento: string;
+  rotulo: string;
+  investidor_id: number;
+  quantidade: number | null;
+  preco: number | null;
+  valor_brl: number | null;
+  moeda: string;
+  daytrade: boolean;
+  participacao: number;
+}
+
+export interface StatusAtivo {
+  escopo: "ativo" | "carteira" | "book";
+  escopo_id: number;
+  nome: string;
+  ativos: number;
+  investido: number;
+  mercado: number | null;
+  lucro_aberto: number | null;
+  lucro_swing: number;
+  lucro_daytrade: number;
+  proventos_total: number;
+  proventos_12m: number;
+  yoc_12m: number | null;
+  lucro_total: number | null;
+  distribuicao: ParcelaLucro[];
+  total_eventos: number;
+  eventos: EventoStatus[];
+  limite: number;
+  deslocamento: number;
+}
+
 export interface Corretora {
   id: number;
   nome: string;
