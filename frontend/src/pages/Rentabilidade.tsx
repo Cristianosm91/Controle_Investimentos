@@ -1,11 +1,14 @@
-import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api, query } from "../api";
+import { invalidarDerivados } from "../cadastros";
 import { GraficoBarras, GraficoLinhas } from "../components/Graficos";
 import { classeSinal, mesAno, MESES, moeda, moedaCompacta, percentual } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
 import { BENCHMARKS, CORES_BENCHMARK, NOMES_BENCHMARK } from "../referencias";
-import type { Benchmark, MesRentabilidade } from "../tipos";
+import type { Benchmark, MesRentabilidade, Tarefa } from "../tipos";
+
+const CARGA_HISTORICA = ["cotahist_historico", "historico_complementar"];
 
 const PERIODOS = [
   { id: "12m", rotulo: "12 meses" },
@@ -88,6 +91,47 @@ function MapaDeCalor({ meses }: { meses: MesRentabilidade[] }) {
   );
 }
 
+function AvisoSemHistorico({ meses }: { meses: number }) {
+  const cliente = useQueryClient();
+  const { data: tarefas = [] } = useQuery({
+    queryKey: ["atualizacoes"],
+    queryFn: () => api.get<Tarefa[]>("/atualizacoes"),
+    refetchInterval: (q) => (q.state.data?.some((t) => t.em_execucao) ? 3000 : 60_000),
+  });
+  const carregando = tarefas.some((t) => CARGA_HISTORICA.includes(t.nome) && t.em_execucao);
+  const falha = tarefas.find((t) => CARGA_HISTORICA.includes(t.nome) && t.sucesso === false);
+  const disparar = useMutation({
+    mutationFn: () => api.post("/atualizacoes/carga-historica"),
+    onSettled: () => cliente.invalidateQueries({ queryKey: ["atualizacoes"] }),
+  });
+
+  // Ao terminar a carga, recalcula a rentabilidade com os preços históricos.
+  const estavaCarregando = useRef(false);
+  useEffect(() => {
+    if (estavaCarregando.current && !carregando) invalidarDerivados(cliente);
+    estavaCarregando.current = carregando;
+  }, [carregando, cliente]);
+
+  return (
+    <div className="aviso titulo-linha">
+      <span>
+        {carregando ? (
+          <>Carregando o histórico de cotações (B3, exterior e câmbio)… pode levar alguns minutos.</>
+        ) : (
+          <>
+            {meses} mês(es) do período sem cotação histórica: neles o valor de mercado é igual ao custo investido.
+            {falha && <span className="negativo"> Última tentativa falhou: {falha.mensagem}</span>}
+          </>
+        )}
+        {disparar.error && <span className="negativo"> {(disparar.error as Error).message}</span>}
+      </span>
+      <button disabled={carregando || disparar.isPending} onClick={() => disparar.mutate()}>
+        {carregando ? "Carregando…" : "Carregar histórico de cotações"}
+      </button>
+    </div>
+  );
+}
+
 export function Rentabilidade() {
   const { filtro } = useInvestidor();
   const [periodo, setPeriodo] = useState<Periodo>("12m");
@@ -125,6 +169,9 @@ export function Rentabilidade() {
       </div>
       {periodoQ.error && <div className="erro">{(periodoQ.error as Error).message}</div>}
       {periodoQ.isLoading && <p>Carregando…</p>}
+      {meses.some((m) => m.sem_cotacao > 0) && (
+        <AvisoSemHistorico meses={meses.filter((m) => m.sem_cotacao > 0).length} />
+      )}
 
       {ultimo && (
         <>
