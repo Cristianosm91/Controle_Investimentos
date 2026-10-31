@@ -7,7 +7,7 @@ from fastapi.concurrency import run_in_threadpool
 from ..models import Investidor
 from ..schemas import PreviaExtratoOut, ResultadoExtratoOut
 from ..services import extrato_b3
-from .deps import SessaoDep, ler_corpo, obter_ou_404
+from .deps import SessaoDep, ler_corpo, nome_arquivo, obter_ou_404
 
 router = APIRouter(tags=["extratos"])
 
@@ -45,7 +45,9 @@ async def importar_extrato(
     linhas = _incluir(incluir)
     conteudo = await ler_corpo(request, extrato_b3.TAMANHO_MAXIMO)
     try:
-        resultado = await run_in_threadpool(extrato_b3.importar, sessao, investidor_id, conteudo, linhas)
+        resultado = await run_in_threadpool(
+            extrato_b3.importar, sessao, investidor_id, conteudo, linhas, nome_arquivo(request)
+        )
     except extrato_b3.ExtratoInvalido as erro:
         raise HTTPException(422, str(erro)) from erro
     return ResultadoExtratoOut(**asdict(resultado))

@@ -100,6 +100,8 @@ class AtivoIn(BaseModel):
     data_base: date | None = None
     cnpj: str | None = None
     coingecko_id: str | None = Field(default=None, min_length=1, max_length=120, pattern=r"^[a-z0-9][a-z0-9-]*$")
+    data_vencimento: date | None = None
+    isento_ir: bool = False
 
     @field_validator("cnpj")
     @classmethod
@@ -159,6 +161,8 @@ class AtivoOut(_Saida):
     data_base: date | None = None
     cnpj: str | None = None
     coingecko_id: str | None = None
+    data_vencimento: date | None = None
+    isento_ir: bool = False
 
 
 class CriptoIn(BaseModel):
@@ -335,6 +339,9 @@ class ParametrosIO(BaseModel):
     ir_opcoes_no_limite: bool = False
     ir_outras_classes_no_limite: bool = False
     ir_subscricao_fii_isenta: bool = False
+    alerta_desvio_pp: int | None = Field(default=5, ge=1, le=100)
+    alerta_vencimento_dias: int | None = Field(default=30, ge=1, le=365)
+    alerta_cotacao_dias: int | None = Field(default=5, ge=1, le=60)
 
 
 # ---------- Operações ----------
@@ -666,6 +673,7 @@ class ResultadoExtratoOut(BaseModel):
     proventos: int
     ativos_criados: list[str]
     corretoras_criadas: list[str]
+    lote_id: int | None = None
 
 
 class TotaisAluguelOut(BaseModel):
@@ -708,6 +716,7 @@ class ItemAluguelOut(BaseModel):
 
 class ResultadoAluguelOut(BaseModel):
     gravados: int
+    lote_id: int | None = None
 
 
 class FonteFundamentosOut(BaseModel):
@@ -775,6 +784,12 @@ class RadarOut(BaseModel):
     fii_ffo_yield: Num | None
     data_ref_fundamentos: date | None
     yoc_12m: Num | None
+    preco_alvo: Num | None = None
+    atingiu_alvo: bool = False
+
+
+class PrecoAlvoIn(BaseModel):
+    preco_alvo: Decimal | None = Field(default=None, gt=0)
 
 
 class RadarNovoIn(BaseModel):
@@ -953,6 +968,7 @@ class MesRentabilidadeOut(BaseModel):
     ifix_acumulado: Num | None
     cdi_acumulado: Num | None
     ipca_acumulado: Num | None
+    real_acumulado: Num | None = None
 
 
 class JanelaOut(BaseModel):
@@ -965,6 +981,7 @@ class JanelaOut(BaseModel):
     ifix: Num | None
     cdi: Num | None
     ipca: Num | None
+    real: Num | None = None  # TWR descontada a inflação: (1 + twr) / (1 + ipca) - 1
 
 
 class ResumoOut(BaseModel):
@@ -1132,3 +1149,176 @@ class DirpfOut(BaseModel):
     irrf_saldo_final: Num
     exterior: AnoExteriorOut | None
     avisos: list[str]
+
+
+# ---------- Renda fixa ----------
+
+class ItemRendaFixaOut(BaseModel):
+    investidor_id: int
+    ativo_id: int
+    ticker: str
+    nome: str | None
+    classe: str
+    moeda: str
+    descricao: str
+    isento_ir: bool
+    data_vencimento: date | None
+    dias_para_vencer: int | None
+    quantidade: Num
+    custo: Num
+    bruto: Num
+    iof: Num
+    ir: Num
+    liquido: Num
+    aliquota_ir: Num | None
+    bruto_vencimento: Num | None
+    liquido_vencimento: Num | None
+
+
+class RendaFixaOut(BaseModel):
+    itens: list[ItemRendaFixaOut]
+    custo: Num
+    bruto: Num
+    impostos: Num
+    liquido: Num
+    liquido_vencimento: Num | None
+
+
+# ---------- Agenda e projeção de proventos ----------
+
+class ProventoAgendaOut(BaseModel):
+    id: int
+    investidor_id: int
+    ticker: str
+    evento: str
+    data_com: date | None
+    data_pagamento: date
+    liquido: Num
+
+
+class MesProjecaoOut(BaseModel):
+    mes: date
+    confirmado: Num
+    estimado: Num
+
+
+class AtivoProjecaoOut(BaseModel):
+    ativo_id: int
+    ticker: str
+    classe: str
+    confirmado: Num
+    estimado: Num
+    total: Num
+    yoc: Num | None
+
+
+class AgendaProventosOut(BaseModel):
+    a_receber: list[ProventoAgendaOut]
+    total_a_receber: Num
+    meses: list[MesProjecaoOut]
+    por_ativo: list[AtivoProjecaoOut]
+    total_12m: Num
+    media_mensal: Num
+    yoc_projetado: Num | None
+
+
+# ---------- Lotes de importação ----------
+
+class LoteImportacaoOut(_Saida):
+    id: int
+    tipo: str
+    arquivo: str | None
+    investidor_id: int | None
+    criado_em: datetime
+    desfeito_em: datetime | None
+    operacoes: int
+    proventos: int
+    caixa: int
+
+
+class DesfazerLoteOut(BaseModel):
+    operacoes: int
+    proventos: int
+    caixa: int
+
+
+# ---------- Qualidade dos dados ----------
+
+class VerificacaoOut(BaseModel):
+    codigo: str
+    titulo: str
+    severidade: Literal["erro", "aviso", "info"]
+    descricao: str
+    link: str | None
+    itens: list[str]
+
+
+# ---------- Exposição ----------
+
+class ExposicaoCorretoraOut(BaseModel):
+    corretora: str
+    valor: Num
+    ativos: int
+
+
+# ---------- Alertas ----------
+
+class AlertaOut(BaseModel):
+    codigo: str
+    severidade: Literal["alta", "media", "info"]
+    titulo: str
+    detalhe: str
+    link: str | None
+
+
+# ---------- Metas ----------
+
+TipoMeta = Literal["PATRIMONIO", "RENDA"]
+
+
+class MetaIn(BaseModel):
+    nome: str = Field(min_length=1, max_length=80)
+    tipo: TipoMeta = "PATRIMONIO"
+    valor_alvo: Decimal = Field(gt=0)
+    data_alvo: date
+    aporte_mensal: Decimal = Field(default=Decimal(0), ge=0)
+    rentabilidade_aa: Decimal = Field(default=Decimal("0.04"), gt=-0.5, le=1, description="Taxa real a.a. (fração)")
+    rendimento_aa: Decimal | None = Field(default=None, gt=0, le=1, description="Dividend yield a.a. (fração)")
+    investidores: list[int] | None = None
+
+    @field_validator("data_alvo")
+    @classmethod
+    def _futura(cls, v: date) -> date:
+        if v <= date.today():
+            raise ValueError("A data-alvo deve ser futura")
+        return v
+
+
+class PontoMetaOut(BaseModel):
+    mes: date
+    pessimista: Num
+    base: Num
+    otimista: Num
+
+
+class MetaOut(BaseModel):
+    id: int
+    nome: str
+    tipo: TipoMeta
+    valor_alvo: Num
+    data_alvo: date
+    aporte_mensal: Num
+    rentabilidade_aa: Num
+    rendimento_aa: Num | None
+    investidores: list[int] | None
+    valor_atual: Num
+    progresso: Num
+    meses_restantes: int
+    projetado_pessimista: Num
+    projetado_base: Num
+    projetado_otimista: Num
+    atinge: bool
+    data_estimada: date | None
+    aporte_necessario: Num
+    rendimento_usado: Num | None
+    serie: list[PontoMetaOut]

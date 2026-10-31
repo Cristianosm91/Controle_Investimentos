@@ -79,6 +79,9 @@ export function Resumo() {
                   <tr>
                     <th>Período</th>
                     <th className="num">Carteira</th>
+                    <th className="num" title="Rentabilidade da carteira descontada a inflação (IPCA)">
+                      Real
+                    </th>
                     {BENCHMARKS.map((b) => (
                       <th key={b} className="num">
                         {NOMES_BENCHMARK[b]}
@@ -97,6 +100,9 @@ export function Resumo() {
                         <strong>
                           <Pct v={j.twr} />
                         </strong>
+                      </td>
+                      <td className="num">
+                        <Pct v={j.real} />
                       </td>
                       {BENCHMARKS.map((b) => (
                         <td key={b} className="num">

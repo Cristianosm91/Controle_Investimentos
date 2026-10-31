@@ -29,6 +29,7 @@ class LinhaRadar:
     preco_teto_graham: Decimal | None
     upside_graham_pct: Decimal | None
     yoc_12m: Decimal | None
+    preco_alvo: Decimal | None = None
 
 
 def _variacao(historico: list[Cotacao], dias: int, tolerancia: int = 5) -> Decimal | None:
@@ -104,7 +105,7 @@ def listar(
     hoje = hoje or date.today()
     ativos = list(
         sessao.execute(
-            select(AtivoRadar.ativo_id, Ativo)
+            select(AtivoRadar.ativo_id, Ativo, AtivoRadar.preco_alvo)
             .join(Ativo, Ativo.id == AtivoRadar.ativo_id)
             .order_by(Ativo.ticker)
         )
@@ -112,7 +113,7 @@ def listar(
     if not ativos:
         return []
 
-    ativo_ids = {ativo_id for ativo_id, _ in ativos}
+    ativo_ids = {ativo_id for ativo_id, _, _ in ativos}
     cotacoes_atuais = ultimas_cotacoes(sessao, ativo_ids)
     historicos: dict[int, list[Cotacao]] = defaultdict(list)
     for cotacao in sessao.scalars(
@@ -149,7 +150,7 @@ def listar(
     ativos_com_posicao, yoc = _yoc_por_ativo(sessao, ativo_ids, investidores, hoje)
 
     resultado = []
-    for ativo_id, ativo in ativos:
+    for ativo_id, ativo, preco_alvo in ativos:
         cotacao = cotacoes_atuais.get(ativo_id)
         fundamento = fundamentos.get(ativo_id)
         historico = historicos[ativo_id]
@@ -182,6 +183,7 @@ def listar(
                 preco_teto_graham=graham,
                 upside_graham_pct=graham / cotacao.preco - 1 if graham and cotacao else None,
                 yoc_12m=yoc.get(ativo_id),
+                preco_alvo=preco_alvo,
             )
         )
     return resultado

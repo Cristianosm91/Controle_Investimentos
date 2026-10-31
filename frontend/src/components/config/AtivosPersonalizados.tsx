@@ -19,12 +19,14 @@ interface FormAtivo {
   indexador_pct: string;
   taxa_aa: string;
   data_base: string;
+  data_vencimento: string;
+  isento_ir: boolean;
   original?: Ativo;
 }
 
 const VAZIO: FormAtivo = {
   ticker: "", nome: "", classe: "R.FIXA", moeda: "BRL", automatico: true, indexador: "CDI", indexador_pct: "100",
-  taxa_aa: "", data_base: hoje(),
+  taxa_aa: "", data_base: hoje(), data_vencimento: "", isento_ir: false,
 };
 
 const NOME_INDICE: Record<string, string> = { CDI: "CDI", SELIC: "SELIC", IPCA: "IPCA", IGPM: "IGP-M" };
@@ -112,6 +114,8 @@ export function AtivosPersonalizados() {
         indexador_pct: f.automatico && f.indexador !== "PRE" ? paraFracao(f.indexador_pct) : null,
         taxa_aa: f.automatico && f.taxa_aa !== "" ? paraFracao(f.taxa_aa) : null,
         data_base: f.automatico ? f.data_base : null,
+        data_vencimento: f.data_vencimento || null,
+        isento_ir: f.isento_ir,
       };
       return f.id ? api.put(`/ativos/${f.id}`, corpo) : api.post("/ativos", corpo);
     },
@@ -133,6 +137,8 @@ export function AtivosPersonalizados() {
       indexador_pct: a.indexador_pct === null ? "100" : paraPercentual(a.indexador_pct),
       taxa_aa: paraPercentual(a.taxa_aa),
       data_base: a.data_base ?? hoje(),
+      data_vencimento: a.data_vencimento ?? "",
+      isento_ir: a.isento_ir,
       original: a,
     });
 
@@ -168,6 +174,7 @@ export function AtivosPersonalizados() {
                 <th>Classe</th>
                 <th>Rendimento</th>
                 <th>Data-base</th>
+                <th>Vencimento</th>
                 <th className="num">Cota hoje</th>
                 <th />
               </tr>
@@ -182,9 +189,11 @@ export function AtivosPersonalizados() {
                   <td>{a.classe}</td>
                   <td>
                     {descricao(a)}
+                    {a.isento_ir && <span className="etiqueta">isento de IR</span>}
                     {!a.indexador && <SaldoManual ativo={a} aoSalvar={recarregar} />}
                   </td>
                   <td>{fmtData(a.data_base)}</td>
+                  <td>{fmtData(a.data_vencimento)}</td>
                   <td className="num">
                     <CotaAtual ativo={a} />
                   </td>
@@ -268,6 +277,14 @@ export function AtivosPersonalizados() {
             </label>
           </>
         )}
+        <label>
+          Vencimento <small className="sutil">opcional</small>
+          <CampoData valor={form.data_vencimento} aoMudar={(v) => setForm({ ...form, data_vencimento: v })} />
+        </label>
+        <label className="check">
+          <input type="checkbox" checked={form.isento_ir} onChange={(e) => setForm({ ...form, isento_ir: e.target.checked })} />
+          Isento de IR (LCI, LCA, CRI, CRA, poupança…)
+        </label>
         <div className="acoes largura-total">
           <button type="submit" disabled={salvar.isPending}>
             Salvar

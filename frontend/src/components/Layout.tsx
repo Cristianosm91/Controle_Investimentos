@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useRef } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { api } from "../api";
+import { Alertas } from "./Alertas";
 import { BotoesExportar, ProvedorExportacao } from "./Exportacao";
 import { SeletorInvestidor } from "./SeletorInvestidor";
 
@@ -11,9 +12,11 @@ export const PAGINAS = [
   { caminho: "/dashboard", rotulo: "Rentabilidade", icone: "📈" },
   { caminho: "/proventos", rotulo: "Proventos", icone: "💰" },
   { caminho: "/aluguel", rotulo: "Aluguel (BTC)", icone: "🤝" },
+  { caminho: "/renda-fixa", rotulo: "Renda fixa", icone: "🏛️" },
   { caminho: "/operacoes", rotulo: "Operações", icone: "🔁" },
   { caminho: "/caixa", rotulo: "Caixa", icone: "🏦" },
   { caminho: "/alocacao", rotulo: "Alocação", icone: "⚖️" },
+  { caminho: "/metas", rotulo: "Metas", icone: "🎯" },
   { caminho: "/radar", rotulo: "Radar", icone: "📡" },
   { caminho: "/cripto", rotulo: "Cripto", icone: "🪙" },
   { caminho: "/status", rotulo: "Status do ativo", icone: "🔎" },
@@ -59,6 +62,7 @@ function Estrutura() {
       <div className="principal">
         <header className="topo">
           <BotoesExportar alvo={conteudo} />
+          <Alertas />
           <SeletorInvestidor />
         </header>
         <main className="conteudo" ref={conteudo}>

@@ -7,7 +7,7 @@ from fastapi.concurrency import run_in_threadpool
 from ..models import Investidor
 from ..schemas import ItemAluguelOut, ResultadoAluguelOut, ResumoAluguelOut
 from ..services import aluguel
-from .deps import InvestidoresDep, SessaoDep, ler_corpo, obter_ou_404
+from .deps import InvestidoresDep, SessaoDep, ler_corpo, nome_arquivo, obter_ou_404
 
 router = APIRouter(tags=["aluguel (BTC)"])
 
@@ -41,7 +41,9 @@ async def importar_aluguel(
     conteudo = await ler_corpo(request, aluguel.TAMANHO_MAXIMO)
     hashes = {h for h in (incluir or "").split(",") if h.strip()}
     try:
-        gravados = await run_in_threadpool(aluguel.importar, sessao, investidor_id, conteudo, hashes)
+        gravados, lote_id = await run_in_threadpool(
+            aluguel.importar, sessao, investidor_id, conteudo, hashes, nome_arquivo(request)
+        )
     except aluguel.ExtratoInvalido as erro:
         raise HTTPException(422, str(erro)) from erro
-    return ResultadoAluguelOut(gravados=gravados)
+    return ResultadoAluguelOut(gravados=gravados, lote_id=lote_id)

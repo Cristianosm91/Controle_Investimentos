@@ -51,9 +51,11 @@ Tudo roda em `127.0.0.1`: os dados ficam no seu computador, e as únicas chamada
 
 - 👨‍👩‍👧 **Multi-investidor** — seletor global: um investidor, um grupo ou todos consolidados.
 - 🔄 **Cotações automáticas** — atualização a cada 15 min no pregão, fechamento oficial e histórico diário desde a primeira operação.
-- 📈 **Rentabilidade de verdade** — TWR mensal, TIR/XIRR, evolução patrimonial e mapa de calor.
+- 📈 **Rentabilidade de verdade** — TWR mensal, TIR/XIRR, retorno real (acima do IPCA), evolução patrimonial e mapa de calor.
+- 🏛️ **Renda fixa líquida** — IR regressivo e IOF por aplicação, vencimentos e projeção no vencimento.
+- 🎯 **Planejamento** — agenda e projeção de proventos, metas com cenários e alertas locais.
 - 🧾 **IR completo** — Brasil (ações, BDR, ETF, opções, day trade, FII) e exterior (Lei 14.754/2023).
-- 📥 **Importação** — planilha original (idempotente) e relatórios da Área do Investidor da B3.
+- 📥 **Importação** — planilha original (idempotente) e relatórios da Área do Investidor da B3, com lotes que podem ser desfeitos.
 - 📤 **Exportação** — CSV e XLSX de qualquer tela, com tipos (moeda, %, data) preservados.
 - 🔒 **Privado** — local, sem conta, sem nuvem obrigatória; CPF sempre mascarado.
 
@@ -139,13 +141,17 @@ Em **Configurações**:
 | Quero... | Vá em |
 |---|---|
 | Ver patrimônio, lucro, TIR e TWR do mês/ano | **🏠 Resumo** |
-| Ver posições, PM, lucro e exposição por book/classe/setor | **💼 Portfólio** |
-| Comparar com IBOV, IFIX, CDI e IPCA | **📈 Rentabilidade** |
-| Acompanhar dividendos e o aluguel de ações | **💰 Proventos** · **🤝 Aluguel (BTC)** |
+| Ver posições, PM, lucro e exposição por book/classe/setor/moeda/corretora | **💼 Portfólio** |
+| Comparar com IBOV, IFIX, CDI e IPCA (e ver o retorno real) | **📈 Rentabilidade** |
+| Acompanhar dividendos, a agenda e a projeção dos próximos 12 meses | **💰 Proventos** |
+| Acompanhar o aluguel de ações | **🤝 Aluguel (BTC)** |
+| Saber quanto vale minha renda fixa líquida de IR e quando vence | **🏛️ Renda fixa** |
 | Saber quanto comprar de cada ativo no próximo aporte | **⚖️ Alocação** (simulador de aporte) |
-| Monitorar ativos que ainda não tenho | **📡 Radar** |
+| Acompanhar um objetivo (patrimônio ou renda) | **🎯 Metas** |
+| Monitorar ativos que ainda não tenho (com preço-alvo) | **📡 Radar** |
 | Analisar um ativo, carteira ou book em detalhe | **🔎 Status do ativo** · **🧮 Valuation** |
 | Acompanhar criptomoedas | **🪙 Cripto** |
+| Ver o que precisa de atenção (DARF, vencimentos, preço-alvo, desvios) | **🔔 Alertas** no topo |
 
 ### 6. Feche o mês do IR
 
@@ -154,6 +160,8 @@ Em **🧾 Imposto de Renda**, escolha o CPF e o ano: a tela mostra a apuração 
 ### 7. Proteja e compartilhe os dados
 
 - **Backup** — automático todo dia (mantém os 10 mais recentes); manual, download e restauração em **Configurações → Backup**.
+- **Importações** — cada arquivo importado pode ser desfeito em **Configurações → Importações**.
+- **Qualidade dos dados** — pendências que distorcem posição, rentabilidade ou IR em **Configurações → Qualidade dos dados**.
 - **Exportação** — botões **CSV** e **XLSX** no topo de qualquer tela exportam as tabelas visíveis.
 
 ---
@@ -162,20 +170,22 @@ Em **🧾 Imposto de Renda**, escolha o CPF e o ano: a tela mostra a apuração 
 
 | Menu | Rota | Resumo |
 |---|---|---|
-| 🏠 Resumo | `/` | Patrimônio, lucros, TIR, proventos/YoC 12m, TWR × referências, maiores altas e baixas do dia |
-| 💼 Portfólio | `/portfolio` | Posições, agrupamentos com subtotais e gráficos de exposição |
-| 📈 Rentabilidade | `/dashboard` | TWR acumulado, evolução patrimonial, resultado mensal e mapa de calor |
-| 💰 Proventos | `/proventos` | Lançamentos e matrizes ano × mês e ativo × mês |
+| 🏠 Resumo | `/` | Patrimônio, lucros, TIR, proventos/YoC 12m, TWR e retorno real × referências, maiores altas e baixas do dia |
+| 💼 Portfólio | `/portfolio` | Posições, agrupamentos com subtotais e gráficos de exposição (inclusive moeda e corretora) |
+| 📈 Rentabilidade | `/dashboard` | TWR acumulado e real, evolução patrimonial, resultado mensal e mapa de calor |
+| 💰 Proventos | `/proventos` | Lançamentos, matrizes ano × mês e ativo × mês, agenda e projeção de 12 meses |
 | 🤝 Aluguel (BTC) | `/aluguel` | Remuneração por ativo e mês; importação do extrato |
+| 🏛️ Renda fixa | `/renda-fixa` | Valor líquido de IR/IOF por aplicação, vencimentos e projeção no vencimento |
 | 🔁 Operações | `/operacoes` | Compras, vendas, day trade e eventos societários |
 | 🏦 Caixa | `/caixa` | Aportes, saques e saldo por corretora e moeda |
 | ⚖️ Alocação | `/alocacao` | Alvo × atual e simulador de aporte |
-| 📡 Radar | `/radar` | Watchlist com fundamentos e indicadores de preço |
+| 🎯 Metas | `/metas` | Objetivos de patrimônio ou renda com projeção, cenários e aporte necessário |
+| 📡 Radar | `/radar` | Watchlist com fundamentos, indicadores de preço e preço-alvo |
 | 🪙 Cripto | `/cripto` | Catálogo CoinGecko, preços, histórico e monitor de vendas |
 | 🔎 Status do ativo | `/status` | Drill-down por ativo, carteira ou book |
 | 🧾 Imposto de Renda | `/ir` | Apuração mensal, DARFs, exterior e DIRPF |
 | 🧮 Valuation | `/valuation` | Sete modelos de preço justo com premissas editáveis |
-| ⚙️ Configurações | `/configuracoes` | Investidores, estratégias, carteiras, ativos, parâmetros, IR, atualizações e backup |
+| ⚙️ Configurações | `/configuracoes` | Investidores, estratégias, carteiras, ativos, parâmetros, IR, qualidade dos dados, importações, atualizações e backup |
 
 ---
 
@@ -184,21 +194,24 @@ Em **🧾 Imposto de Renda**, escolha o CPF e o ano: a tela mostra a apuração 
 | Área | O que faz |
 |---|---|
 | **Multi-investidor** | Cadastro de investidores (com CPF mascarado) e grupos (ex.: Família). Seletor global filtra todas as páginas: um investidor, um grupo ou todos consolidados. |
-| **Resumo** | Patrimônio, lucro aberto/total, TIR, proventos e YoC dos últimos 12 meses, rentabilidade (TWR) no mês/ano/12 meses/desde o início comparada a IBOV, IFIX, CDI e IPCA, maiores altas e baixas do dia. |
-| **Rentabilidade** | TWR acumulado × referências, evolução patrimonial (mercado × investido), resultado mensal e mapa de calor ano × mês, com seletor de período. |
-| **Portfólio** | Posições abertas com quantidade, preço médio, cotação, valor investido/mercado, lucro do dia, lucro aberto, proventos e peso. Tabela ordenável, agrupamento por estratégia, book, carteira, classe ou setor com subtotais, gráficos de exposição (book, classe, setor, ativo), visão consolidada ou separada por investidor e, opcionalmente, saldo em caixa somado ao patrimônio. |
+| **Resumo** | Patrimônio, lucro aberto/total, TIR, proventos e YoC dos últimos 12 meses, rentabilidade (TWR) no mês/ano/12 meses/desde o início comparada a IBOV, IFIX, CDI e IPCA, retorno real (descontado o IPCA), maiores altas e baixas do dia. |
+| **Rentabilidade** | TWR acumulado × referências, retorno real no período e série "Carteira real", evolução patrimonial (mercado × investido), resultado mensal e mapa de calor ano × mês, com seletor de período. |
+| **Portfólio** | Posições abertas com quantidade, preço médio, cotação, valor investido/mercado, lucro do dia, lucro aberto, proventos e peso. Tabela ordenável, agrupamento por estratégia, book, carteira, classe, setor ou moeda com subtotais, gráficos de exposição (book, classe, setor, moeda, ativo e corretora), visão consolidada ou separada por investidor e, opcionalmente, saldo em caixa somado ao patrimônio. |
 | **Operações** | Lançamento, edição e exclusão pela interface; histórico com filtros por ticker e período; compra, venda, day trade e eventos societários. Câmbio preenchido automaticamente pela PTAX; em ativos personalizados, o preço vem da cota da data. |
-| **Proventos** | Lançamento, edição e exclusão de dividendos, JCP, rendimentos, bonificações e amortizações, com IRRF e conversão cambial. Matriz mensal ano × mês e ativo × mês. |
+| **Proventos** | Lançamento, edição e exclusão de dividendos, JCP, rendimentos, bonificações e amortizações, com IRRF e conversão cambial. Matriz mensal ano × mês e ativo × mês. **Agenda e projeção**: pagamentos lançados a receber e projeção dos próximos 12 meses (valor por cota na data-com × quantidade atual), com YoC projetado por ativo. |
+| **Renda fixa** | Para ativos personalizados: valor bruto, IOF e IR regressivo por aplicação (resgates PEPS), valor líquido hoje, próximos vencimentos e líquido projetado no vencimento; marcação de isentos (LCI, LCA, CRI, CRA, poupança). |
+| **Metas** | Objetivos de patrimônio ou de renda mensal de proventos, por investidor ou grupo: progresso, projeção com aportes e rentabilidade real em três cenários, data estimada para atingir e aporte necessário para o prazo. |
+| **Alertas** | Sino no topo, calculado localmente: DARF do mês anterior em aberto, renda fixa vencendo ou vencida, preço-alvo do Radar atingido, books fora do alvo, proventos dos próximos 7 dias e erros nos dados. Limiares em Configurações → Parâmetros. |
 | **Aluguel (BTC)** | Remuneração bruta, taxa de intermediação, IRRF e líquido do aluguel de ações (doador) por ativo e por mês, com filtro de ano; lista e cadastro dos lançamentos; importação do extrato da conta da corretora (.xlsx/.csv) com prévia e detecção de duplicidade. |
 | **Caixa** | Aportes, saques, créditos e débitos por investidor e corretora, com saldo por corretora e moeda. A partir de uma data configurável, compras, vendas, amortizações e proventos líquidos movimentam o saldo automaticamente. |
 | **Alocação** | Peso-alvo (estratégia × book × peso do ativo na carteira) × atual por estratégia, book e ativo; simulador de aporte (só comprar ou rebalanceamento completo, respeitando o preço-teto) com valor e quantidade sugeridos. |
-| **Radar** | Watchlist de ativos da B3 (com ou sem posição): cotação, fundamentos (Fundamentus), variações de 1/7/14 dias, drawdown de 60 dias, faixa de 52 semanas, estimativa de Graham e YoC. |
+| **Radar** | Watchlist de ativos da B3 (com ou sem posição): cotação, preço-alvo com alerta, fundamentos (Fundamentus), variações de 1/7/14 dias, drawdown de 60 dias, faixa de 52 semanas, estimativa de Graham e YoC. |
 | **Status do ativo** | Drill-down por ativo, carteira ou book: investido, mercado, lucro aberto, proventos 12 meses, YoC, trades swing/day trade, distribuição do resultado e linha do tempo de operações e proventos. |
 | **Valuation** | Graham, Bazin, DCF (FCFE 5 anos), Gordon, P/L histórico e setorial e P/VP justificado, com premissas editáveis salvas por ativo; TIR/XIRR e TWR mensal do ativo. Não é recomendação de investimento. |
 | **Imposto de Renda** | Apuração mensal por CPF (ações, BDR, ETF, opções, day trade, FII) com isenção de R$ 20 mil, compensação de prejuízo por grupo, abatimento de IRRF e DARF 6015 com acúmulo abaixo de R$ 10; registro de DARFs pagos; exterior (GCAP até 2023, anual pela Lei 14.754/2023 desde 2024); relatório de apoio à DIRPF com exportação CSV e impressão/PDF. |
-| **Configurações** | Investidores, estratégias e books (com classe → book e exceções por ativo), carteiras (peso-alvo, preço-teto, ranking), ativos personalizados (renda fixa com rendimento por CDI/SELIC/IPCA/IGP-M/prefixado ou saldo manual), parâmetros, imposto de renda (regras fiscais com vigência, prejuízo inicial), status das atualizações e backup. |
+| **Configurações** | Investidores, estratégias e books (com classe → book e exceções por ativo), carteiras (peso-alvo, preço-teto, ranking), ativos personalizados (renda fixa com rendimento por CDI/SELIC/IPCA/IGP-M/prefixado ou saldo manual, vencimento e isenção de IR), parâmetros (inclusive limiares dos alertas), imposto de renda (regras fiscais com vigência, prejuízo inicial), qualidade dos dados, importações (desfazer lote), status das atualizações e backup. |
 | **Cotações** | Atualização automática no pregão (Yahoo Finance, B3 e EUA), fechamento oficial da B3 (COTAHIST) e câmbio pela PTAX do Banco Central. Histórico diário desde a primeira operação. Status das atualizações em Configurações. |
-| **Importação** | Importa a planilha de controle existente (`.xlsx`) de forma idempotente e concilia o resultado com os valores calculados pela própria planilha. Importa os relatórios **Negociação**, **Movimentação** e **Proventos recebidos** da Área do Investidor da B3 (botão *Importar extrato B3* em Operações e Proventos). |
+| **Importação** | Importa a planilha de controle existente (`.xlsx`) de forma idempotente e concilia o resultado com os valores calculados pela própria planilha. Importa os relatórios **Negociação**, **Movimentação** e **Proventos recebidos** da Área do Investidor da B3 (botão *Importar extrato B3* em Operações e Proventos). Cada arquivo importado forma um lote que pode ser desfeito. |
 | **Exportação** | Botões **CSV** e **XLSX** no topo de todas as páginas: exportam as tabelas visíveis (uma aba por tabela no XLSX, com moeda, percentual, número e data tipados); listas paginadas saem completas, com o filtro atual. |
 | **Backup** | Backup automático diário (mantém os 10 mais recentes) e manual em `%LOCALAPPDATA%\InvestHub\backups`; download e restauração validada (cópia do banco atual antes de restaurar e migração automática de backups antigos). |
 | **Cripto** | Busca no catálogo CoinGecko, vínculo por identificador canônico, preços USD/BRL, variações 24h/7d/30d, capitalização, histórico e posições. CoinGecko principal; Kraken como fallback somente de preço para moedas com vínculo verificado. Monitor mensal de vendas/ganhos por investidor, sem calcular imposto ou DARF. |
@@ -476,9 +489,9 @@ Compara mês a mês as vendas e o lucro por categoria e o DARF com a aba `apura�
 .
 ├── backend/
 │   ├── app/
-│   │   ├── api/            # Rotas REST (cadastros, lançamentos, carteira, rentabilidade, alocação, IR, radar, cripto, valuation, extratos, exportação, backup)
+│   │   ├── api/            # Rotas REST (cadastros, lançamentos, carteira, rentabilidade, alocação, IR, radar, cripto, valuation, extratos, exportação, backup, planejamento, monitoramento)
 │   │   ├── providers/      # Fontes de dados (Yahoo, BCB PTAX/SGS, índices B3, Fundamentus, CoinGecko/Kraken)
-│   │   ├── services/       # Regras de negócio (posição, carteira, cotações, COTAHIST, rentabilidade, alocação, caixa, renda fixa, IR, DIRPF, extratos, backup, jobs)
+│   │   ├── services/       # Regras de negócio (posição, carteira, cotações, COTAHIST, rentabilidade, alocação, caixa, renda fixa, IR, DIRPF, extratos, lotes, agenda de proventos, metas, alertas, qualidade, backup, jobs)
 │   │   ├── config.py       # Configurações via variáveis de ambiente
 │   │   ├── db.py           # Engine e sessão SQLAlchemy
 │   │   ├── dominio.py      # Vocabulário de eventos e moedas
@@ -491,7 +504,7 @@ Compara mês a mês as vendas e o lucro por categoria e o DARF com a aba `apura�
 ├── frontend/
 │   └── src/
 │       ├── components/     # Layout, formulários, gráficos, importação, exportação e abas de Configurações
-│       └── pages/          # Resumo, Portfólio, Rentabilidade, Proventos, Aluguel, Operações, Caixa, Alocação, Radar, Cripto, Status, IR, Valuation, Configurações
+│       └── pages/          # Resumo, Portfólio, Rentabilidade, Proventos, Aluguel, Renda fixa, Operações, Caixa, Alocação, Metas, Radar, Cripto, Status, IR, Valuation, Configurações
 ├── iniciar.bat             # Execução local
 ├── dev.bat                 # Modo desenvolvimento
 ├── parar.bat               # Encerra o backend
@@ -534,6 +547,16 @@ Posições são calculadas **por investidor e ativo**; a visão consolidada soma
 ### Ativos personalizados
 
 Funcionam como cotas: cada aplicação é uma compra de *valor ÷ cota da data* ao preço da cota. Na renda fixa automática a cota vale 1 na data-base e é corrigida pelo índice mensal do BCB (pró-rata por dias corridos) × % do índice e pela taxa a.a. (base 365); mês sem índice publicado repete o último conhecido. No saldo manual, a cota é saldo informado ÷ quantidade.
+
+### Renda fixa líquida
+
+Cada compra é uma aplicação com prazo próprio; resgates consomem as mais antigas (PEPS). Sobre o rendimento de cada aplicação incidem o **IOF** regressivo nos primeiros 29 dias e o **IR** regressivo sobre o rendimento menos o IOF: 22,5% até 180 dias, 20% até 360, 17,5% até 720 e 15% acima (zero para ativos marcados como isentos). A projeção no vencimento usa a cota estimada na data (último índice repetido) e as alíquotas daquele prazo.
+
+### Retorno real, projeção de proventos e metas
+
+- **Retorno real** = (1 + TWR) ÷ (1 + IPCA acumulado) − 1, na mesma janela; mês sem IPCA publicado fica sem valor.
+- **Projeção de proventos**: cada provento dos últimos 12 meses (exceto amortização e aluguel) é repetido no mesmo mês do ano seguinte, pelo valor por cota na data-com (ou no pagamento) × quantidade atual. Proventos já lançados com pagamento futuro substituem a estimativa daquele ativo e mês.
+- **Metas**: projeção mensal com aporte constante e rentabilidade real composta (valores de hoje); cenários de ±2 p.p. a.a. Metas de renda convertem patrimônio em renda pelo dividend yield informado (ou o dos últimos 12 meses). O aporte necessário resolve a fórmula de valor futuro de uma série de aportes.
 
 ### Saldo de caixa
 
@@ -581,11 +604,19 @@ Principais recursos:
 | `GET` | `/api/cambio/ptax?moeda=USD&data=2026-10-02` | PTAX oficial (compra/venda) da data |
 | `GET` / `POST` | `/api/atualizacoes` · `/api/atualizacoes/{tarefa}` | Status e disparo das atualizações em segundo plano |
 | `GET` | `/api/rentabilidade/mensal?inicio=&fim=` | Série mensal: investido, mercado, fluxo, lucro, TWR e referências |
-| `GET` | `/api/rentabilidade/resumo` | Patrimônio, TIR, proventos 12m, YoC e TWR por janela |
+| `GET` | `/api/rentabilidade/resumo` | Patrimônio, TIR, proventos 12m, YoC, TWR e retorno real por janela |
 | `GET` | `/api/proventos/matriz?ano=` | Proventos líquidos ano × mês (ou ativo × mês de um ano) |
 | `GET` · `POST` | `/api/aluguel` · `/api/aluguel/extrato/previa` · `/api/aluguel/extrato/importar` | Resumo do aluguel (BTC) e importação do extrato |
 | `POST` | `/api/extratos/b3/previa` · `/api/extratos/b3/importar` | Prévia e importação dos relatórios da B3 |
 | `GET/POST/DELETE` | `/api/radar` | Watchlist do Radar |
+| `PUT` | `/api/radar/{ativo_id}/alvo` | Preço-alvo do ativo no Radar (gera alerta) |
+| `GET` | `/api/renda-fixa` | Renda fixa: bruto, IOF, IR regressivo, líquido e projeção no vencimento |
+| `GET` | `/api/proventos/agenda` | Proventos a receber e projeção dos próximos 12 meses |
+| `GET` | `/api/exposicao/corretoras` | Valor de mercado por corretora |
+| `GET/POST/PUT/DELETE` | `/api/metas` | Metas com progresso, cenários e aporte necessário |
+| `GET` | `/api/alertas` | Alertas calculados (DARF, vencimentos, preço-alvo, alocação, proventos, dados) |
+| `GET` | `/api/qualidade-dados` | Verificações de qualidade e completude dos dados |
+| `GET` · `POST` | `/api/lotes` · `/api/lotes/{id}/desfazer` | Lotes de importação e desfazer |
 | `GET` | `/api/fundamentos` | Fundamentos (Fundamentus) |
 | `GET` | `/api/status` | Status do ativo, carteira ou book |
 | `GET` · `PUT` | `/api/valuation/{ativo_id}` · `/api/valuation/{ativo_id}/premissas` | Valuation e premissas salvas |
@@ -634,6 +665,12 @@ Falta o histórico de cotações. Use o aviso **Carregar histórico de cotaçõe
 <summary><b>Importei o mesmo extrato duas vezes. Duplicou?</b></summary>
 
 Não. Planilha e extratos são idempotentes: linhas já existentes aparecem como *Já existe* e não são regravadas; somas diferentes aparecem como *Verificar* e só entram se você marcar.
+</details>
+
+<details>
+<summary><b>Importei o arquivo errado. Como desfaço?</b></summary>
+
+Em **Configurações → Importações**, clique em *Desfazer* no lote correspondente: só os lançamentos gravados por aquele arquivo são apagados. Ativos e corretoras criados na importação continuam cadastrados, e o arquivo pode ser importado de novo depois.
 </details>
 
 <details>

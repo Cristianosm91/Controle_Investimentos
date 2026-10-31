@@ -15,6 +15,21 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 - Histórico de preços das criptos (Yahoo Finance) na carga complementar e na rotina diária, para a Rentabilidade.
 - Modelos `.xlsx` para preencher e importar (B3 Negociação, Movimentação, Proventos recebidos e aluguel BTC),
   com instruções e exemplo, baixáveis nos modais de importação.
+- Renda fixa: nova tela com valor líquido de IR regressivo e IOF por aplicação (PEPS), próximos vencimentos e
+  projeção do valor líquido no vencimento; ativos personalizados ganham vencimento e marcação de isento de IR.
+- Retorno real (TWR descontada a inflação/IPCA) no Resumo e na Rentabilidade (card e série "Carteira real").
+- Proventos → Agenda e projeção: pagamentos lançados a receber e projeção dos próximos 12 meses pela quantidade
+  atual, com yield on cost projetado e detalhe por ativo.
+- Importações desfazíveis: cada arquivo importado (extrato B3 ou aluguel) vira um lote que pode ser desfeito em
+  Configurações → Importações sem afetar outros lançamentos.
+- Configurações → Qualidade dos dados: posição negativa, câmbio ausente no exterior, posição sem cotação ou com
+  cotação antiga, ativo sem book/setor, renda fixa sem vencimento, lançamentos sem corretora e índices defasados.
+- Portfólio: exposição e agrupamento por moeda; exposição por corretora.
+- Alertas locais (sino no topo): DARF do mês anterior em aberto, renda fixa vencendo/vencida, preço-alvo do Radar
+  atingido, books fora do alvo, proventos dos próximos 7 dias e erros de dados; limiares em Parâmetros.
+- Radar: preço-alvo editável por ativo.
+- Metas: objetivos de patrimônio ou de renda mensal com progresso, projeção em cenários (±2 p.p.), data estimada
+  e aporte necessário, em valores de hoje.
 
 ### Corrigido
 - Evolução patrimonial com Mercado igual ao Investido nos meses passados: sem histórico de cotações, o app agora

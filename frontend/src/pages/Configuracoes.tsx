@@ -1,12 +1,15 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import { AtivosPersonalizados } from "../components/config/AtivosPersonalizados";
 import { BackupConfig } from "../components/config/Backup";
 import { Carteiras } from "../components/config/Carteiras";
 import { EstrategiasBooks } from "../components/config/EstrategiasBooks";
+import { Importacoes } from "../components/config/Importacoes";
 import { ImpostoRendaConfig } from "../components/config/ImpostoRenda";
 import { Parametros } from "../components/config/Parametros";
+import { QualidadeDados } from "../components/config/QualidadeDados";
 import { PainelAtualizacoes } from "../components/PainelAtualizacoes";
 import { useInvestidor } from "../InvestidorContext";
 import type { Investidor } from "../tipos";
@@ -18,6 +21,8 @@ const SECOES = [
   { id: "ativos", rotulo: "Ativos personalizados" },
   { id: "parametros", rotulo: "Parâmetros" },
   { id: "ir", rotulo: "Imposto de renda" },
+  { id: "qualidade", rotulo: "Qualidade dos dados" },
+  { id: "importacoes", rotulo: "Importações" },
   { id: "atualizacoes", rotulo: "Atualizações" },
   { id: "backup", rotulo: "Backup" },
 ] as const;
@@ -186,7 +191,10 @@ function Investidores() {
 }
 
 export function Configuracoes() {
-  const [secao, setSecao] = useState<SecaoId>("investidores");
+  const [params] = useSearchParams();
+  const inicial = SECOES.find((s) => s.id === params.get("secao"))?.id ?? "investidores";
+  const [secao, setSecao] = useState<SecaoId>(inicial);
+  useEffect(() => setSecao(inicial), [inicial]);
   const conteudo: Record<SecaoId, JSX.Element> = {
     investidores: <Investidores />,
     estrategias: <EstrategiasBooks />,
@@ -194,6 +202,8 @@ export function Configuracoes() {
     ativos: <AtivosPersonalizados />,
     parametros: <Parametros />,
     ir: <ImpostoRendaConfig />,
+    qualidade: <QualidadeDados />,
+    importacoes: <Importacoes />,
     atualizacoes: <PainelAtualizacoes />,
     backup: <BackupConfig />,
   };

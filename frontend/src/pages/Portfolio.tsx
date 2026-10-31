@@ -5,9 +5,9 @@ import { invalidarDerivados, useParametros } from "../cadastros";
 import { chaveGrupo, Exposicao, ROTULO_DIMENSAO, somarPor, valorExposicao, type Dimensao } from "../components/Exposicao";
 import { classeSinal, data, moeda, numero, percentual } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
-import type { CaixaSaldos, Posicao } from "../tipos";
+import type { CaixaSaldos, ExposicaoCorretora, Posicao } from "../tipos";
 
-const AGRUPAMENTOS: Dimensao[] = ["estrategia", "book", "carteira", "classe", "setor"];
+const AGRUPAMENTOS: Dimensao[] = ["estrategia", "book", "carteira", "classe", "setor", "moeda"];
 
 type Coluna = {
   chave: string;
@@ -146,6 +146,12 @@ export function Portfolio() {
     queryKey: ["caixa-saldos", filtro],
     queryFn: () => api.get<CaixaSaldos>(`/caixa/saldos${query({ investidores: filtro })}`),
     enabled: caixaNoPortfolio,
+  });
+  const { data: corretoras } = useQuery({
+    queryKey: ["exposicao-corretoras", filtro],
+    queryFn: () => api.get<ExposicaoCorretora[]>(`/exposicao/corretoras${query({ investidores: filtro })}`),
+    enabled: verExposicao,
+    select: (lista): [string, number][] => lista.map((e) => [e.corretora, e.valor]),
   });
 
   const atualizar = useMutation({
@@ -303,7 +309,7 @@ export function Portfolio() {
       {error && <div className="erro">{(error as Error).message}</div>}
       {!isLoading && posicoes.length === 0 && <div className="aviso">Nenhuma posição aberta.</div>}
 
-      {verExposicao && posicoes.length > 0 && <Exposicao posicoes={posicoes} />}
+      {verExposicao && posicoes.length > 0 && <Exposicao posicoes={posicoes} corretoras={corretoras} />}
 
       {posicoes.length > 0 && (
         <div className="tabela-container">

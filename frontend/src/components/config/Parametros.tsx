@@ -14,7 +14,12 @@ const PADRAO: TParametros = {
   ir_opcoes_no_limite: false,
   ir_outras_classes_no_limite: false,
   ir_subscricao_fii_isenta: false,
+  alerta_desvio_pp: 5,
+  alerta_vencimento_dias: 30,
+  alerta_cotacao_dias: 5,
 };
+
+const inteiro = (texto: string) => (texto === "" ? null : Math.round(Number(texto)));
 
 export function Parametros() {
   const { data } = useParametros();
@@ -66,6 +71,40 @@ export function Parametros() {
             onChange={(e) => setForm({ ...form, caixa_no_portfolio: e.target.checked })}
           />
           Somar o saldo em caixa ao patrimônio do Portfólio
+        </label>
+        <h3>Alertas</h3>
+        <label>
+          Desvio da alocação (p.p.)
+          <input
+            type="number"
+            min={1}
+            max={100}
+            value={form.alerta_desvio_pp ?? ""}
+            onChange={(e) => setForm({ ...form, alerta_desvio_pp: inteiro(e.target.value) })}
+          />
+          <small className="sutil">Avisa quando o peso de um book se afasta do alvo por mais que isso.</small>
+        </label>
+        <label>
+          Vencimento de renda fixa (dias)
+          <input
+            type="number"
+            min={1}
+            max={365}
+            value={form.alerta_vencimento_dias ?? ""}
+            onChange={(e) => setForm({ ...form, alerta_vencimento_dias: inteiro(e.target.value) })}
+          />
+          <small className="sutil">Antecedência do aviso de vencimento.</small>
+        </label>
+        <label>
+          Cotação desatualizada (dias)
+          <input
+            type="number"
+            min={1}
+            max={60}
+            value={form.alerta_cotacao_dias ?? ""}
+            onChange={(e) => setForm({ ...form, alerta_cotacao_dias: inteiro(e.target.value) })}
+          />
+          <small className="sutil">Em branco desliga o alerta correspondente.</small>
         </label>
         <div className="acoes largura-total">
           <button type="submit" disabled={salvar.isPending}>

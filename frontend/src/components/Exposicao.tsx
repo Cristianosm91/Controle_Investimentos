@@ -3,7 +3,7 @@ import { moeda, percentual } from "../formato";
 import type { Posicao } from "../tipos";
 import { Dica, useDica } from "./Dica";
 
-export type Dimensao = "classe" | "setor" | "ticker" | "estrategia" | "book" | "carteira";
+export type Dimensao = "classe" | "setor" | "ticker" | "estrategia" | "book" | "carteira" | "moeda";
 
 export const ROTULO_DIMENSAO: Record<Dimensao, string> = {
   classe: "Classe",
@@ -12,9 +12,10 @@ export const ROTULO_DIMENSAO: Record<Dimensao, string> = {
   estrategia: "Estratégia",
   book: "Book",
   carteira: "Carteira",
+  moeda: "Moeda",
 };
 
-const SEM_VALOR: Record<Exclude<Dimensao, "classe" | "ticker">, string> = {
+const SEM_VALOR: Record<Exclude<Dimensao, "classe" | "ticker" | "moeda">, string> = {
   setor: "Sem setor",
   estrategia: "Sem estratégia",
   book: "Sem book",
@@ -22,7 +23,7 @@ const SEM_VALOR: Record<Exclude<Dimensao, "classe" | "ticker">, string> = {
 };
 
 export const chaveGrupo = (p: Posicao, d: Dimensao): string =>
-  d === "classe" || d === "ticker" ? p[d] : p[d] ?? SEM_VALOR[d];
+  d === "classe" || d === "ticker" || d === "moeda" ? p[d] : p[d] ?? SEM_VALOR[d];
 
 /** Valor de mercado; sem cotação, usa o custo para não sumir da exposição. */
 export const valorExposicao = (p: Posicao) => p.valor_mercado ?? p.custo;
@@ -100,13 +101,16 @@ function Barras({ titulo, itens, total }: { titulo: string; itens: [string, numb
   );
 }
 
-export function Exposicao({ posicoes }: { posicoes: Posicao[] }) {
+export function Exposicao({ posicoes, corretoras }: { posicoes: Posicao[]; corretoras?: [string, number][] }) {
   const total = posicoes.reduce((s, p) => s + valorExposicao(p), 0);
   return (
     <div className="exposicoes">
-      {(["book", "classe", "setor", "ticker"] as Dimensao[]).map((d) => (
+      {(["book", "classe", "setor", "moeda", "ticker"] as Dimensao[]).map((d) => (
         <Barras key={d} titulo={`Exposição por ${ROTULO_DIMENSAO[d].toLowerCase()}`} itens={somarPor(posicoes, d)} total={total} />
       ))}
+      {corretoras && corretoras.length > 0 && (
+        <Barras titulo="Exposição por corretora" itens={corretoras} total={corretoras.reduce((s, [, v]) => s + v, 0)} />
+      )}
     </div>
   );
 }

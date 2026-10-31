@@ -115,6 +115,8 @@ export interface Ativo {
   data_base: string | null;
   cnpj: string | null;
   coingecko_id: string | null;
+  data_vencimento: string | null;
+  isento_ir: boolean;
 }
 
 export interface MoedaCripto {
@@ -197,6 +199,8 @@ export interface ItemRadar {
   fii_ffo_yield: number | null;
   data_ref_fundamentos: string | null;
   yoc_12m: number | null;
+  preco_alvo: number | null;
+  atingiu_alvo: boolean;
 }
 
 export interface ParcelaLucro {
@@ -383,6 +387,7 @@ export interface ResultadoExtrato {
   proventos: number;
   ativos_criados: string[];
   corretoras_criadas: string[];
+  lote_id: number | null;
 }
 
 export interface TotaisAluguel {
@@ -435,6 +440,7 @@ export interface MesRentabilidade {
   ifix_acumulado: number | null;
   cdi_acumulado: number | null;
   ipca_acumulado: number | null;
+  real_acumulado: number | null;
 }
 
 export interface Janela {
@@ -445,6 +451,7 @@ export interface Janela {
   ifix: number | null;
   cdi: number | null;
   ipca: number | null;
+  real: number | null;
 }
 
 export interface Resumo {
@@ -533,6 +540,9 @@ export interface Parametros {
   ir_opcoes_no_limite: boolean;
   ir_outras_classes_no_limite: boolean;
   ir_subscricao_fii_isenta: boolean;
+  alerta_desvio_pp: number | null;
+  alerta_vencimento_dias: number | null;
+  alerta_cotacao_dias: number | null;
 }
 
 export interface Cota {
@@ -701,4 +711,117 @@ export interface Dirpf {
   irrf_saldo_final: number;
   exterior: AnoExterior | null;
   avisos: string[];
+}
+
+// ---------- Planejamento e monitoramento ----------
+
+export interface ItemRendaFixa {
+  investidor_id: number;
+  ativo_id: number;
+  ticker: string;
+  nome: string | null;
+  classe: string;
+  moeda: string;
+  descricao: string;
+  isento_ir: boolean;
+  data_vencimento: string | null;
+  dias_para_vencer: number | null;
+  quantidade: number;
+  custo: number;
+  bruto: number;
+  iof: number;
+  ir: number;
+  liquido: number;
+  aliquota_ir: number | null;
+  bruto_vencimento: number | null;
+  liquido_vencimento: number | null;
+}
+
+export interface RendaFixa {
+  itens: ItemRendaFixa[];
+  custo: number;
+  bruto: number;
+  impostos: number;
+  liquido: number;
+  liquido_vencimento: number | null;
+}
+
+export interface ProventoAgenda {
+  id: number;
+  investidor_id: number;
+  ticker: string;
+  evento: string;
+  data_com: string | null;
+  data_pagamento: string;
+  liquido: number;
+}
+
+export interface AgendaProventos {
+  a_receber: ProventoAgenda[];
+  total_a_receber: number;
+  meses: { mes: string; confirmado: number; estimado: number }[];
+  por_ativo: { ativo_id: number; ticker: string; classe: string; confirmado: number; estimado: number; total: number; yoc: number | null }[];
+  total_12m: number;
+  media_mensal: number;
+  yoc_projetado: number | null;
+}
+
+export interface LoteImportacao {
+  id: number;
+  tipo: string;
+  arquivo: string | null;
+  investidor_id: number | null;
+  criado_em: string;
+  desfeito_em: string | null;
+  operacoes: number;
+  proventos: number;
+  caixa: number;
+}
+
+export interface Verificacao {
+  codigo: string;
+  titulo: string;
+  severidade: "erro" | "aviso" | "info";
+  descricao: string;
+  link: string | null;
+  itens: string[];
+}
+
+export interface ExposicaoCorretora {
+  corretora: string;
+  valor: number;
+  ativos: number;
+}
+
+export interface Alerta {
+  codigo: string;
+  severidade: "alta" | "media" | "info";
+  titulo: string;
+  detalhe: string;
+  link: string | null;
+}
+
+export type TipoMeta = "PATRIMONIO" | "RENDA";
+
+export interface Meta {
+  id: number;
+  nome: string;
+  tipo: TipoMeta;
+  valor_alvo: number;
+  data_alvo: string;
+  aporte_mensal: number;
+  rentabilidade_aa: number;
+  rendimento_aa: number | null;
+  investidores: number[] | null;
+  valor_atual: number;
+  progresso: number;
+  meses_restantes: number;
+  projetado_pessimista: number;
+  projetado_base: number;
+  projetado_otimista: number;
+  atinge: boolean;
+  data_estimada: string | null;
+  aporte_necessario: number;
+  rendimento_usado: number | null;
+  serie: { mes: string; pessimista: number; base: number; otimista: number }[];
 }

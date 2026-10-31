@@ -136,6 +136,7 @@ export function Rentabilidade() {
   const { filtro } = useInvestidor();
   const [periodo, setPeriodo] = useState<Periodo>("12m");
   const [referencias, setReferencias] = useState<Benchmark[]>(["cdi", "ibov"]);
+  const [verReal, setVerReal] = useState(false);
   const inicio = inicioDoPeriodo(periodo);
 
   const periodoQ = useQuery({
@@ -184,6 +185,11 @@ export function Rentabilidade() {
               </small>
             </div>
             <div className="card">
+              <span>Retorno real no período</span>
+              <strong className={classeSinal(ultimo.real_acumulado)}>{percentual(ultimo.real_acumulado)}</strong>
+              <small className="sutil">TWR descontada a inflação · IPCA {percentual(ultimo.ipca_acumulado)}</small>
+            </div>
+            <div className="card">
               <span>Patrimônio em {mesAno(ultimo.data)}</span>
               <strong>{moeda(ultimo.mercado)}</strong>
               <small className="sutil">Investido {moeda(ultimo.investido)}</small>
@@ -210,6 +216,10 @@ export function Rentabilidade() {
                     {NOMES_BENCHMARK[b]}
                   </label>
                 ))}
+                <label className="check">
+                  <input type="checkbox" checked={verReal} onChange={(e) => setVerReal(e.target.checked)} />
+                  Carteira real
+                </label>
               </div>
             </div>
             <GraficoLinhas
@@ -218,6 +228,7 @@ export function Rentabilidade() {
               formatar={(v) => percentual(v)}
               series={[
                 { nome: "Carteira", cor: "var(--primaria)", valores: meses.map((m) => m.twr_acumulado) },
+                ...(verReal ? [{ nome: "Carteira real (− IPCA)", cor: "#7c3aed", valores: meses.map((m) => m.real_acumulado) }] : []),
                 ...referencias.map((b) => ({
                   nome: NOMES_BENCHMARK[b],
                   cor: CORES_BENCHMARK[b],

@@ -969,6 +969,158 @@ a.botao.secundario {
   margin-top: 1.2rem;
 }
 
+/* ---------- Alertas ---------- */
+
+.alertas {
+  position: relative;
+}
+
+.alertas-botao {
+  position: relative;
+  padding-inline: 0.6rem;
+}
+
+.alertas-contador {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  line-height: 18px;
+  text-align: center;
+  background: var(--sutil);
+  color: #fff;
+}
+
+.alertas-contador.importante {
+  background: var(--negativo);
+}
+
+.alertas-menu {
+  width: 360px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.alerta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.5rem 0.9rem;
+  border-left: 3px solid var(--borda);
+  color: var(--texto);
+  text-decoration: none;
+}
+
+a.alerta:hover {
+  background: var(--fundo);
+}
+
+.alerta small {
+  color: var(--sutil);
+}
+
+.alerta-alta {
+  border-left-color: var(--negativo);
+}
+
+.alerta-media {
+  border-left-color: #f59e0b;
+}
+
+.alerta-info {
+  border-left-color: var(--primaria);
+}
+
+.etiqueta.alerta-media {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+/* ---------- Qualidade dos dados ---------- */
+
+.verificacao {
+  border-left: 4px solid var(--borda);
+}
+
+.verificacao.severidade-erro {
+  border-left-color: var(--negativo);
+}
+
+.verificacao.severidade-aviso {
+  border-left-color: #f59e0b;
+}
+
+.verificacao.severidade-info {
+  border-left-color: var(--primaria);
+}
+
+.verificacao h3 .etiqueta {
+  margin: 0 0.4rem 0 0;
+}
+
+.etiqueta.severidade-erro {
+  background: #fee2e2;
+  color: var(--negativo);
+}
+
+.etiqueta.severidade-aviso {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+/* ---------- Renda fixa ---------- */
+
+.linha-tempo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.linha-tempo-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 140px;
+  padding: 0.5rem 0.8rem;
+  border: 1px solid var(--borda);
+  border-top: 3px solid var(--primaria);
+  border-radius: 8px;
+}
+
+/* ---------- Metas ---------- */
+
+.meta-progresso {
+  height: 12px;
+  border-radius: 999px;
+  background: var(--fundo);
+  border: 1px solid var(--borda);
+  overflow: hidden;
+}
+
+.meta-progresso-barra {
+  height: 100%;
+  background: var(--primaria);
+}
+
+.formulario fieldset {
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+}
+
+/* ---------- Radar ---------- */
+
+.radar-alvo {
+  width: 6.5rem;
+  text-align: right;
+}
+
 @media print {
   .tabela-container {
     overflow: visible;
