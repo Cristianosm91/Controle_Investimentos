@@ -74,3 +74,19 @@ def test_status_das_tarefas(cliente):
     nomes = {t["nome"] for t in cliente.get("/api/atualizacoes").json()}
     assert {"cotacoes", "cotahist_diario", "cotahist_historico"} <= nomes
     assert cliente.post("/api/atualizacoes/inexistente").status_code == 404
+
+
+def test_carga_historica_dispara_em_sequencia(cliente, monkeypatch):
+    from app.services import jobs
+
+    chamadas = []
+    monkeypatch.setattr(jobs, "_executar_agendado", chamadas.append)
+    falso_threading = type("FalsoThreading", (), {
+        "Thread": staticmethod(lambda target, **_: type("T", (), {"start": staticmethod(target)})()),
+    })
+    monkeypatch.setattr(jobs, "threading", falso_threading)
+    assert cliente.post("/api/atualizacoes/carga-historica").status_code == 202
+    assert chamadas == ["cotahist_historico", "historico_complementar"]
+
+    monkeypatch.setattr(jobs.TAREFAS["cotahist_historico"], "em_execucao", True)
+    assert cliente.post("/api/atualizacoes/carga-historica").status_code == 409

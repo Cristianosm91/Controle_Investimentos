@@ -1,20 +1,70 @@
+<div align="center">
+
 # InvestHub+
 
-> Controle de investimentos pessoal e multi-investidor — carteira, proventos, rentabilidade e imposto de renda, rodando localmente no seu computador.
+**Controle de investimentos pessoal e multi-investidor — carteira, proventos, rentabilidade e imposto de renda, rodando localmente no seu computador.**
 
+![Versão](https://img.shields.io/badge/versão-1.0.0-2E7D32)
+![Status](https://img.shields.io/badge/status-estável-2E7D32)
 ![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white)
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
 ![SQLite](https://img.shields.io/badge/SQLite-local-003B57?logo=sqlite&logoColor=white)
-![Status](https://img.shields.io/badge/status-em%20desenvolvimento-orange)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-opcional-4169E1?logo=postgresql&logoColor=white)
 
-O **InvestHub+** substitui planilhas de controle de investimentos (Google Sheets/Excel) por uma aplicação web local. Ele consolida operações, proventos e cotações de vários investidores, calcula posição e preço médio conforme as regras da Receita Federal e evolui, por fases, para rentabilidade, alocação e apuração de IR.
+[Primeiros passos](#primeiros-passos) ·
+[Como usar](#como-usar) ·
+[Funcionalidades](#funcionalidades) ·
+[Regras de cálculo](#regras-de-cálculo) ·
+[API](#api) ·
+[Changelog](CHANGELOG.md)
+
+</div>
+
+---
+
+## Apresentação
+
+O **InvestHub+** é uma aplicação web **local** que substitui planilhas de controle de investimentos (Google Sheets/Excel). Ela reúne, em um só lugar, as operações, proventos, caixa e cotações de **um ou vários investidores** (família, cônjuge, filhos) e entrega, sem fórmulas manuais:
+
+- **posição e preço médio** calculados conforme as regras da Receita Federal, inclusive em moeda estrangeira (PTAX);
+- **rentabilidade** real da carteira (TWR e TIR) comparada a IBOV, IFIX, CDI e IPCA;
+- **alocação-alvo** por estratégia, book e ativo, com simulador de aporte;
+- **apuração mensal de IR**, DARF 6015 e relatório de apoio à **DIRPF**;
+- ferramentas de análise: **Radar**, **Status do ativo**, **Valuation** e **Cripto**.
+
+Tudo roda em `127.0.0.1`: os dados ficam no seu computador, e as únicas chamadas externas são consultas públicas de cotações e índices.
+
+### Por que usar
+
+| Na planilha | No InvestHub+ |
+|---|---|
+| Fórmulas frágeis, quebram ao inserir linhas | Regras de negócio testadas automaticamente |
+| Cotação via `GOOGLEFINANCE`, sem histórico confiável | Yahoo Finance no pregão + fechamento oficial da B3 (COTAHIST) + PTAX/índices do Banco Central |
+| Um arquivo por investidor | Multi-investidor com grupos e visão consolidada |
+| Digitação manual do extrato | Importação dos relatórios da B3 e do extrato de aluguel, com detecção de duplicidade |
+| IR calculado "na mão" | Apuração mensal por CPF, compensação de prejuízo por grupo, DARF e DIRPF |
+| Backup depende de lembrar | Backup automático diário com restauração validada |
+
+### Destaques
+
+- 👨‍👩‍👧 **Multi-investidor** — seletor global: um investidor, um grupo ou todos consolidados.
+- 🔄 **Cotações automáticas** — atualização a cada 15 min no pregão, fechamento oficial e histórico diário desde a primeira operação.
+- 📈 **Rentabilidade de verdade** — TWR mensal, TIR/XIRR, evolução patrimonial e mapa de calor.
+- 🧾 **IR completo** — Brasil (ações, BDR, ETF, opções, day trade, FII) e exterior (Lei 14.754/2023).
+- 📥 **Importação** — planilha original (idempotente) e relatórios da Área do Investidor da B3.
+- 📤 **Exportação** — CSV e XLSX de qualquer tela, com tipos (moeda, %, data) preservados.
+- 🔒 **Privado** — local, sem conta, sem nuvem obrigatória; CPF sempre mascarado.
 
 ---
 
 ## Sumário
 
+- [Apresentação](#apresentação)
+- [Primeiros passos](#primeiros-passos)
+- [Como usar](#como-usar)
+- [Telas da aplicação](#telas-da-aplicação)
 - [Funcionalidades](#funcionalidades)
 - [Arquitetura](#arquitetura)
 - [Tecnologias](#tecnologias)
@@ -25,16 +75,111 @@ O **InvestHub+** substitui planilhas de controle de investimentos (Google Sheets
 - [Estrutura do projeto](#estrutura-do-projeto)
 - [Regras de cálculo](#regras-de-cálculo)
 - [API](#api)
-- [Testes](#testes)
+- [Testes e qualidade](#testes-e-qualidade)
+- [Perguntas frequentes](#perguntas-frequentes)
+- [Versionamento e contribuição](#versionamento-e-contribuição)
 - [Roadmap](#roadmap)
 - [Privacidade e segurança](#privacidade-e-segurança)
 - [Aviso legal](#aviso-legal)
 
 ---
 
-## Funcionalidades
+## Primeiros passos
 
-### Disponíveis
+Pré-requisitos: **Windows**, **Python 3.12+** e **Node.js 20+** (detalhes em [Requisitos](#requisitos)).
+
+```bat
+git clone https://github.com/Cristianosm91/Controle_Investimentos.git
+cd Controle_Investimentos
+iniciar.bat
+```
+
+Pronto: o navegador abre em **http://127.0.0.1:8000**. Na primeira execução o `iniciar.bat` prepara tudo sozinho (ambiente Python, dependências, compilação da interface e banco de dados). Para encerrar, pressione `Ctrl+C` no terminal ou rode `parar.bat`.
+
+> Os dados ficam em `%LOCALAPPDATA%\InvestHub\investhub.db`, fora de pastas sincronizadas. Nada precisa ser configurado para começar.
+
+---
+
+## Como usar
+
+Roteiro recomendado para quem está começando. A versão e a navegação ficam no menu lateral; o **seletor de investidor** e os botões **CSV/XLSX** ficam no topo de todas as telas.
+
+### 1. Cadastre os investidores
+
+Em **⚙️ Configurações → Investidores**, cadastre cada pessoa (nome e CPF — exibido sempre mascarado). Se quiser ver patrimônios somados, crie um **grupo** (ex.: *Família*). O seletor no topo passa a filtrar todas as telas por investidor, grupo ou todos.
+
+### 2. Traga o histórico
+
+Escolha a forma que combina com você (é possível combinar as três):
+
+| Origem | Onde | Quando usar |
+|---|---|---|
+| **Planilha antiga** | Linha de comando ([Importando a planilha](#importando-a-planilha)) | Migração inicial a partir da planilha de controle |
+| **Extratos da B3** | Botão **Importar extrato B3** em *Operações* e *Proventos* | Relatórios *Negociação*, *Movimentação* e *Proventos recebidos* da Área do Investidor |
+| **Extrato de aluguel** | Botão de importação em *Aluguel (BTC)* | Extrato da conta da corretora (`.xlsx`/`.csv`) |
+| **Digitação** | *Operações*, *Proventos* e *Caixa* | Lançamentos do dia a dia |
+
+Todas as importações mostram uma **prévia** antes de gravar e marcam linhas *Já existe* ou *Verificar* — reimportar o mesmo arquivo não duplica nada.
+
+### 3. Carregue cotações e índices
+
+Na primeira inicialização após importar, o app baixa sozinho o histórico da B3 (COTAHIST) e o complementar (exterior, criptos, PTAX e índices). Se algo ficar pendente, use **Configurações → Atualizações** ou o aviso **Carregar histórico de cotações** em *Rentabilidade*. Depois disso, os jobs automáticos mantêm tudo em dia.
+
+### 4. Organize a carteira
+
+Em **Configurações**:
+
+- **Estratégias & Books** — defina estratégias (ex.: *Dividendos*, *Crescimento*) e books, com o peso de cada um e o mapeamento classe → book (com exceções por ativo).
+- **Carteiras** — peso-alvo, preço-teto e ranking dos ativos.
+- **Ativos personalizados** — renda fixa com rendimento automático (CDI, SELIC, IPCA, IGP-M, prefixado) ou saldo manual.
+- **Parâmetros** e **Imposto de renda** — data de início do caixa automático, regras fiscais com vigência e prejuízo inicial.
+
+### 5. Acompanhe no dia a dia
+
+| Quero... | Vá em |
+|---|---|
+| Ver patrimônio, lucro, TIR e TWR do mês/ano | **🏠 Resumo** |
+| Ver posições, PM, lucro e exposição por book/classe/setor | **💼 Portfólio** |
+| Comparar com IBOV, IFIX, CDI e IPCA | **📈 Rentabilidade** |
+| Acompanhar dividendos e o aluguel de ações | **💰 Proventos** · **🤝 Aluguel (BTC)** |
+| Saber quanto comprar de cada ativo no próximo aporte | **⚖️ Alocação** (simulador de aporte) |
+| Monitorar ativos que ainda não tenho | **📡 Radar** |
+| Analisar um ativo, carteira ou book em detalhe | **🔎 Status do ativo** · **🧮 Valuation** |
+| Acompanhar criptomoedas | **🪙 Cripto** |
+
+### 6. Feche o mês do IR
+
+Em **🧾 Imposto de Renda**, escolha o CPF e o ano: a tela mostra a apuração mês a mês, o DARF 6015 a recolher (com acúmulo abaixo de R$ 10) e permite registrar DARFs pagos. No início do ano, use o **relatório de apoio à DIRPF** (bens e direitos, rendimentos isentos e tributados, prejuízos a transportar), com exportação CSV e impressão/PDF.
+
+### 7. Proteja e compartilhe os dados
+
+- **Backup** — automático todo dia (mantém os 10 mais recentes); manual, download e restauração em **Configurações → Backup**.
+- **Exportação** — botões **CSV** e **XLSX** no topo de qualquer tela exportam as tabelas visíveis.
+
+---
+
+## Telas da aplicação
+
+| Menu | Rota | Resumo |
+|---|---|---|
+| 🏠 Resumo | `/` | Patrimônio, lucros, TIR, proventos/YoC 12m, TWR × referências, maiores altas e baixas do dia |
+| 💼 Portfólio | `/portfolio` | Posições, agrupamentos com subtotais e gráficos de exposição |
+| 📈 Rentabilidade | `/dashboard` | TWR acumulado, evolução patrimonial, resultado mensal e mapa de calor |
+| 💰 Proventos | `/proventos` | Lançamentos e matrizes ano × mês e ativo × mês |
+| 🤝 Aluguel (BTC) | `/aluguel` | Remuneração por ativo e mês; importação do extrato |
+| 🔁 Operações | `/operacoes` | Compras, vendas, day trade e eventos societários |
+| 🏦 Caixa | `/caixa` | Aportes, saques e saldo por corretora e moeda |
+| ⚖️ Alocação | `/alocacao` | Alvo × atual e simulador de aporte |
+| 📡 Radar | `/radar` | Watchlist com fundamentos e indicadores de preço |
+| 🪙 Cripto | `/cripto` | Catálogo CoinGecko, preços, histórico e monitor de vendas |
+| 🔎 Status do ativo | `/status` | Drill-down por ativo, carteira ou book |
+| 🧾 Imposto de Renda | `/ir` | Apuração mensal, DARFs, exterior e DIRPF |
+| 🧮 Valuation | `/valuation` | Sete modelos de preço justo com premissas editáveis |
+| ⚙️ Configurações | `/configuracoes` | Investidores, estratégias, carteiras, ativos, parâmetros, IR, atualizações e backup |
+
+---
+
+## Funcionalidades
 
 | Área | O que faz |
 |---|---|
@@ -58,17 +203,18 @@ O **InvestHub+** substitui planilhas de controle de investimentos (Google Sheets
 | **Backup** | Backup automático diário (mantém os 10 mais recentes) e manual em `%LOCALAPPDATA%\InvestHub\backups`; download e restauração validada (cópia do banco atual antes de restaurar e migração automática de backups antigos). |
 | **Cripto** | Busca no catálogo CoinGecko, vínculo por identificador canônico, preços USD/BRL, variações 24h/7d/30d, capitalização, histórico e posições. CoinGecko principal; Kraken como fallback somente de preço para moedas com vínculo verificado. Monitor mensal de vendas/ganhos por investidor, sem calcular imposto ou DARF. |
 
-#### Cripto: fontes e limites
+### Cripto: fontes e limites
 
 - Adicione uma moeda em **Cripto**, ou vincule um ativo `CRIPTO` existente ao ID CoinGecko. Símbolos repetidos não são tratados como a mesma moeda.
 - Novos ativos usam USD; o vínculo de ativos existentes preserva moeda e operações. Registre compras/vendas em **Operações**, com o câmbio da data.
 - **Atualizar cripto** e o job próprio atualizam somente ativos cadastrados com cotação automática, inclusive nos fins de semana. Snapshots são persistidos; a tela informa data/fonte e sinaliza dados com mais de duas horas.
 - Busca: cache de cinco minutos; gráfico USD: até 90 dias, cache de 15 minutos. Falhas de rede/rate limit são informadas; não é gerado histórico fictício. No fallback Kraken, capitalização e variações ficam indisponíveis. Moedas sem vínculo Kraken verificado não usam ticker como aproximação.
+- **Histórico para a Rentabilidade:** os fechamentos diários das criptos com operação vêm do Yahoo Finance (`BTC-USD` etc.; `NANO` → `XNO-USD`, `SUI` → `SUI20947-USD`) junto com o histórico complementar — completo em **Configurações → Atualizações**, últimos 45 dias na rotina diária. Antes do lançamento de cada moeda não há preço, e o mês usa o custo.
 - Valores monetários persistidos têm oito casas decimais; preços que arredondariam a zero não são gravados. Capitalização usa precisão ampliada.
 - O monitor soma vendas brutas de todas as criptos **por investidor**, incluindo taxas no cálculo dos ganhos/perdas e custo histórico anterior ao ano. O limite de R$ 35 mil é apenas referência: **não confirma isenção**, não classifica custódia/regime fiscal e não altera P10. A apuração existente de exterior permanece independente; consulte orientação fiscal.
 - Execute `python -m alembic upgrade head` antes de iniciar a versão com cripto.
 
-#### Extrato da B3: o que é importado
+### Extrato da B3: o que é importado
 
 - **Negociação** → compras e vendas (mercado à vista, fracionário — o sufixo `F` é removido — e opções). Compra e venda do mesmo ativo no dia com quantidades iguais é marcada como day trade; quantidades diferentes ficam como *Verificar*. Termo, futuro e exercício de opções não são importados.
 - **Movimentação** → dividendos, JCP (valor líquido creditado), rendimentos, amortizações (reduzem o custo) e desdobramentos. Liquidações, aluguel (BTC), Tesouro Direto e eventos que exigem dados ausentes no relatório (grupamento, bonificação, incorporação, subscrição, frações) aparecem como *Não importado*, com o motivo.
@@ -77,10 +223,6 @@ O **InvestHub+** substitui planilhas de controle de investimentos (Google Sheets
 - Duplicidade: a soma diária por ativo e evento é comparada com o que já existe (planilha, digitação ou importação anterior); igual = *Já existe*, diferente = *Verificar* (importa só se marcado). Reimportar o mesmo arquivo não duplica.
 - Ativos e corretoras ausentes são cadastrados; a classe é deduzida do ticker/nome do produto — confira em Configurações.
 
-### Em desenvolvimento
-
-Opcionais da Fase 6 (autenticação para uso em rede, relatório diário por e-mail, PWA). Veja o [plano de desenvolvimento](PLANO_DESENVOLVIMENTO.md).
-
 ---
 
 ## Arquitetura
@@ -88,20 +230,23 @@ Opcionais da Fase 6 (autenticação para uso em rede, relatório diário por e-m
 ```mermaid
 flowchart LR
     UI[React + TypeScript<br/>Vite] -->|REST / JSON| API[FastAPI]
-    API --> SVC[Serviços de cálculo<br/>posição · PM · lucro · TWR · TIR]
-    SVC --> DB[(SQLite local)]
-    API --> PROV[Provedores de cotação]
+    API --> SVC[Serviços de cálculo<br/>posição · PM · lucro · TWR · TIR · IR]
+    SVC --> DB[(SQLite local<br/>ou PostgreSQL)]
+    API --> PROV[Provedores de dados]
     JOB[Jobs agendados<br/>APScheduler] --> PROV
+    JOB --> BKP[Backup diário]
     PROV -.-> YF[Yahoo Finance]
-    PROV -.-> BCB[BCB PTAX]
-    PROV -.-> B3[B3 COTAHIST]
-    PROV -.-> GS[Google Sheets ponte<br/>planejado]
+    PROV -.-> BCB[Banco Central<br/>PTAX · SGS]
+    PROV -.-> B3[B3<br/>COTAHIST · índices]
+    PROV -.-> FUN[Fundamentus]
+    PROV -.-> CG[CoinGecko · Kraken]
 ```
 
 - **Uma única porta:** o FastAPI serve a API em `/api` e a interface compilada em `/`.
 - **Execução local:** escuta apenas em `127.0.0.1`; não há dependência de nuvem.
 - **Cálculos puros:** regras de negócio isoladas em funções sem I/O, cobertas por testes.
 - **Provedores plugáveis:** cada fonte de cotação implementa a mesma interface e é consultada em ordem de prioridade com fallback.
+- **Migrações versionadas:** o esquema do banco evolui com Alembic, aplicado automaticamente pelo `iniciar.bat`.
 
 ---
 
@@ -110,10 +255,10 @@ flowchart LR
 | Camada | Stack |
 |---|---|
 | Backend | Python 3.12+, FastAPI, SQLAlchemy 2, Alembic, Pydantic 2 |
-| Dados | SQLite, pandas, openpyxl |
-| Cotações | yfinance, httpx (BCB PTAX/SGS, B3 COTAHIST e índices), APScheduler |
+| Dados | SQLite (padrão) ou PostgreSQL, pandas, openpyxl |
+| Cotações | yfinance, httpx (BCB PTAX/SGS, B3 COTAHIST e índices, Fundamentus, CoinGecko/Kraken), APScheduler |
 | Frontend | React 18, TypeScript, Vite, React Router, TanStack Query |
-| Testes | pytest |
+| Qualidade | pytest, ruff, `tsc` |
 
 ---
 
@@ -176,6 +321,15 @@ Sobe a API com *reload* em `:8000` e o Vite com *hot reload* em `http://127.0.0.
 
 No terminal em que a API está rodando, pressione `Ctrl+C` (parada normal). Como alternativa, execute `parar.bat`: ele localiza processos que executam `uvicorn app.main:app`, independentemente da porta, e pede confirmação antes de encerrar cada processo à força. Se houver mais de um processo Uvicorn com esse mesmo alvo, confira o PID antes de confirmar. O terminal aberto pelo `dev.bat` pode continuar aberto depois que a API parar.
 
+### Atualizar para uma nova versão
+
+```bat
+git pull
+iniciar.bat
+```
+
+O `iniciar.bat` reinstala dependências novas, aplica as migrações pendentes e recompila a interface. Recomenda-se gerar um backup manual em **Configurações → Backup** antes de atualizar.
+
 ### Configuração
 
 Copie `.env.example` para `.env` se quiser alterar o padrão:
@@ -217,12 +371,12 @@ O app funciona com dois tipos de banco. **Você não precisa mudar nada para com
 1. **Crie o banco.** Acesse [neon.tech](https://neon.tech), clique em *Sign up* e entre com sua conta Google ou GitHub. Crie um projeto (qualquer nome; em *Region*, escolha a mais próxima, ex.: *São Paulo* ou *US East*).
 2. **Copie o endereço de conexão.** No painel do projeto, clique em **Connect**. Aparece um endereço parecido com:
    ```text
-   postgresql://usuario:senha@ep-exemplo-123.sa-east-1.aws.neon.tech/neondb?sslmode=require
+   ******ep-exemplo-123.sa-east-1.aws.neon.tech/neondb?sslmode=require
    ```
    Clique no botão de copiar. **Esse endereço contém sua senha: não compartilhe nem publique.**
 3. **Crie o arquivo `.env`.** Na pasta principal do projeto (a mesma do `iniciar.bat`), crie um arquivo chamado `.env` (ou abra o existente) no Bloco de Notas e adicione a linha abaixo, colando o endereço copiado depois do `=`:
    ```text
-   INVESTHUB_DATABASE_URL=postgresql://usuario:senha@ep-exemplo-123.sa-east-1.aws.neon.tech/neondb?sslmode=require
+   INVESTHUB_DATABASE_URL=******ep-exemplo-123.sa-east-1.aws.neon.tech/neondb?sslmode=require
    ```
    Ao salvar no Bloco de Notas, escolha *Tipo: Todos os arquivos* para não virar `.env.txt`.
 4. **Instale o componente do PostgreSQL (só uma vez).** Se o app já estava instalado antes desta versão, abra o PowerShell na pasta principal do projeto e rode:
@@ -253,7 +407,7 @@ Abra o `.env` e apague a linha `INVESTHUB_DATABASE_URL` (ou coloque `#` no iníc
 
 ## Importando a planilha
 
-O importador lê a planilha de controle (`.xlsx` exportado do Google Sheets, layout com as abas `op.normal`, `op.daytrade`, `proventos`, `caixa`, `ativos.`, `index.`, `dados.`, `Página117` (aluguel/BTC), `darfs.` e `config.parâmetros`):
+O importador lê a planilha de controle (`.xlsx` exportado do Google Sheets, layout com as abas `op.normal`, `op.daytrade`, `proventos`, `caixa`, `ativos.`, `index.`, `dados.`, `Página117` (aluguel/BTC), `darfs.`, `config.parâmetros` e `Histórico de rendimentos` (criptos)):
 
 ```powershell
 cd backend
@@ -263,17 +417,21 @@ cd backend
 
 # Gravação definitiva
 ..\.venv\Scripts\python.exe -m scripts.importar_planilha "C:\caminho\planilha.xlsx" --investidor "Nome"
+
+# Só as criptos, com a data da posição de abertura
+..\.venv\Scripts\python.exe -m scripts.importar_planilha "C:\caminho\planilha.xlsx" --investidor "Nome" --somente-cripto --data-cripto 2017-10-30
 ```
 
 - **Idempotente:** cada linha recebe um hash; reimportar não duplica lançamentos.
 - **Aluguel (BTC):** crédito da remuneração, IRRF e taxa de intermediação do extrato viram um provento "Aluguel de ações" por data e ativo.
 - **IR:** DARFs pagos (competência = mês anterior ao pagamento), regras de DARF e prejuízo transportado de `config.parâmetros` — parâmetros já ajustados no app não são sobrescritos.
+- **Criptos:** o quadro de `Histórico de rendimentos` (ticker em J, preço em USD em K, quantidade em L, cotação USD/BRL logo acima) vira uma compra de abertura por cripto na data de `--data-cripto` (padrão: hoje), já vinculada ao CoinGecko. A planilha não tem custo de compra: o preço da coluna K é usado como custo — revise o preço médio no app. Reimportar não altera aberturas já lançadas.
 - **Conciliação:** ao final, compara quantidade e preço médio de cada ativo com a aba `dados.` e lista divergências.
 - **Multi-investidor:** rode uma vez por planilha/investidor usando `--investidor`.
 
 ### Histórico de cotações da B3
 
-Depois de importar, carregue o histórico oficial (um arquivo COTAHIST por ano, desde a primeira operação) em **Configurações → Atualizações → Carregar histórico** ou pela linha de comando:
+Depois de importar, o app carrega sozinho o histórico oficial (um arquivo COTAHIST por ano, desde a primeira operação) e o complementar (exterior, criptos, PTAX e índices) na próxima inicialização, se ainda não houver histórico da B3. Também é possível carregá-lo em **Rentabilidade → Carregar histórico de cotações**, em **Configurações → Atualizações → Carregar histórico** ou pela linha de comando:
 
 ```powershell
 cd backend
@@ -314,9 +472,9 @@ Compara mês a mês as vendas e o lucro por categoria e o DARF com a aba `apura�
 .
 ├── backend/
 │   ├── app/
-│   │   ├── api/            # Rotas REST (cadastros, ativos, lançamentos, carteira, atualizações, configurações, alocação, IR)
-│   │   ├── providers/      # Provedores de cotação (Yahoo, BCB PTAX)
-│   │   ├── services/       # Regras de negócio (posição, carteira, cotações, COTAHIST, rentabilidade, alocação, caixa, renda fixa, IR, DIRPF, jobs)
+│   │   ├── api/            # Rotas REST (cadastros, lançamentos, carteira, rentabilidade, alocação, IR, radar, cripto, valuation, extratos, exportação, backup)
+│   │   ├── providers/      # Fontes de dados (Yahoo, BCB PTAX/SGS, índices B3, Fundamentus, CoinGecko/Kraken)
+│   │   ├── services/       # Regras de negócio (posição, carteira, cotações, COTAHIST, rentabilidade, alocação, caixa, renda fixa, IR, DIRPF, extratos, backup, jobs)
 │   │   ├── config.py       # Configurações via variáveis de ambiente
 │   │   ├── db.py           # Engine e sessão SQLAlchemy
 │   │   ├── dominio.py      # Vocabulário de eventos e moedas
@@ -328,11 +486,13 @@ Compara mês a mês as vendas e o lucro por categoria e o DARF com a aba `apura�
 │   └── tests/              # Testes automatizados
 ├── frontend/
 │   └── src/
-│       ├── components/     # Layout, seletor, listas, formulários, exposição; config/ = abas de Configurações
-│       └── pages/          # Resumo, Portfólio, Rentabilidade, Operações, Proventos, Caixa, Alocação, Imposto de Renda, Configurações
+│       ├── components/     # Layout, formulários, gráficos, importação, exportação e abas de Configurações
+│       └── pages/          # Resumo, Portfólio, Rentabilidade, Proventos, Aluguel, Operações, Caixa, Alocação, Radar, Cripto, Status, IR, Valuation, Configurações
 ├── iniciar.bat             # Execução local
 ├── dev.bat                 # Modo desenvolvimento
+├── parar.bat               # Encerra o backend
 ├── lint.bat                # Verificações antes do commit (ruff, pytest, tsc)
+├── CHANGELOG.md            # Histórico de versões
 └── PLANO_DESENVOLVIMENTO.md
 ```
 
@@ -354,6 +514,12 @@ Custo, preço médio e lucro são apurados **em BRL**, convertendo cada moviment
 | Day trade | Não altera a posição; lucro apurado separadamente |
 
 Posições são calculadas **por investidor e ativo**; a visão consolidada soma quantidades e custos e recalcula o PM ponderado.
+
+### Rentabilidade
+
+- **TWR (Time-Weighted Return)** mensal: isola o efeito de aportes e saques, medindo o desempenho da carteira em si; é comparado a IBOV, IFIX, CDI e IPCA.
+- **TIR/XIRR**: retorno do dinheiro efetivamente investido, considerando datas e valores de cada aporte, resgate e provento.
+- O valor de mercado de meses passados usa o fechamento histórico (COTAHIST, Yahoo para o exterior) e a PTAX do fim de cada mês.
 
 ### Alocação
 
@@ -382,7 +548,7 @@ Estimativa por CPF; confira no e-CAC/GCAP antes de recolher. Alíquotas e isenç
 | Exterior | Até 2023: ganho de capital mensal (isento com vendas ≤ R$ 35 mil no mês); dividendos só informativos (carnê-leão). Desde 2024 (Lei 14.754/2023): lucros e dividendos no ano a 15%, com compensação de prejuízo e crédito do imposto pago no exterior limitado ao imposto sobre os dividendos. |
 | DIRPF | Bens e direitos pelo custo em 31/12 dos dois anos, dividendos (código 09), rendimentos de FII, JCP e aluguel de ações (BTC) líquidos, lucro isento de ações, prejuízo e IRRF a transportar. O grupo/código dos bens deve ser escolhido no programa da Receita. |
 
-Fora da apuração (avisado na tela): renda fixa, caixa, cripto (Fase 5) e classes sem regra.
+Fora da apuração (avisado na tela): renda fixa, caixa, cripto (há apenas o monitor de vendas em **Cripto**) e classes sem regra.
 
 ---
 
@@ -396,6 +562,7 @@ Principais recursos:
 
 | Método | Rota | Descrição |
 |---|---|---|
+| `GET` | `/api/saude` | Status e versão da aplicação |
 | `GET` | `/api/posicoes?investidores=1,2&agrupar=ativo` | Carteira consolidada ou por investidor |
 | `POST` | `/api/cotacoes/atualizar` | Atualiza cotações e câmbio agora |
 | `GET/POST/PUT/DELETE` | `/api/operacoes` | Operações (paginadas e filtráveis) |
@@ -412,16 +579,27 @@ Principais recursos:
 | `GET` | `/api/rentabilidade/mensal?inicio=&fim=` | Série mensal: investido, mercado, fluxo, lucro, TWR e referências |
 | `GET` | `/api/rentabilidade/resumo` | Patrimônio, TIR, proventos 12m, YoC e TWR por janela |
 | `GET` | `/api/proventos/matriz?ano=` | Proventos líquidos ano × mês (ou ativo × mês de um ano) |
+| `GET` · `POST` | `/api/aluguel` · `/api/aluguel/extrato/previa` · `/api/aluguel/extrato/importar` | Resumo do aluguel (BTC) e importação do extrato |
+| `POST` | `/api/extratos/b3/previa` · `/api/extratos/b3/importar` | Prévia e importação dos relatórios da B3 |
+| `GET/POST/DELETE` | `/api/radar` | Watchlist do Radar |
+| `GET` | `/api/fundamentos` | Fundamentos (Fundamentus) |
+| `GET` | `/api/status` | Status do ativo, carteira ou book |
+| `GET` · `PUT` | `/api/valuation/{ativo_id}` · `/api/valuation/{ativo_id}/premissas` | Valuation e premissas salvas |
+| `GET` · `POST` | `/api/cripto` · `/api/cripto/catalogo` · `/api/cripto/monitor` · `/api/cripto/atualizar` | Painel, catálogo, monitor e atualização de cripto |
 | `GET` | `/api/ir/apuracao?investidor=1&ano=` | Apuração mensal de IR (DARF 6015) e exterior |
 | `GET/POST/PUT/DELETE` | `/api/ir/darfs` · `/api/ir/regras` | DARFs pagos; regras fiscais com vigência |
 | `GET` · `PUT` | `/api/ir/prejuizos-iniciais?investidor=1` | Prejuízo trazido de antes do primeiro ano apurado |
 | `GET` | `/api/ir/dirpf?investidor=1&ano=` · `/api/ir/dirpf.csv` | Relatório de apoio à DIRPF (JSON ou CSV) |
+| `POST` | `/api/exportacao/{formato}` | Gera CSV ou XLSX das tabelas enviadas |
+| `GET/POST/DELETE` | `/api/backups` · `/api/backups/{nome}/restaurar` | Lista, cria, baixa, exclui e restaura backups |
 | `GET/POST/PUT/DELETE` | `/api/investidores` | Investidores |
 | `GET/POST/PUT/DELETE` | `/api/ativos` | Cadastro de ativos |
 
+A lista completa, com esquemas de entrada e saída, está no Swagger (`/docs`).
+
 ---
 
-## Testes
+## Testes e qualidade
 
 ```powershell
 cd backend
@@ -430,7 +608,62 @@ cd backend
 
 Antes de commitar, rode `lint.bat` na raiz: lint do backend (ruff, regras em `backend/ruff.toml`), testes e checagem de tipos do frontend (`npm run lint`).
 
-Os testes cobrem preço médio, venda, eventos societários, câmbio, day trade e consolidação entre investidores (com casos derivados de valores reais da planilha), além da leitura do COTAHIST, da escolha da PTAX, dos índices, do TWR (linhas reais da aba `dashboard.`), do XIRR, da alocação/simulador, da renda fixa automática, da apuração de IR (isenção, compensação por grupo, IRRF, DARF mínimo, vigência das regras, exterior) e das APIs de lançamentos, caixa, configurações, rentabilidade e IR (banco em memória).
+Os testes cobrem preço médio, venda, eventos societários, câmbio, day trade e consolidação entre investidores (com casos derivados de valores reais da planilha), além da leitura do COTAHIST, da escolha da PTAX, dos índices, do TWR (linhas reais da aba `dashboard.`), do XIRR, da alocação/simulador, da renda fixa automática, da apuração de IR (isenção, compensação por grupo, IRRF, DARF mínimo, vigência das regras, exterior), do radar, fundamentos, valuation, cripto, aluguel, extratos da B3, exportação, backup e migrações, e das APIs de lançamentos, caixa, configurações, rentabilidade e IR (banco em memória).
+
+---
+
+## Perguntas frequentes
+
+<details>
+<summary><b>Preciso de internet para usar?</b></summary>
+
+Só para buscar cotações, índices, PTAX, fundamentos e cripto. Os cadastros, lançamentos e cálculos funcionam offline com os últimos dados salvos.
+</details>
+
+<details>
+<summary><b>A Rentabilidade mostra "Mercado" igual a "Investido" nos meses passados.</b></summary>
+
+Falta o histórico de cotações. Use o aviso **Carregar histórico de cotações** em *Rentabilidade* ou **Configurações → Atualizações**. O app também tenta carregá-lo automaticamente na inicialização.
+</details>
+
+<details>
+<summary><b>Importei o mesmo extrato duas vezes. Duplicou?</b></summary>
+
+Não. Planilha e extratos são idempotentes: linhas já existentes aparecem como *Já existe* e não são regravadas; somas diferentes aparecem como *Verificar* e só entram se você marcar.
+</details>
+
+<details>
+<summary><b>O DARF calculado pode ser pago direto?</b></summary>
+
+O cálculo segue as regras públicas da Receita Federal, mas é uma **estimativa**: confira no e-CAC/GCAP ou com um contador antes de recolher.
+</details>
+
+<details>
+<summary><b>Posso usar em mais de um computador?</b></summary>
+
+Sim, trocando o banco para PostgreSQL (veja [Banco de dados](#banco-de-dados-sqlite-ou-postgresql)). Com SQLite, os dados ficam no computador local — não coloque o arquivo `.db` em pasta sincronizada.
+</details>
+
+<details>
+<summary><b>Onde ficam os backups e como restauro?</b></summary>
+
+Em `%LOCALAPPDATA%\InvestHub\backups`. Restaure em **Configurações → Backup**: o app copia o banco atual antes e migra backups antigos para o esquema atual.
+</details>
+
+<details>
+<summary><b>A porta 8000 já está em uso.</b></summary>
+
+Provavelmente há outra instância rodando. Feche-a com `Ctrl+C` no terminal dela ou rode `parar.bat`.
+</details>
+
+---
+
+## Versionamento e contribuição
+
+- **Versão:** `MAJOR.MINOR.CORREÇÃO`, com fonte única em `backend/app/__init__.py`; exibida no menu lateral e em `/api/saude`. As mudanças de cada versão estão no [CHANGELOG](CHANGELOG.md).
+- **Branches:** o trabalho é feito em `feature/*`, `fix/*`, `refactor/*` ou `docs/*`, integrado em `homolog` e, após validação, em `main`.
+- **Commits:** padrão [Conventional Commits](https://www.conventionalcommits.org/pt-br/v1.0.0/) em português (ex.: `feat(extratos): importa o relatório Proventos recebidos da B3`).
+- **Antes do commit:** rode `lint.bat` (ruff, pytest e checagem de tipos) e, ao mudar o banco, crie uma migração Alembic.
 
 ---
 
@@ -443,16 +676,16 @@ Os testes cobrem preço médio, venda, eventos societários, câmbio, day trade 
 | 2 | Rentabilidade (TWR, TIR) e página de resumo | ✅ Concluída |
 | 3 | Configurações, alocação e rebalanceamento, caixa | ✅ Concluída |
 | 4 | Imposto de renda: apuração mensal, DARF, DIRPF | ✅ Concluída |
-| 5 | Radar, criptomoedas, status do ativo, valuation | ⏳ |
-| 6 | Importação de extratos da B3, exportações e backup | ⏳ |
+| 5 | Radar, criptomoedas, status do ativo, valuation | ✅ Concluída |
+| 6 | Importação de extratos da B3, exportações e backup | ✅ Concluída — **v1.0.0** |
 
-Detalhes em [PLANO_DESENVOLVIMENTO.md](PLANO_DESENVOLVIMENTO.md).
+**Próximos passos (opcionais):** autenticação para uso em rede, relatório diário por e-mail e PWA. Detalhes em [PLANO_DESENVOLVIMENTO.md](PLANO_DESENVOLVIMENTO.md).
 
 ---
 
 ## Privacidade e segurança
 
-- Todos os dados ficam **no seu computador**; nada é enviado a servidores próprios.
+- Todos os dados ficam **no seu computador** (ou no PostgreSQL que você escolher); nada é enviado a servidores próprios.
 - As únicas chamadas externas são consultas públicas de cotação (tickers e moedas).
 - A API escuta apenas em `127.0.0.1`.
 - CPF é exibido sempre mascarado na interface.
@@ -466,4 +699,8 @@ Este projeto é uma ferramenta pessoal de organização financeira e **não cons
 
 ---
 
+<div align="center">
+
 Desenvolvido por **Cristiano Mota** · [@Cristianosm91](https://github.com/Cristianosm91)
+
+</div>

@@ -6,14 +6,14 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 import httpx
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from ..db import insert_upsert
 from ..models import Ativo, CotacaoMoeda, IndiceMensal, Operacao
 from ..providers import indices as fontes
 from ..providers.base import AtivoRef
-from ..providers.yahoo import ProvedorYahoo
+from ..providers.yahoo import MERCADO_CRIPTO, ProvedorYahoo
 from . import cotahist, renda_fixa
 
 log = logging.getLogger(__name__)
@@ -101,13 +101,12 @@ def carregar_ptax_historica(sessao: Session, desde: date | None = None) -> Resul
 
 
 def carregar_historico_exterior(sessao: Session, desde: date | None = None) -> ResultadoHistorico:
-    """Fechamentos diários do Yahoo para ativos negociados fora da B3 que já tiveram operação."""
+    """Fechamentos diários do Yahoo para ativos fora da B3 e criptos que já tiveram operação."""
     inicio = desde or _primeira_data(sessao)
     ativos = list(
         sessao.scalars(
             select(Ativo).where(
-                Ativo.mercado.is_not(None),
-                Ativo.mercado != "BVMF",
+                or_(and_(Ativo.mercado.is_not(None), Ativo.mercado != "BVMF"), Ativo.classe == "CRIPTO"),
                 Ativo.id.in_(select(Operacao.ativo_id).distinct()),
             )
         )
@@ -115,7 +114,10 @@ def carregar_historico_exterior(sessao: Session, desde: date | None = None) -> R
     resultado = ResultadoHistorico()
     if not ativos:
         return resultado
-    historico = ProvedorYahoo().historico([AtivoRef(a.ticker, a.mercado, a.moeda) for a in ativos], inicio)
+    referencias = [
+        AtivoRef(a.ticker, MERCADO_CRIPTO if a.classe == "CRIPTO" else a.mercado, a.moeda) for a in ativos
+    ]
+    historico = ProvedorYahoo().historico(referencias, inicio)
     ids = {a.ticker: a.id for a in ativos}
     fechamentos = [
         cotahist.Fechamento(ticker, dia, preco, Decimal(0))

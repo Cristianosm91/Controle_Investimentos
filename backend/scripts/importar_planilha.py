@@ -74,6 +74,19 @@ PARAMETROS_DARF = {
 # Colunas do quadro "Transportar o prejuízo" (config.parâmetros) → grupo de compensação.
 PREJUIZO_COLUNAS = {7: "COMUM", 8: "DAYTRADE", 9: "FII"}
 
+# "Histórico de rendimentos": quadro de criptos com ticker (J), preço em USD (K) e quantidade (L).
+COLUNA_CRIPTO = 10  # J
+ULTIMA_LINHA_CRIPTO = 400
+
+# Ticker → ID CoinGecko (o ticker sozinho é ambíguo no CoinGecko). Os demais ficam sem ID e são
+# vinculados pela tela Cripto.
+COINGECKO_IDS = {
+    "BTC": "bitcoin", "ETH": "ethereum", "ADA": "cardano", "BNB": "binancecoin", "XRP": "ripple",
+    "LTC": "litecoin", "BCH": "bitcoin-cash", "DOGE": "dogecoin", "LINK": "chainlink", "DASH": "dash",
+    "BAT": "basic-attention-token", "NANO": "nano", "SOL": "solana", "TRX": "tron", "SUI": "sui",
+    "ZEC": "zcash", "HBAR": "hedera-hashgraph", "SHIB": "shiba-inu", "USDC": "usd-coin",
+}
+
 
 # ---------- conversões ----------
 
@@ -371,6 +384,58 @@ class Importador:
             if decimal(col(l, 10)):
                 self.avisos.append("config.parâmetros: 'darf saldo' transportado não tem equivalente — lance como DARF a pagar")
 
+    def importar_cripto(self, wb, abertura: date) -> None:
+        """Histórico de rendimentos (J:L): posição de abertura de cada cripto pelo preço da planilha.
+
+        A planilha não guarda custo nem data de compra: o preço médio deve ser revisado depois no app.
+        Uma única abertura por ticker — reimportar não duplica nem altera posições já lançadas.
+        """
+        aba = next((n for n in wb.sheetnames if sem_acento(n).startswith("HISTORICO DE RENDIMENTOS")), None)
+        if aba is None:
+            return
+        cambio = None
+        no_quadro = False
+        usados = {a.coingecko_id for a in self.ativos.values() if a.coingecko_id}
+        linhas_aba = wb[aba].iter_rows(
+            min_row=1, max_row=ULTIMA_LINHA_CRIPTO, min_col=COLUNA_CRIPTO, max_col=COLUNA_CRIPTO + 2, values_only=True,
+        )
+        for n, (ticker, preco, qtd) in enumerate(linhas_aba, start=1):
+            numericos = all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in (preco, qtd))
+            if not (isinstance(ticker, str) and ticker.strip() and numericos):
+                if no_quadro:
+                    break
+                if isinstance(ticker, (int, float)) and not isinstance(ticker, bool) and 1 < ticker < 20:
+                    cambio = decimal(ticker)  # cotação USD/BRL logo acima do quadro
+                continue
+            no_quadro = True
+            ticker, preco, qtd = ticker.strip().upper(), decimal(preco), decimal(qtd)
+            if qtd <= 0 or preco <= 0:
+                continue
+            if cambio is None:
+                self.avisos.append(f"{aba}: cotação USD/BRL não encontrada acima do quadro de criptos — ignorado")
+                return
+            existente = self.ativos.get(ticker)
+            if existente is not None and existente.classe != "CRIPTO":
+                self.avisos.append(f"{aba} linha {n}: {ticker} já cadastrado como {existente.classe} — ignorado")
+                continue
+            hash_ = self._hash("cripto-abertura", ticker)
+            if not self._novo(Operacao, hash_):
+                continue
+            ativo = self.ativo(ticker, classe="CRIPTO", moeda="USD")
+            ativo.mercado, ativo.cotacao_automatica = None, True
+            if ativo.coingecko_id is None and COINGECKO_IDS.get(ticker) not in (None, *usados):
+                ativo.coingecko_id = COINGECKO_IDS[ticker]
+                usados.add(ativo.coingecko_id)
+            if ativo.coingecko_id is None:
+                self.avisos.append(f"{ticker}: sem ID CoinGecko — vincule na tela Cripto para ter cotação")
+            self.sessao.add(Operacao(
+                investidor=self.investidor, ativo=ativo, data=abertura, evento="C", quantidade=qtd, preco=preco,
+                taxas=Decimal(0), irrf=Decimal(0), moeda="USD", cambio=cambio, daytrade=False,
+                observacao="Posição de abertura (planilha sem custo de compra): revise o preço médio",
+                origem=ORIGEM, hash_origem=hash_,
+            ))
+            self.estatisticas["criptos importadas"] += 1
+
 
 # ---------- conciliação ----------
 
@@ -407,6 +472,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("arquivo", type=Path, help="Caminho do .xlsx")
     parser.add_argument("--investidor", required=True, help="Nome do investidor dono dos lançamentos")
     parser.add_argument("--simular", action="store_true", help="Executa e concilia sem gravar")
+    parser.add_argument(
+        "--data-cripto", type=date.fromisoformat, default=date.today(),
+        help="Data (AAAA-MM-DD) da posição de abertura das criptos; padrão: hoje",
+    )
+    parser.add_argument(
+        "--somente-cripto", action="store_true",
+        help="Importa só as criptos (Histórico de rendimentos), sem reprocessar as demais abas",
+    )
     args = parser.parse_args(argv)
 
     if not args.arquivo.is_file():
@@ -425,15 +498,17 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Investidor '{args.investidor}' criado (id {investidor.id})")
 
         imp = Importador(sessao, investidor)
-        imp.importar_cadastro_ativos(wb)
-        imp.importar_operacoes(wb, "op.normal", daytrade=False)
-        imp.importar_operacoes(wb, "op.daytrade", daytrade=True)
-        imp.importar_proventos(wb)
-        imp.importar_caixa(wb)
-        imp.importar_indices(wb)
-        imp.importar_aluguel(wb)
-        imp.importar_darfs(wb)
-        imp.importar_parametros_ir(wb)
+        if not args.somente_cripto:
+            imp.importar_cadastro_ativos(wb)
+            imp.importar_operacoes(wb, "op.normal", daytrade=False)
+            imp.importar_operacoes(wb, "op.daytrade", daytrade=True)
+            imp.importar_proventos(wb)
+            imp.importar_caixa(wb)
+            imp.importar_indices(wb)
+            imp.importar_aluguel(wb)
+            imp.importar_darfs(wb)
+            imp.importar_parametros_ir(wb)
+        imp.importar_cripto(wb, args.data_cripto)
         sessao.flush()
 
         print("\nResumo:")
@@ -442,12 +517,12 @@ def main(argv: list[str] | None = None) -> int:
         for aviso in imp.avisos:
             print(f"  AVISO: {aviso}")
 
-        divergencias = conciliar(sessao, wb, investidor)
+        divergencias = [] if args.somente_cripto else conciliar(sessao, wb, investidor)
         if divergencias:
             print(f"{len(divergencias)} divergência(s):")
             for d in divergencias:
                 print("  " + d)
-        else:
+        elif not args.somente_cripto:
             print("Sem divergências de quantidade/preço médio.")
 
         if args.simular:

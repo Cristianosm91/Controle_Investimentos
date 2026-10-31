@@ -19,7 +19,8 @@ if errorlevel 1 call :compilar || goto :erro
 
 pushd backend
 "..\.venv\Scripts\python.exe" -m alembic upgrade head || goto :erro
-start "" http://127.0.0.1:8000
+rem Abre o navegador so quando a API responder (o Uvicorn leva alguns segundos para subir).
+start "" /b powershell -NoProfile -Command "$u = 'http://127.0.0.1:8000'; for ($i = 0; $i -lt 120; $i++) { try { Invoke-WebRequest ($u + '/api/saude') -UseBasicParsing -TimeoutSec 2 | Out-Null; break } catch { Start-Sleep -Milliseconds 500 } }; Start-Process $u"
 "..\.venv\Scripts\python.exe" -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 popd
 exit /b 0

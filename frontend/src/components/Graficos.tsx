@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type MouseEvent } from "react";
-import { mesAno } from "../formato";
+import { mesAno, moeda, moedaCompacta } from "../formato";
+import { Dica, useDica } from "./Dica";
 
 export interface SerieGrafico {
   nome: string;
@@ -9,6 +10,9 @@ export interface SerieGrafico {
 }
 
 const LARGURA_INICIAL = 800;
+
+/** Na dica, o valor exato; o formato compacto é só para caber no eixo. */
+const formatoDica = (formatar: (v: number) => string) => (formatar === moedaCompacta ? (v: number) => moeda(v) : formatar);
 const MARGEM = { topo: 12, direita: 30, base: 26, esquerda: 70 };
 
 function useLarguraGrafico(ativo: boolean) {
@@ -85,6 +89,7 @@ interface PropsLinhas {
 
 export function GraficoLinhas({ datas, series, formatar, altura = 210, zero = false }: PropsLinhas) {
   const [foco, setFoco] = useState<number | null>(null);
+  const dica = useDica();
   const todos = series.flatMap((s) => s.valores.filter((v): v is number => v !== null));
   const { ref, largura } = useLarguraGrafico(Boolean(datas.length && todos.length));
   if (!datas.length || !todos.length) return <p className="sutil">Sem dados para o período.</p>;
@@ -114,11 +119,16 @@ export function GraficoLinhas({ datas, series, formatar, altura = 210, zero = fa
     const px = ((e.clientX - caixa.left) / caixa.width) * largura;
     const i = Math.round(((px - MARGEM.esquerda) / w) * (datas.length - 1));
     setFoco(Math.min(datas.length - 1, Math.max(0, i)));
+    dica.mover(e);
+  };
+  const sair = () => {
+    setFoco(null);
+    dica.esconder();
   };
 
   return (
     <div className="grafico" ref={ref}>
-      <svg viewBox={`0 0 ${largura} ${altura}`} onMouseMove={mover} onMouseLeave={() => setFoco(null)} role="img">
+      <svg viewBox={`0 0 ${largura} ${altura}`} onMouseMove={mover} onMouseLeave={sair} role="img">
         {marcas.map((v) => (
           <g key={v}>
             <line x1={MARGEM.esquerda} x2={largura - MARGEM.direita} y1={y(v)} y2={y(v)} className="grade" />
@@ -165,6 +175,18 @@ export function GraficoLinhas({ datas, series, formatar, altura = 210, zero = fa
         ))}
         {foco !== null && <span className="sutil">{mesAno(datas[foco])}</span>}
       </div>
+      {foco !== null && (
+        <Dica posicao={dica.posicao}>
+          <div className="dica-titulo">{mesAno(datas[foco])}</div>
+          {series.map((s) =>
+            s.valores[foco] === null ? null : (
+              <div key={s.nome}>
+                <span className="bolinha" style={{ background: s.cor }} /> {s.nome}: <strong>{formatoDica(formatar)(s.valores[foco]!)}</strong>
+              </div>
+            ),
+          )}
+        </Dica>
+      )}
     </div>
   );
 }
@@ -179,6 +201,7 @@ interface PropsBarras {
 
 export function GraficoBarras({ datas, valores, formatar, cor = "var(--primaria)", altura = 170 }: PropsBarras) {
   const [foco, setFoco] = useState<number | null>(null);
+  const dica = useDica();
   const { ref, largura: larguraTotal } = useLarguraGrafico(Boolean(valores.length));
   if (!valores.length) return <p className="sutil">Sem dados para o período.</p>;
   const { min, max, marcas } = escala(Math.min(0, ...valores), Math.max(0, ...valores), 4);
@@ -187,9 +210,27 @@ export function GraficoBarras({ datas, valores, formatar, cor = "var(--primaria)
   const largura = w / valores.length;
   const y = (v: number) => MARGEM.topo + h - ((v - min) / (max - min)) * h;
 
+  // Toda a coluna da barra responde ao mouse, não só o retângulo (barras pequenas ficariam difíceis de acertar).
+  const mover = (e: MouseEvent<SVGSVGElement>) => {
+    const caixa = e.currentTarget.getBoundingClientRect();
+    const px = ((e.clientX - caixa.left) / caixa.width) * larguraTotal;
+    const i = Math.floor((px - MARGEM.esquerda) / largura);
+    if (i < 0 || i >= valores.length) {
+      setFoco(null);
+      dica.esconder();
+      return;
+    }
+    setFoco(i);
+    dica.mover(e);
+  };
+  const sair = () => {
+    setFoco(null);
+    dica.esconder();
+  };
+
   return (
     <div className="grafico" ref={ref}>
-      <svg viewBox={`0 0 ${larguraTotal} ${altura}`} onMouseLeave={() => setFoco(null)} role="img">
+      <svg viewBox={`0 0 ${larguraTotal} ${altura}`} onMouseMove={mover} onMouseLeave={sair} role="img">
         {marcas.map((v) => (
           <g key={v}>
             <line x1={MARGEM.esquerda} x2={larguraTotal - MARGEM.direita} y1={y(v)} y2={y(v)} className="grade" />
@@ -207,7 +248,6 @@ export function GraficoBarras({ datas, valores, formatar, cor = "var(--primaria)
             height={Math.max(1, Math.abs(y(v) - y(0)))}
             fill={v < 0 ? "var(--negativo)" : cor}
             opacity={foco === null || foco === i ? 1 : 0.5}
-            onMouseEnter={() => setFoco(i)}
           />
         ))}
         {rotulosX(datas.length).map((i) => (
@@ -216,15 +256,12 @@ export function GraficoBarras({ datas, valores, formatar, cor = "var(--primaria)
           </text>
         ))}
       </svg>
-      <div className="legenda">
-        {foco !== null ? (
-          <span>
-            {mesAno(datas[foco])}: <strong>{formatar(valores[foco])}</strong>
-          </span>
-        ) : (
-          <span className="sutil">Passe o mouse sobre as barras</span>
-        )}
-      </div>
+      {foco !== null && (
+        <Dica posicao={dica.posicao}>
+          <div className="dica-titulo">{mesAno(datas[foco])}</div>
+          <strong>{formatoDica(formatar)(valores[foco])}</strong>
+        </Dica>
+      )}
     </div>
   );
 }
