@@ -158,6 +158,47 @@ class CotacaoMoeda(Base):
     atualizado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
+class Fundamento(Base):
+    """Snapshot de indicadores publicados por uma fonte para um ativo."""
+
+    __tablename__ = "fundamento"
+    __table_args__ = (
+        UniqueConstraint("ativo_id", "data_ref", "fonte", name="uq_fundamento_ativo_data_fonte"),
+        Index("ix_fundamento_ativo_data", "ativo_id", "data_ref"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    ativo_id: Mapped[int] = mapped_column(ForeignKey("ativo.id", ondelete="CASCADE"))
+    data_ref: Mapped[date] = mapped_column(Date)
+    fonte: Mapped[str] = mapped_column(String(30))
+    preco_lucro: Mapped[Decimal | None] = mapped_column(Valor)
+    preco_valor_patrimonial: Mapped[Decimal | None] = mapped_column(Valor)
+    dividend_yield: Mapped[Decimal | None] = mapped_column(Valor)
+    psr: Mapped[Decimal | None] = mapped_column(Valor)
+    roe: Mapped[Decimal | None] = mapped_column(Valor)
+    roic: Mapped[Decimal | None] = mapped_column(Valor)
+    margem_bruta: Mapped[Decimal | None] = mapped_column(Valor)
+    margem_ebit: Mapped[Decimal | None] = mapped_column(Valor)
+    margem_liquida: Mapped[Decimal | None] = mapped_column(Valor)
+    liquidez_corrente: Mapped[Decimal | None] = mapped_column(Valor)
+    liquidez_media_2m: Mapped[Decimal | None] = mapped_column(Valor)
+    patrimonio_liquido: Mapped[Decimal | None] = mapped_column(Valor)
+    valor_mercado: Mapped[Decimal | None] = mapped_column(Valor)
+    divida_liquida_patrimonio: Mapped[Decimal | None] = mapped_column(Valor)
+    crescimento_receita_5a: Mapped[Decimal | None] = mapped_column(Valor)
+    segmento_fii: Mapped[str | None] = mapped_column(String(120))
+    fii_dividendos_meses_12m: Mapped[int | None]
+    fii_dividend_yield_2a: Mapped[Decimal | None] = mapped_column(Valor)
+    fii_dividendos_meses_2a: Mapped[int | None]
+    fii_ffo_yield: Mapped[Decimal | None] = mapped_column(Valor)
+    fii_liquidez: Mapped[Decimal | None] = mapped_column(Valor)
+    fii_area_m2: Mapped[Decimal | None] = mapped_column(Valor)
+    fii_preco_m2: Mapped[Decimal | None] = mapped_column(Valor)
+    fii_numero_imoveis: Mapped[int | None]
+    fii_numero_unidades: Mapped[int | None]
+    atualizado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
 class IndiceMensal(Base):
     __tablename__ = "indice_mensal"
 
