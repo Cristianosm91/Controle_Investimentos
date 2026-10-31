@@ -5,7 +5,19 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from .api import alocacao, ativos, atualizacoes, cadastros, carteira, configuracoes, fundamentos, ir, lancamentos, rentabilidade
+from .api import (
+    alocacao,
+    ativos,
+    atualizacoes,
+    cadastros,
+    carteira,
+    configuracoes,
+    fundamentos,
+    ir,
+    lancamentos,
+    radar,
+    rentabilidade,
+)
 from .config import RAIZ_PROJETO, settings
 from .services import jobs
 
@@ -22,7 +34,9 @@ async def ciclo_de_vida(_app: FastAPI):
 
 app = FastAPI(title="ControleInv", version="0.1.0", lifespan=ciclo_de_vida)
 
-for modulo in (cadastros, ativos, lancamentos, carteira, atualizacoes, rentabilidade, configuracoes, alocacao, ir, fundamentos):
+for modulo in (
+    cadastros, ativos, lancamentos, carteira, atualizacoes, rentabilidade, configuracoes, alocacao, ir, fundamentos, radar,
+):
     app.include_router(modulo.router, prefix="/api")
 
 

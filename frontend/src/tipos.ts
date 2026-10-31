@@ -116,6 +116,34 @@ export interface Ativo {
   cnpj: string | null;
 }
 
+export interface ItemRadar {
+  ativo_id: number;
+  ticker: string;
+  nome: string | null;
+  classe: string;
+  moeda: string;
+  tem_posicao: boolean;
+  cotacao: number | null;
+  cotacao_data: string | null;
+  cotacao_fonte: string | null;
+  variacao_1d_pct: number | null;
+  variacao_7d_pct: number | null;
+  variacao_14d_pct: number | null;
+  drawdown_60d_pct: number | null;
+  minimo_52s: number | null;
+  maximo_52s: number | null;
+  preco_teto_graham: number | null;
+  upside_graham_pct: number | null;
+  preco_lucro: number | null;
+  preco_valor_patrimonial: number | null;
+  dividend_yield: number | null;
+  roe: number | null;
+  roic: number | null;
+  fii_ffo_yield: number | null;
+  data_ref_fundamentos: string | null;
+  yoc_12m: number | null;
+}
+
 export interface Corretora {
   id: number;
   nome: string;
