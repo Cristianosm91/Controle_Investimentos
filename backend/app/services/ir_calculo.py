@@ -1,0 +1,321 @@
+"""Cálculos puros da apuração de IR de renda variável."""
+
+import unicodedata
+from collections import defaultdict
+from collections.abc import Iterable, Mapping
+from dataclasses import dataclass, field
+from datetime import date
+from decimal import ROUND_HALF_UP, Decimal
+
+from ..dominio import DARF_MINIMO, GRUPO_PREJUIZO
+from .posicao import ZERO, Carteira, Movimento
+
+CENTAVO = Decimal("0.01")
+CATEGORIAS_MENSAIS = ("ACAO", "BDR", "ETF", "OPCAO", "DAYTRADE", "FII")
+GRUPOS_MENSAIS = ("COMUM", "DAYTRADE", "FII")
+_SAIDAS = ("V", "VENDA_SUBSCRICAO")
+
+
+def centavos(valor: Decimal) -> Decimal:
+    return valor.quantize(CENTAVO, ROUND_HALF_UP)
+
+
+def mes(dia: date) -> date:
+    return dia.replace(day=1)
+
+
+def proximo_mes(dia: date) -> date:
+    return date(dia.year + dia.month // 12, dia.month % 12 + 1, 1)
+
+
+# ---------- Regras com vigência ----------
+
+@dataclass(frozen=True)
+class Regra:
+    categoria: str
+    inicio: date
+    fim: date | None
+    aliquota: Decimal
+    limite_isencao: Decimal | None = None
+    apuracao: str = "MENSAL"
+
+
+def _r(categoria: str, inicio: str, fim: str | None, aliquota: str, limite: str | None = None, apuracao: str = "MENSAL"):
+    return Regra(
+        categoria, date.fromisoformat(inicio), date.fromisoformat(fim) if fim else None, Decimal(aliquota),
+        Decimal(limite) if limite else None, apuracao,
+    )
+
+
+# Mesmos valores carregados pela migração; usados quando a tabela `regra_fiscal` está vazia.
+REGRAS_PADRAO = [
+    _r("ACAO", "2005-01-01", None, "0.15", "20000"),
+    _r("BDR", "2005-01-01", None, "0.15"),
+    _r("ETF", "2005-01-01", None, "0.15"),
+    _r("OPCAO", "2005-01-01", None, "0.15"),
+    _r("DAYTRADE", "2005-01-01", None, "0.20"),
+    _r("FII", "2005-01-01", None, "0.20"),
+    _r("EXTERIOR", "2005-01-01", "2023-12-31", "0.15", "35000"),
+    _r("EXTERIOR", "2024-01-01", None, "0.15", apuracao="ANUAL"),
+]
+
+
+def regra_vigente(regras: Iterable[Regra], categoria: str, dia: date) -> Regra | None:
+    """Regra da categoria vigente no dia; em sobreposição vale a de início mais recente."""
+    candidatas = [r for r in regras if r.categoria == categoria and r.inicio <= dia and (r.fim is None or dia <= r.fim)]
+    return max(candidatas, key=lambda r: r.inicio, default=None)
+
+
+# ---------- Classificação ----------
+
+def _normalizar(classe: str) -> str:
+    sem_acento = unicodedata.normalize("NFKD", classe).encode("ascii", "ignore").decode()
+    return sem_acento.strip().upper()
+
+
+_CLASSES_BOLSA = {"ACAO": "ACAO", "UNIT": "ACAO", "BDR": "BDR", "ETF": "ETF", "INDICE": "ETF", "OPCAO": "OPCAO"}
+
+
+def categoria_ir(classe: str, moeda: str, daytrade: bool, bdr_como_acao: bool = False) -> str | None:
+    """Categoria de IR do ativo; None = fora da apuração de renda variável (renda fixa, caixa, cripto...)."""
+    c = _normalizar(classe)
+    if moeda != "BRL" or c.startswith(("STOCK", "REIT", "ETF_")):
+        return "EXTERIOR"
+    if c in ("FII", "FIAGRO"):
+        return "FII"
+    categoria = _CLASSES_BOLSA.get(c)
+    if categoria == "BDR" and bdr_como_acao:
+        categoria = "ACAO"
+    if categoria and daytrade:
+        return "DAYTRADE"
+    return categoria
+
+
+# ---------- Fatos mensais (vendas, lucro e IRRF por categoria) ----------
+
+@dataclass(frozen=True)
+class OperacaoIR:
+    movimento: Movimento
+    ticker: str
+    classe: str
+    moeda: str
+    irrf: Decimal = ZERO
+
+
+@dataclass
+class Fato:
+    vendas: Decimal = ZERO
+    lucro: Decimal = ZERO
+    irrf: Decimal = ZERO
+
+
+Fatos = dict[tuple[date, str], Fato]
+
+# Fim do período em que a venda de direito de subscrição de FII pode ser tratada como isenta (parâmetro).
+FIM_SUBSCRICAO_FII_ISENTA = date(2021, 9, 28)
+
+
+def fatos_por_mes(
+    operacoes: Iterable[OperacaoIR], bdr_como_acao: bool = False, subscricao_fii_isenta: bool = False
+) -> tuple[Fatos, set[str]]:
+    """Agrupa vendas, lucro realizado e IRRF por (mês, categoria). Devolve também os tickers vendidos fora da apuração."""
+    carteira = Carteira()
+    fatos: Fatos = defaultdict(Fato)
+    ignorados: set[str] = set()
+    for op in sorted(operacoes, key=lambda o: (o.movimento.data, o.movimento.ordem)):
+        m = op.movimento
+        lucro = carteira.aplicar(m)
+        venda = m.evento in _SAIDAS
+        if not venda and not op.irrf:
+            continue
+        categoria = categoria_ir(op.classe, op.moeda, m.daytrade, bdr_como_acao)
+        if categoria is None:
+            if venda:
+                ignorados.add(op.ticker)
+            continue
+        if (
+            subscricao_fii_isenta and categoria == "FII" and m.evento == "VENDA_SUBSCRICAO"
+            and m.data <= FIM_SUBSCRICAO_FII_ISENTA
+        ):
+            continue
+        f = fatos[(mes(m.data), categoria)]
+        f.irrf += op.irrf * m.cambio
+        if venda:
+            f.vendas += -m.quantidade * m.preco * m.cambio
+            f.lucro += lucro
+    return dict(fatos), ignorados
+
+
+# ---------- Apuração mensal (DARF 6015) ----------
+
+@dataclass
+class ResultadoCategoria:
+    categoria: str
+    vendas: Decimal
+    lucro: Decimal
+    isento: bool
+    base: Decimal  # lucro tributável após compensar prejuízo
+    aliquota: Decimal | None
+    imposto: Decimal
+
+
+@dataclass
+class MesIR:
+    competencia: date
+    categorias: list[ResultadoCategoria]
+    prejuizo: dict[str, Decimal]  # saldo a compensar ao fim do mês, por grupo
+    imposto: Decimal
+    irrf: Decimal
+    irrf_compensado: Decimal
+    irrf_saldo: Decimal  # a compensar nos meses seguintes do mesmo ano
+    darf_mes: Decimal  # imposto − IRRF compensado
+    darf_anterior: Decimal  # valores abaixo do mínimo trazidos de meses anteriores
+    darf: Decimal  # a recolher; zero quando o total não atinge o mínimo
+    darf_transportado: Decimal  # vai para o mês seguinte por não atingir o mínimo
+    pago: Decimal
+
+    @property
+    def saldo(self) -> Decimal:
+        return self.darf - self.pago
+
+
+def _compensar(tributavel: dict[str, Decimal], prejuizo: Decimal, categorias: list[str]) -> tuple[dict[str, Decimal], Decimal]:
+    """Abate perdas do mês e o prejuízo acumulado dos lucros do grupo; devolve a base por categoria e o novo saldo."""
+    perdas = prejuizo + sum((-tributavel[c] for c in categorias if tributavel[c] < 0), ZERO)
+    base = {}
+    for c in categorias:
+        ganho = max(tributavel[c], ZERO)
+        usado = min(ganho, perdas)
+        perdas -= usado
+        base[c] = ganho - usado
+    return base, perdas
+
+
+def apurar_mensal(
+    fatos: Mapping[tuple[date, str], Fato],
+    regras: Iterable[Regra],
+    inicio: date,
+    fim: date,
+    prejuizo_inicial: Mapping[str, Decimal] | None = None,
+    pagos: Mapping[date, Decimal] | None = None,
+    somar_no_limite: Iterable[str] = (),
+) -> list[MesIR]:
+    """`somar_no_limite`: categorias cujas vendas contam no limite de isenção das ações (ex.: DAYTRADE, OPCAO)."""
+    regras = list(regras)
+    somar_no_limite = set(somar_no_limite) - {"ACAO"}
+    prejuizo = {g: Decimal((prejuizo_inicial or {}).get(g, ZERO)) for g in GRUPOS_MENSAIS}
+    pagos = pagos or {}
+    irrf_saldo = transportado = ZERO
+    meses: list[MesIR] = []
+    comp = mes(inicio)
+    while comp <= fim:
+        if comp.month == 1:
+            irrf_saldo = ZERO  # saldo de IRRF não compensado no ano vai para a declaração anual
+        doc = {c: fatos.get((comp, c), Fato()) for c in CATEGORIAS_MENSAIS}
+        vendas_acoes = doc["ACAO"].vendas + sum((doc[c].vendas for c in somar_no_limite if c in doc), ZERO)
+
+        tributavel, isento, regra_cat = {}, {}, {}
+        for c in CATEGORIAS_MENSAIS:
+            regra = regra_vigente(regras, c, comp)
+            regra_cat[c] = regra if regra and regra.apuracao == "MENSAL" else None
+            vendas = vendas_acoes if c == "ACAO" else doc[c].vendas
+            limite = regra_cat[c].limite_isencao if regra_cat[c] else None
+            isento[c] = limite is not None and ZERO < vendas <= limite
+            # Lucro de mês isento não é tributado, mas o prejuízo continua compensável.
+            tributavel[c] = ZERO if isento[c] and doc[c].lucro > 0 else doc[c].lucro
+
+        base: dict[str, Decimal] = {}
+        for g in GRUPOS_MENSAIS:
+            cats = [c for c in CATEGORIAS_MENSAIS if GRUPO_PREJUIZO[c] == g]
+            base_grupo, prejuizo[g] = _compensar(tributavel, prejuizo[g], cats)
+            base.update(base_grupo)
+
+        resultados = []
+        for c in CATEGORIAS_MENSAIS:
+            aliquota = regra_cat[c].aliquota if regra_cat[c] else None
+            imposto = centavos(base[c] * aliquota) if aliquota is not None else ZERO
+            resultados.append(ResultadoCategoria(c, doc[c].vendas, doc[c].lucro, isento[c], base[c], aliquota, imposto))
+
+        imposto = sum((r.imposto for r in resultados), ZERO)
+        irrf = sum((doc[c].irrf for c in CATEGORIAS_MENSAIS), ZERO)
+        disponivel = irrf_saldo + irrf
+        compensado = min(imposto, disponivel)
+        irrf_saldo = disponivel - compensado
+        darf_mes = imposto - compensado
+        total = centavos(darf_mes + transportado)
+        anterior = transportado
+        darf = total if total >= DARF_MINIMO else ZERO
+        transportado = ZERO if darf else total
+
+        meses.append(MesIR(
+            comp, resultados, dict(prejuizo), imposto, irrf, compensado, irrf_saldo, darf_mes, anterior, darf,
+            transportado, pagos.get(comp, ZERO),
+        ))
+        comp = proximo_mes(comp)
+    return meses
+
+
+# ---------- Exterior ----------
+
+@dataclass
+class AnoExterior:
+    ano: int
+    vendas: Decimal = ZERO
+    lucro: Decimal = ZERO
+    dividendos: Decimal = ZERO  # rendimentos brutos em BRL (entram na base anual desde 2024)
+    imposto_pago_exterior: Decimal = ZERO
+    base: Decimal = ZERO
+    imposto: Decimal = ZERO
+    prejuizo: Decimal = ZERO  # saldo a compensar ao fim do ano (apuração anual)
+    regimes: list[str] = field(default_factory=list)
+
+
+def apurar_exterior(
+    fatos: Mapping[tuple[date, str], Fato],
+    regras: Iterable[Regra],
+    anos: Iterable[int],
+    proventos: Mapping[int, tuple[Decimal, Decimal]] | None = None,
+    prejuizo_inicial: Decimal = ZERO,
+) -> list[AnoExterior]:
+    """Até 2023: ganho de capital mensal (isenção por vendas no mês, sem compensação); dividendos só informativos
+    (carnê-leão mensal pela tabela progressiva, fora do cálculo).
+    Desde 2024 (Lei 14.754/2023): lucros e dividendos somados no ano, com compensação de prejuízo
+    e dedução do imposto pago no exterior (limitada ao imposto brasileiro sobre os dividendos).
+    """
+    regras = list(regras)
+    proventos = proventos or {}
+    prejuizo = prejuizo_inicial
+    resultado = []
+    for ano in sorted(set(anos)):
+        a = AnoExterior(ano)
+        a.dividendos, a.imposto_pago_exterior = proventos.get(ano, (ZERO, ZERO))
+        anual = ZERO
+        regra_anual: Regra | None = None
+        for m in range(1, 13):
+            comp = date(ano, m, 1)
+            f = fatos.get((comp, "EXTERIOR"), Fato())
+            a.vendas += f.vendas
+            a.lucro += f.lucro
+            regra = regra_vigente(regras, "EXTERIOR", comp)
+            if regra is None:
+                continue
+            if regra.apuracao not in a.regimes:
+                a.regimes.append(regra.apuracao)
+            if regra.apuracao == "ANUAL":
+                anual += f.lucro
+                regra_anual = regra
+            elif f.lucro > 0 and (regra.limite_isencao is None or f.vendas > regra.limite_isencao):
+                a.base += f.lucro
+                a.imposto += centavos(f.lucro * regra.aliquota)
+
+        if regra_anual is not None:
+            liquido = anual - prejuizo
+            ganho = max(liquido, ZERO)
+            prejuizo = max(-liquido, ZERO)
+            imposto_dividendos = centavos(a.dividendos * regra_anual.aliquota)
+            credito = min(a.imposto_pago_exterior, imposto_dividendos)
+            a.base += ganho + a.dividendos
+            a.imposto += centavos(ganho * regra_anual.aliquota) + imposto_dividendos - credito
+        a.prejuizo = prejuizo
+        resultado.append(a)
+    return resultado
