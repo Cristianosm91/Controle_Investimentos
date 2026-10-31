@@ -6,6 +6,7 @@ import { data, moeda, numero } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
 import type { LinhaExtrato, PreviaExtrato, ResultadoExtrato, StatusExtrato } from "../tipos";
 import { Modal } from "./Modal";
+import { ModelosImportacao } from "./ModelosImportacao";
 
 const STATUS: Record<StatusExtrato, string> = {
   novo: "Novo",
@@ -75,6 +76,13 @@ export function ImportarExtrato({ aoFechar }: { aoFechar: () => void }) {
           Nada é gravado antes da confirmação;
           lançamentos que já existem são ignorados. A B3 não informa corretagem/emolumentos: as taxas entram zeradas.
         </p>
+        <ModelosImportacao
+          modelos={[
+            { nome: "b3-negociacao", rotulo: "Negociação" },
+            { nome: "b3-movimentacao", rotulo: "Movimentação" },
+            { nome: "b3-proventos", rotulo: "Proventos recebidos" },
+          ]}
+        />
 
         <div className="formulario em-linha">
           <label>

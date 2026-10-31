@@ -13,6 +13,8 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 - Importador da planilha: criptos do quadro `Histórico de rendimentos` (J:L) viram posições de abertura vinculadas
   ao CoinGecko (`--data-cripto`, `--somente-cripto`).
 - Histórico de preços das criptos (Yahoo Finance) na carga complementar e na rotina diária, para a Rentabilidade.
+- Modelos `.xlsx` para preencher e importar (B3 Negociação, Movimentação, Proventos recebidos e aluguel BTC),
+  com instruções e exemplo, baixáveis nos modais de importação.
 
 ### Corrigido
 - Evolução patrimonial com Mercado igual ao Investido nos meses passados: sem histórico de cotações, o app agora
