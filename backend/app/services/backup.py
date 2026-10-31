@@ -25,6 +25,8 @@ FUSO = ZoneInfo("America/Sao_Paulo")
 CABECALHO_SQLITE = b"SQLite format 3\x00"
 TAMANHO_MAXIMO = 200 * 1024 * 1024
 MANTER_AUTOMATICOS = 10
+# Cópias feitas a cada restauração; backups manuais nunca são apagados automaticamente.
+MANTER_ANTES_RESTAURACAO = 10
 PREFIXO = "investhub-"
 TIPOS = ("manual", "automatico", "antes-restauracao")
 _PASTA_ALEMBIC = RAIZ_PROJETO / "backend" / "alembic"
@@ -127,10 +129,36 @@ def excluir(banco: Path, nome: str) -> None:
 
 
 def limpar_automaticos(banco: Path, manter: int = MANTER_AUTOMATICOS) -> int:
-    automaticos = [i for i in listar(banco) if i.tipo == "automatico"]
-    for item in automaticos[manter:]:
-        (pasta_backups(banco) / item.nome).unlink(missing_ok=True)
-    return max(0, len(automaticos) - manter)
+    return _limpar(banco, "automatico", manter)
+
+
+def _limpar(banco: Path, tipo: str, manter: int, preservar: Path | None = None) -> int:
+    """Apaga os backups mais antigos do tipo além dos `manter` mais recentes (nunca o `preservar`)."""
+    excedentes = [i for i in listar(banco) if i.tipo == tipo][manter:]
+    pasta = pasta_backups(banco)
+    removidos = 0
+    for item in excedentes:
+        arquivo = pasta / item.nome
+        if preservar is not None and arquivo.resolve() == preservar.resolve():
+            continue
+        arquivo.unlink(missing_ok=True)
+        removidos += 1
+    return removidos
+
+
+def limpar_parciais(banco: Path) -> int:
+    """Remove restos (`*.parcial`) de backups/envios interrompidos pelo encerramento do app."""
+    pasta = pasta_backups(banco)
+    if not pasta.is_dir():
+        return 0
+    removidos = 0
+    for arquivo in pasta.glob("*.parcial"):
+        if arquivo.is_file():
+            arquivo.unlink(missing_ok=True)
+            removidos += 1
+    if removidos:
+        log.info("%d arquivo(s) .parcial removido(s) de %s", removidos, pasta)
+    return removidos
 
 
 def automatico_recente(banco: Path, horas: int = 20) -> bool:
@@ -151,12 +179,17 @@ def validar(arquivo: Path) -> str:
             raise BackupInvalido("O arquivo não é um banco SQLite.")
     try:
         with closing(sqlite3.connect(f"{arquivo.as_uri()}?mode=ro", uri=True)) as con:
+            # Arquivo não confiável: funções em views/triggers dele não podem rodar durante a validação.
+            con.execute("PRAGMA trusted_schema = OFF")
             integridade = con.execute("PRAGMA integrity_check").fetchone()[0]
             if integridade != "ok":
                 raise BackupInvalido(f"Banco corrompido: {integridade}")
             tabelas = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
             if not {"alembic_version", "investidor", "ativo", "operacao"} <= tabelas:
                 raise BackupInvalido("O arquivo não é um backup do InvestHub+.")
+            # O app não cria triggers nem views: num backup, só serviriam para alterar dados às escondidas.
+            if con.execute("SELECT 1 FROM sqlite_master WHERE type IN ('trigger', 'view') LIMIT 1").fetchone():
+                raise BackupInvalido("O backup contém triggers ou views que o InvestHub+ não cria.")
             linha = con.execute("SELECT version_num FROM alembic_version").fetchone()
     except sqlite3.DatabaseError as erro:
         raise BackupInvalido(f"Não foi possível ler o banco: {erro}") from erro
@@ -179,5 +212,6 @@ def restaurar(arquivo: Path, banco: Path) -> tuple[Path, str]:
         fonte.backup(alvo)
     if revisao != revisao_atual():
         command.upgrade(_alembic(f"sqlite:///{banco.as_posix()}"), "head")
+    _limpar(banco, "antes-restauracao", MANTER_ANTES_RESTAURACAO, preservar=arquivo)
     log.info("Banco restaurado a partir de %s (revisão %s); cópia anterior em %s", arquivo.name, revisao, seguranca)
     return seguranca, revisao

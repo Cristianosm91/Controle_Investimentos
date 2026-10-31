@@ -79,6 +79,8 @@ class Settings(BaseSettings):
     database_url: str | None = None
     host: str = "127.0.0.1"
     port: int = 8000
+    # Valores aceitos no cabeçalho Host e na origem de requisições de escrita (proteção contra CSRF/DNS rebinding).
+    hosts_permitidos: list[str] = ["127.0.0.1", "localhost"]
 
     # Lei 14.754/2023 art. 15: PTAX de venda da data do fato gerador (0 = a própria data).
     ptax_dias_uteis_antes: int = Field(default=0, ge=0, le=5)

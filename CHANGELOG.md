@@ -32,10 +32,26 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
   e aporte necessário, em valores de hoje.
 
 ### Corrigido
+- Segurança: a API recusa `Host` desconhecido (400) e gravações cuja origem é outro site (403), impedindo que
+  páginas abertas no navegador desfaçam importações, restaurem backups ou leiam dados via *DNS rebinding*.
+- Segurança: uploads exigem `application/octet-stream` (415 caso contrário); respostas trazem `X-Frame-Options`,
+  CSP `frame-ancestors 'none'`, `nosniff`, `Referrer-Policy` e `Cross-Origin-Resource-Policy`; planilhas que
+  expandem além de 200 MB ou passam de 100 mil linhas são recusadas; backups com triggers ou views não são
+  restaurados.
+- Dependências Python fixadas nas versões testadas; `pytest` e `ruff` passam para `backend/requirements-dev.txt`.
+- "Carregar histórico de cotações" disparado duas vezes seguidas não roda mais duas cargas em paralelo.
+- Uploads de extrato/aluguel/backup não bloqueiam mais as demais requisições durante consultas ao banco ou gravação
+  do arquivo.
+- Cópias "antes da restauração" limitadas às 10 mais recentes; restos `.parcial` de backups/envios interrompidos
+  são removidos ao iniciar; o encerramento registra as tarefas que estavam em execução.
+- Configurações → Parâmetros: valores padrão dos limiares de alerta (o build da interface falhava na checagem de
+  tipos).
 - Evolução patrimonial com Mercado igual ao Investido nos meses passados: sem histórico de cotações, o app agora
   carrega automaticamente na inicialização o histórico B3 (COTAHIST) e o complementar (exterior, PTAX, índices).
 - Valuation: botão "Salvar premissas" usa a cor padrão da aplicação.
 - `iniciar.bat` só abre o navegador quando a API responde (antes abria numa tela de erro por alguns segundos).
+- `iniciar.bat` não aborta mais quando o Node.js está indisponível ou a compilação da interface falha: avisa e
+  usa a interface já compilada em `frontend\dist`.
 
 ## [1.0.0] - 2026-10-31
 

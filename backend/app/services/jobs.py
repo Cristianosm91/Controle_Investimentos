@@ -183,13 +183,19 @@ def iniciar() -> None:
         elif sessao.scalar(select(Operacao.id).limit(1)) is not None:
             # Sem histórico de preços a rentabilidade usa o custo como valor de mercado nos meses passados.
             disparar_carga_historica()
-    if usa_sqlite() and settings.db_path.is_file() and not backup.automatico_recente(settings.db_path):
-        disparar("backup")
+    if usa_sqlite() and settings.db_path.is_file():
+        backup.limpar_parciais(settings.db_path)
+        if not backup.automatico_recente(settings.db_path):
+            disparar("backup")
     log.info("Agendador iniciado")
 
 
 def parar() -> None:
     global _agendador
+    em_curso = [t.nome for t in TAREFAS.values() if t.em_execucao]
+    if em_curso:
+        # Cada lote já gravado foi commitado; o restante é refeito na próxima execução.
+        log.warning("Encerrando com tarefas em execução (serão interrompidas): %s", ", ".join(em_curso))
     if _agendador is not None:
         _agendador.shutdown(wait=False)
         _agendador = None
@@ -207,6 +213,8 @@ def disparar(nome: str) -> None:
 
 
 CARGA_HISTORICA = ("cotahist_historico", "historico_complementar")
+# Impede duas sequências simultâneas (ex.: duplo clique antes de a 1ª tarefa marcar `em_execucao`).
+_trava_carga_historica = threading.Lock()
 
 
 def disparar_carga_historica() -> None:
@@ -217,12 +225,21 @@ def disparar_carga_historica() -> None:
     for nome in CARGA_HISTORICA:
         if TAREFAS[nome].em_execucao:
             raise TarefaOcupada(f"'{TAREFAS[nome].descricao}' já está em execução")
+    if not _trava_carga_historica.acquire(blocking=False):
+        raise TarefaOcupada("A carga histórica já está em execução")
 
     def rodar() -> None:
-        for nome in CARGA_HISTORICA:
-            _executar_agendado(nome)
+        try:
+            for nome in CARGA_HISTORICA:
+                _executar_agendado(nome)
+        finally:
+            _trava_carga_historica.release()
 
-    threading.Thread(target=rodar, daemon=True, name="tarefa-carga-historica").start()
+    try:
+        threading.Thread(target=rodar, daemon=True, name="tarefa-carga-historica").start()
+    except BaseException:
+        _trava_carga_historica.release()
+        raise
 
 
 def proxima_execucao(nome: str) -> datetime | None:

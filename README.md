@@ -213,7 +213,7 @@ Em **🧾 Imposto de Renda**, escolha o CPF e o ano: a tela mostra a apuração 
 | **Cotações** | Atualização automática no pregão (Yahoo Finance, B3 e EUA), fechamento oficial da B3 (COTAHIST) e câmbio pela PTAX do Banco Central. Histórico diário desde a primeira operação. Status das atualizações em Configurações. |
 | **Importação** | Importa a planilha de controle existente (`.xlsx`) de forma idempotente e concilia o resultado com os valores calculados pela própria planilha. Importa os relatórios **Negociação**, **Movimentação** e **Proventos recebidos** da Área do Investidor da B3 (botão *Importar extrato B3* em Operações e Proventos). Cada arquivo importado forma um lote que pode ser desfeito. |
 | **Exportação** | Botões **CSV** e **XLSX** no topo de todas as páginas: exportam as tabelas visíveis (uma aba por tabela no XLSX, com moeda, percentual, número e data tipados); listas paginadas saem completas, com o filtro atual. |
-| **Backup** | Backup automático diário (mantém os 10 mais recentes) e manual em `%LOCALAPPDATA%\InvestHub\backups`; download e restauração validada (cópia do banco atual antes de restaurar e migração automática de backups antigos). |
+| **Backup** | Backup automático diário (mantém os 10 mais recentes) e manual em `%LOCALAPPDATA%\InvestHub\backups`; download e restauração validada (cópia do banco atual antes de restaurar — mantidas as 10 mais recentes — e migração automática de backups antigos). Backups manuais nunca são apagados automaticamente. |
 | **Cripto** | Busca no catálogo CoinGecko, vínculo por identificador canônico, preços USD/BRL, variações 24h/7d/30d, capitalização, histórico e posições. CoinGecko principal; Kraken como fallback somente de preço para moedas com vínculo verificado. Monitor mensal de vendas/ganhos por investidor, sem calcular imposto ou DARF. |
 
 ### Cripto: fontes e limites
@@ -359,6 +359,7 @@ Copie `.env.example` para `.env` se quiser alterar o padrão:
 | `INVESTHUB_COTACOES_INTERVALO_MIN` | `15` | Intervalo das cotações no pregão (seg–sex, 10h–18h) |
 | `INVESTHUB_COTAHIST_HORA` | `21` | Hora da busca do fechamento oficial da B3 (repete às 8h) |
 | `INVESTHUB_PTAX_DIAS_UTEIS_ANTES` | `0` | Defasagem da PTAX sugerida nos lançamentos (0 = data do fato gerador) |
+| `INVESTHUB_HOSTS_PERMITIDOS` | `["127.0.0.1", "localhost"]` | Hosts aceitos no cabeçalho `Host` e na origem de requisições de escrita (proteção contra sites maliciosos abertos no navegador) |
 
 > O banco fica propositalmente fora de pastas sincronizadas (OneDrive, Dropbox), pois a sincronização de um SQLite aberto pode corrompê-lo.
 
@@ -636,7 +637,11 @@ A lista completa, com esquemas de entrada e saída, está no Swagger (`/docs`).
 
 ## Testes e qualidade
 
+As ferramentas de teste e lint ficam em `backend/requirements-dev.txt` (o `iniciar.bat` instala só as dependências
+da aplicação). Todas as versões são fixadas; para atualizar uma, altere o arquivo, reinstale e rode `lint.bat`.
+
 ```powershell
+.\.venv\Scripts\python.exe -m pip install -r backend\requirements-dev.txt
 cd backend
 ..\.venv\Scripts\python.exe -m pytest -q
 ```
@@ -697,6 +702,12 @@ Em `%LOCALAPPDATA%\InvestHub\backups`. Restaure em **Configurações → Backup*
 Provavelmente há outra instância rodando. Feche-a com `Ctrl+C` no terminal dela ou rode `parar.bat`.
 </details>
 
+<details>
+<summary><b>O <code>iniciar.bat</code> não consegue compilar a interface (Node.js indisponível).</b></summary>
+
+O app em execução usa só o Python; o Node.js serve apenas para **compilar a interface**, e o `iniciar.bat` só o chama quando há fontes em `frontend` mais novos que `frontend\dist`. Se a compilação falhar, o script avisa e usa a interface já compilada. Para mantê-la atualizada, rode `npm run build` na pasta `frontend` após alterar o front-end.
+</details>
+
 ---
 
 ## Versionamento e contribuição
@@ -729,6 +740,9 @@ Provavelmente há outra instância rodando. Feche-a com `Ctrl+C` no terminal del
 - Todos os dados ficam **no seu computador** (ou no PostgreSQL que você escolher); nada é enviado a servidores próprios.
 - As únicas chamadas externas são consultas públicas de cotação (tickers e moedas).
 - A API escuta apenas em `127.0.0.1`.
+- A API recusa requisições com cabeçalho `Host` desconhecido e gravações vindas de outros sites abertos no navegador (proteção contra CSRF e *DNS rebinding*).
+- Uploads só são aceitos como `application/octet-stream`, e as respostas proíbem que outros sites enquadrem a interface (`X-Frame-Options`/CSP `frame-ancestors`) ou embutam a API.
+- Planilhas enviadas são recusadas se expandirem além de 200 MB ou passarem de 100 mil linhas; backups com triggers ou views (que o app não cria) não são restaurados.
 - CPF é exibido sempre mascarado na interface.
 - Planilhas, banco de dados e arquivos `.env` estão no `.gitignore`.
 
