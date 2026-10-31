@@ -16,9 +16,9 @@ from pathlib import Path
 
 import httpx
 from sqlalchemy import func, select
-from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.orm import Session
 
+from ..db import insert_upsert
 from ..models import Ativo, Cotacao, Operacao
 
 log = logging.getLogger(__name__)
@@ -145,7 +145,7 @@ def gravar(
             anterior = f.preco
 
     for i in range(0, len(linhas), 500):
-        lote = insert(Cotacao).values(linhas[i : i + 500])
+        lote = insert_upsert(sessao, Cotacao).values(linhas[i : i + 500])
         sessao.execute(
             lote.on_conflict_do_update(
                 index_elements=["ativo_id", "data"],

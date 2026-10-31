@@ -18,9 +18,10 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from decimal import Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
+from ..db import ano_mes
 from ..models import Ativo, Cotacao, CotacaoMoeda, IndiceMensal, Operacao, Provento
 from .posicao import ZERO, Carteira, Movimento, Posicao, ordenar
 
@@ -284,11 +285,18 @@ class DadosRentabilidade:
 def _ultimos_do_mes(sessao: Session, chave, filtro, modelo):
     """Último registro de cada mês por chave (a série mensal só consulta datas de fim de mês).
 
-    Usa a regra do SQLite em que, com max(), as colunas simples vêm da linha que atingiu o máximo.
+    (chave, data) é única em Cotacao e CotacaoMoeda, então o join com o max(data) do mês traz uma linha só.
     """
     valor = modelo.preco if modelo is Cotacao else modelo.valor
-    mes = func.strftime("%Y-%m", modelo.data)
-    consulta = select(chave, func.max(modelo.data), valor).where(filtro).group_by(chave, mes)
+    ultimos = (
+        select(chave.label("chave"), func.max(modelo.data).label("data"))
+        .where(filtro)
+        .group_by(chave, ano_mes(sessao, modelo.data))
+        .subquery()
+    )
+    consulta = select(chave, modelo.data, valor).join(
+        ultimos, and_(chave == ultimos.c.chave, modelo.data == ultimos.c.data)
+    )
     for k, dia, v in sessao.execute(consulta):
         yield k, dia if isinstance(dia, date) else date.fromisoformat(dia), Decimal(str(v))
 

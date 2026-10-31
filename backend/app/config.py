@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     )
 
     db_path: Path = _db_padrao()
+    # Quando definida (ex.: PostgreSQL), tem precedência sobre db_path.
+    database_url: str | None = None
     host: str = "127.0.0.1"
     port: int = 8000
 
@@ -34,7 +36,18 @@ class Settings(BaseSettings):
 
     @property
     def db_url(self) -> str:
+        if self.database_url:
+            return normalizar_url(self.database_url)
         return f"sqlite:///{self.db_path.as_posix()}"
+
+
+def normalizar_url(url: str) -> str:
+    """Usa o driver psycopg (v3) nas URLs copiadas de Neon/Supabase/Aiven (`postgres://` ou `postgresql://`)."""
+    url = url.strip()
+    for prefixo in ("postgres://", "postgresql://"):
+        if url.startswith(prefixo):
+            return "postgresql+psycopg://" + url.removeprefix(prefixo)
+    return url
 
 
 settings = Settings()

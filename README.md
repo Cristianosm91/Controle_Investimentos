@@ -20,6 +20,7 @@ O **ControleInv** substitui planilhas de controle de investimentos (Google Sheet
 - [Tecnologias](#tecnologias)
 - [Requisitos](#requisitos)
 - [Instalação e execução](#instalação-e-execução)
+- [Banco de dados: SQLite ou PostgreSQL](#banco-de-dados-sqlite-ou-postgresql)
 - [Importando a planilha](#importando-a-planilha)
 - [Estrutura do projeto](#estrutura-do-projeto)
 - [Regras de cálculo](#regras-de-cálculo)
@@ -147,6 +148,7 @@ Copie `.env.example` para `.env` se quiser alterar o padrão:
 | Variável | Padrão | Descrição |
 |---|---|---|
 | `CONTROLEINV_DB_PATH` | `%LOCALAPPDATA%\ControleInv\controleinv.db` | Caminho do banco SQLite |
+| `CONTROLEINV_DATABASE_URL` | *(vazio)* | URL de um PostgreSQL (local, Neon, Supabase, Aiven). Quando definida, substitui o SQLite |
 | `CONTROLEINV_JOBS_ATIVOS` | `true` | Liga as atualizações automáticas em segundo plano |
 | `CONTROLEINV_COTACOES_INTERVALO_MIN` | `15` | Intervalo das cotações no pregão (seg–sex, 10h–18h) |
 | `CONTROLEINV_COTAHIST_HORA` | `21` | Hora da busca do fechamento oficial da B3 (repete às 8h) |
@@ -154,7 +156,61 @@ Copie `.env.example` para `.env` se quiser alterar o padrão:
 
 > O banco fica propositalmente fora de pastas sincronizadas (OneDrive, Dropbox), pois a sincronização de um SQLite aberto pode corrompê-lo.
 
+> Para usar PostgreSQL em vez de SQLite, veja [Banco de dados: SQLite ou PostgreSQL](#banco-de-dados-sqlite-ou-postgresql).
+
 > Em redes corporativas que bloqueiam o `registry.npmjs.org`, configure o registry interno no seu usuário (`npm config set registry <url> --location=user`) — não no projeto.
+
+---
+
+## Banco de dados: SQLite ou PostgreSQL
+
+O app funciona com dois tipos de banco. **Você não precisa mudar nada para começar**: o padrão é o SQLite.
+
+| | SQLite (padrão) | PostgreSQL |
+|---|---|---|
+| O que é | Um arquivo no seu computador | Um servidor de banco, local ou na nuvem |
+| Instalação | Nenhuma | Criar uma conta grátis (ex.: [Neon](https://neon.tech)) ou instalar o PostgreSQL |
+| Indicado para | Uso pessoal, em um computador só | Acessar os mesmos dados de mais de um computador ou hospedar o app em um servidor |
+| Backup | Copiar o arquivo `.db` | Feito pelo provedor (na nuvem) ou com `pg_dump` |
+
+**Na dúvida, fique no SQLite.** Mude para o PostgreSQL só se precisar de uma das situações da última coluna.
+
+### Como trocar para o PostgreSQL (usando o Neon, grátis)
+
+1. **Crie o banco.** Acesse [neon.tech](https://neon.tech), clique em *Sign up* e entre com sua conta Google ou GitHub. Crie um projeto (qualquer nome; em *Region*, escolha a mais próxima, ex.: *São Paulo* ou *US East*).
+2. **Copie o endereço de conexão.** No painel do projeto, clique em **Connect**. Aparece um endereço parecido com:
+   ```text
+   postgresql://usuario:senha@ep-exemplo-123.sa-east-1.aws.neon.tech/neondb?sslmode=require
+   ```
+   Clique no botão de copiar. **Esse endereço contém sua senha: não compartilhe nem publique.**
+3. **Crie o arquivo `.env`.** Na pasta principal do projeto (a mesma do `iniciar.bat`), crie um arquivo chamado `.env` (ou abra o existente) no Bloco de Notas e adicione a linha abaixo, colando o endereço copiado depois do `=`:
+   ```text
+   CONTROLEINV_DATABASE_URL=postgresql://usuario:senha@ep-exemplo-123.sa-east-1.aws.neon.tech/neondb?sslmode=require
+   ```
+   Ao salvar no Bloco de Notas, escolha *Tipo: Todos os arquivos* para não virar `.env.txt`.
+4. **Instale o componente do PostgreSQL (só uma vez).** Se o app já estava instalado antes desta versão, abra o PowerShell na pasta principal do projeto e rode:
+   ```powershell
+   .\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
+   ```
+   Em uma instalação nova, o `iniciar.bat` já faz isso.
+5. **Inicie o app** com o `iniciar.bat`, como sempre. Ele cria as tabelas no banco novo e abre o navegador.
+
+> **Os dados não são levados de um banco para o outro.** O PostgreSQL começa vazio: importe a planilha de novo (veja [Importando a planilha](#importando-a-planilha)) ou cadastre os lançamentos. O arquivo do SQLite continua intacto no seu computador.
+
+### Como voltar para o SQLite
+
+Abra o `.env` e apague a linha `CONTROLEINV_DATABASE_URL` (ou coloque `#` no início dela para desativá-la). Reinicie o app: ele volta a usar o arquivo do SQLite, com os dados que estavam lá.
+
+### Problemas comuns
+
+| Sintoma | Causa provável | Solução |
+|---|---|---|
+| App não abre e mostra erro de conexão | Endereço digitado errado ou sem internet | Copie o endereço de novo do painel do Neon; confira a internet |
+| Primeira página demora ~1 s a mais | O Neon "dorme" após alguns minutos sem uso e acorda na primeira consulta | Normal, nada a fazer |
+| Erro `password authentication failed` | Senha do banco foi trocada no painel | Copie o endereço atualizado para o `.env` |
+| Erro `No module named 'psycopg'` | Componente do passo 4 não instalado | Rode o comando do passo 4 |
+
+> Também funciona com Supabase, Aiven ou PostgreSQL instalado no computador: basta colocar o endereço de conexão deles no `CONTROLEINV_DATABASE_URL`. No plano grátis do Supabase o projeto é **pausado após ~7 dias sem uso** e precisa ser reativado manualmente no painel.
 
 ---
 

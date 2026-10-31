@@ -7,9 +7,9 @@ from decimal import Decimal
 
 import httpx
 from sqlalchemy import func, select
-from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.orm import Session
 
+from ..db import insert_upsert
 from ..models import Ativo, CotacaoMoeda, IndiceMensal, Operacao
 from ..providers import indices as fontes
 from ..providers.base import AtivoRef
@@ -88,7 +88,7 @@ def carregar_ptax_historica(sessao: Session, desde: date | None = None) -> Resul
                 continue
             linhas = [{"moeda": moeda, "data": d, "valor": v, "fonte": FONTE_PTAX} for d, v in diarios.items()]
             for i in range(0, len(linhas), 500):
-                lote = insert(CotacaoMoeda).values(linhas[i : i + 500])
+                lote = insert_upsert(sessao, CotacaoMoeda).values(linhas[i : i + 500])
                 sessao.execute(
                     lote.on_conflict_do_update(
                         index_elements=["moeda", "data"],
