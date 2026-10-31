@@ -1,9 +1,11 @@
 import os
+import tempfile
 
 import pytest
 
 # Antes de importar o app: testes nunca tocam o banco real nem iniciam jobs.
-os.environ["CONTROLEINV_JOBS_ATIVOS"] = "false"
+os.environ["INVESTHUB_JOBS_ATIVOS"] = "false"
+os.environ["INVESTHUB_DB_PATH"] = os.path.join(tempfile.mkdtemp(prefix="investhub-testes-"), "testes.db")
 
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import create_engine, event  # noqa: E402

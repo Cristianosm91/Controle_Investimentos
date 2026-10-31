@@ -1,10 +1,10 @@
 @echo off
 setlocal
-rem Stops ControleInv by its Uvicorn app target, independent of the listening port.
+rem Stops InvestHub+ by its Uvicorn app target, independent of the listening port.
 powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -Command ^
   "$padrao = '(?i)^\s*(?:\x22[^\x22]*pythonw?\.exe\x22|[^\s]*pythonw?\.exe)\s+-m\s+uvicorn\s+app\.main:app(?:\s|$)|^\s*(?:\x22[^\x22]*uvicorn(?:\.exe)?\x22|[^\s]*uvicorn(?:\.exe)?)\s+app\.main:app(?:\s|$)';" ^
   "$processos = @(Get-CimInstance Win32_Process | Where-Object { $_.Name -in @('python.exe','pythonw.exe','uvicorn.exe') -and $_.CommandLine -match $padrao } | Sort-Object ProcessId);" ^
-  "if ($processos.Count -eq 0) { Write-Host 'Nenhum backend ControleInv (Uvicorn app.main:app) encontrado.'; exit 0 };" ^
+  "if ($processos.Count -eq 0) { Write-Host 'Nenhum backend InvestHub+ (Uvicorn app.main:app) encontrado.'; exit 0 };" ^
   "$falhas = $false;" ^
   "foreach ($processo in $processos) {" ^
   "  Write-Host ('Backend encontrado: PID ' + $processo.ProcessId + ' (' + $processo.Name + ').');" ^

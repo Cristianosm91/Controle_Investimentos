@@ -1,4 +1,4 @@
-# ControleInv
+# InvestHub+
 
 > Controle de investimentos pessoal e multi-investidor — carteira, proventos, rentabilidade e imposto de renda, rodando localmente no seu computador.
 
@@ -9,7 +9,7 @@
 ![SQLite](https://img.shields.io/badge/SQLite-local-003B57?logo=sqlite&logoColor=white)
 ![Status](https://img.shields.io/badge/status-em%20desenvolvimento-orange)
 
-O **ControleInv** substitui planilhas de controle de investimentos (Google Sheets/Excel) por uma aplicação web local. Ele consolida operações, proventos e cotações de vários investidores, calcula posição e preço médio conforme as regras da Receita Federal e evolui, por fases, para rentabilidade, alocação e apuração de IR.
+O **InvestHub+** substitui planilhas de controle de investimentos (Google Sheets/Excel) por uma aplicação web local. Ele consolida operações, proventos e cotações de vários investidores, calcula posição e preço médio conforme as regras da Receita Federal e evolui, por fases, para rentabilidade, alocação e apuração de IR.
 
 ---
 
@@ -166,14 +166,16 @@ Copie `.env.example` para `.env` se quiser alterar o padrão:
 
 | Variável | Padrão | Descrição |
 |---|---|---|
-| `CONTROLEINV_DB_PATH` | `%LOCALAPPDATA%\ControleInv\controleinv.db` | Caminho do banco SQLite |
-| `CONTROLEINV_DATABASE_URL` | *(vazio)* | URL de um PostgreSQL (local, Neon, Supabase, Aiven). Quando definida, substitui o SQLite |
-| `CONTROLEINV_JOBS_ATIVOS` | `true` | Liga as atualizações automáticas em segundo plano |
-| `CONTROLEINV_COTACOES_INTERVALO_MIN` | `15` | Intervalo das cotações no pregão (seg–sex, 10h–18h) |
-| `CONTROLEINV_COTAHIST_HORA` | `21` | Hora da busca do fechamento oficial da B3 (repete às 8h) |
-| `CONTROLEINV_PTAX_DIAS_UTEIS_ANTES` | `0` | Defasagem da PTAX sugerida nos lançamentos (0 = data do fato gerador) |
+| `INVESTHUB_DB_PATH` | `%LOCALAPPDATA%\InvestHub\investhub.db` | Caminho do banco SQLite |
+| `INVESTHUB_DATABASE_URL` | *(vazio)* | URL de um PostgreSQL (local, Neon, Supabase, Aiven). Quando definida, substitui o SQLite |
+| `INVESTHUB_JOBS_ATIVOS` | `true` | Liga as atualizações automáticas em segundo plano |
+| `INVESTHUB_COTACOES_INTERVALO_MIN` | `15` | Intervalo das cotações no pregão (seg–sex, 10h–18h) |
+| `INVESTHUB_COTAHIST_HORA` | `21` | Hora da busca do fechamento oficial da B3 (repete às 8h) |
+| `INVESTHUB_PTAX_DIAS_UTEIS_ANTES` | `0` | Defasagem da PTAX sugerida nos lançamentos (0 = data do fato gerador) |
 
 > O banco fica propositalmente fora de pastas sincronizadas (OneDrive, Dropbox), pois a sincronização de um SQLite aberto pode corrompê-lo.
+
+> **Vindo do nome anterior (ControleInv)?** Na primeira execução, se `%LOCALAPPDATA%\InvestHub\investhub.db` ainda não existir, o banco `%LOCALAPPDATA%\ControleInv\controleinv.db` é copiado para lá automaticamente (o original é mantido como backup). Variáveis com o prefixo antigo `CONTROLEINV_` continuam aceitas; se as duas existirem, vale a `INVESTHUB_`.
 
 > Para usar PostgreSQL em vez de SQLite, veja [Banco de dados: SQLite ou PostgreSQL](#banco-de-dados-sqlite-ou-postgresql).
 
@@ -204,7 +206,7 @@ O app funciona com dois tipos de banco. **Você não precisa mudar nada para com
    Clique no botão de copiar. **Esse endereço contém sua senha: não compartilhe nem publique.**
 3. **Crie o arquivo `.env`.** Na pasta principal do projeto (a mesma do `iniciar.bat`), crie um arquivo chamado `.env` (ou abra o existente) no Bloco de Notas e adicione a linha abaixo, colando o endereço copiado depois do `=`:
    ```text
-   CONTROLEINV_DATABASE_URL=postgresql://usuario:senha@ep-exemplo-123.sa-east-1.aws.neon.tech/neondb?sslmode=require
+   INVESTHUB_DATABASE_URL=postgresql://usuario:senha@ep-exemplo-123.sa-east-1.aws.neon.tech/neondb?sslmode=require
    ```
    Ao salvar no Bloco de Notas, escolha *Tipo: Todos os arquivos* para não virar `.env.txt`.
 4. **Instale o componente do PostgreSQL (só uma vez).** Se o app já estava instalado antes desta versão, abra o PowerShell na pasta principal do projeto e rode:
@@ -218,7 +220,7 @@ O app funciona com dois tipos de banco. **Você não precisa mudar nada para com
 
 ### Como voltar para o SQLite
 
-Abra o `.env` e apague a linha `CONTROLEINV_DATABASE_URL` (ou coloque `#` no início dela para desativá-la). Reinicie o app: ele volta a usar o arquivo do SQLite, com os dados que estavam lá.
+Abra o `.env` e apague a linha `INVESTHUB_DATABASE_URL` (ou coloque `#` no início dela para desativá-la). Reinicie o app: ele volta a usar o arquivo do SQLite, com os dados que estavam lá.
 
 ### Problemas comuns
 
@@ -229,7 +231,7 @@ Abra o `.env` e apague a linha `CONTROLEINV_DATABASE_URL` (ou coloque `#` no in�
 | Erro `password authentication failed` | Senha do banco foi trocada no painel | Copie o endereço atualizado para o `.env` |
 | Erro `No module named 'psycopg'` | Componente do passo 4 não instalado | Rode o comando do passo 4 |
 
-> Também funciona com Supabase, Aiven ou PostgreSQL instalado no computador: basta colocar o endereço de conexão deles no `CONTROLEINV_DATABASE_URL`. No plano grátis do Supabase o projeto é **pausado após ~7 dias sem uso** e precisa ser reativado manualmente no painel.
+> Também funciona com Supabase, Aiven ou PostgreSQL instalado no computador: basta colocar o endereço de conexão deles no `INVESTHUB_DATABASE_URL`. No plano grátis do Supabase o projeto é **pausado após ~7 dias sem uso** e precisa ser reativado manualmente no painel.
 
 ---
 

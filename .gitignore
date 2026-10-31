@@ -8,11 +8,14 @@ __pycache__/
 frontend/node_modules/
 frontend/dist/
 
-# Dados e segredos (banco fica em %LOCALAPPDATA%\ControleInv)
+# Dados e segredos (banco fica em %LOCALAPPDATA%\InvestHub)
 .env
 *.db
 *.db-journal
 credenciais*.json
+
+# Relatórios de QA locais (contêm caminhos e usuário da máquina)
+qa-report/
 
 # Planilha pessoal de referência
 Ref/

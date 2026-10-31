@@ -20,7 +20,7 @@ export function Layout() {
   return (
     <div className="app">
       <aside className="menu">
-        <div className="marca">ControleInv</div>
+        <div className="marca">InvestHub+</div>
         <nav>
           {PAGINAS.map((p) => (
             <NavLink key={p.caminho} to={p.caminho} end={p.caminho === "/"} className="menu-item">
