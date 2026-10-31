@@ -702,6 +702,12 @@ Em `%LOCALAPPDATA%\InvestHub\backups`. Restaure em **Configurações → Backup*
 Provavelmente há outra instância rodando. Feche-a com `Ctrl+C` no terminal dela ou rode `parar.bat`.
 </details>
 
+<details>
+<summary><b>O <code>iniciar.bat</code> não consegue compilar a interface (Node.js indisponível).</b></summary>
+
+O app em execução usa só o Python; o Node.js serve apenas para **compilar a interface**, e o `iniciar.bat` só o chama quando há fontes em `frontend` mais novos que `frontend\dist`. Se a compilação falhar, o script avisa e usa a interface já compilada. Para mantê-la atualizada, rode `npm run build` na pasta `frontend` após alterar o front-end.
+</details>
+
 ---
 
 ## Versionamento e contribuição

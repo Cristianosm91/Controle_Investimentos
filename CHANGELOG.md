@@ -50,6 +50,8 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
   carrega automaticamente na inicialização o histórico B3 (COTAHIST) e o complementar (exterior, PTAX, índices).
 - Valuation: botão "Salvar premissas" usa a cor padrão da aplicação.
 - `iniciar.bat` só abre o navegador quando a API responde (antes abria numa tela de erro por alguns segundos).
+- `iniciar.bat` não aborta mais quando o Node.js está indisponível ou a compilação da interface falha: avisa e
+  usa a interface já compilada em `frontend\dist`.
 
 ## [1.0.0] - 2026-10-31
 
