@@ -99,6 +99,7 @@ class AtivoIn(BaseModel):
     taxa_aa: Decimal | None = Field(default=None, gt=-1, description="Taxa adicional a.a. (fração)")
     data_base: date | None = None
     cnpj: str | None = None
+    coingecko_id: str | None = Field(default=None, min_length=1, max_length=120, pattern=r"^[a-z0-9][a-z0-9-]*$")
 
     @field_validator("cnpj")
     @classmethod
@@ -124,6 +125,8 @@ class AtivoIn(BaseModel):
 
     @model_validator(mode="after")
     def _renda_fixa(self) -> "AtivoIn":
+        if self.coingecko_id is not None and self.classe != "CRIPTO":
+            raise ValueError("Identificador CoinGecko só é permitido para CRIPTO")
         if self.indexador is None:
             self.indexador_pct = self.taxa_aa = self.data_base = None
             return self
@@ -155,6 +158,69 @@ class AtivoOut(_Saida):
     taxa_aa: Num | None = None
     data_base: date | None = None
     cnpj: str | None = None
+    coingecko_id: str | None = None
+
+
+class CriptoIn(BaseModel):
+    coingecko_id: str = Field(min_length=1, max_length=120, pattern=r"^[a-z0-9][a-z0-9-]*$")
+    ticker: str = Field(min_length=1, max_length=20, pattern=r"^[A-Za-z0-9_-]+$")
+    ativo_id: int | None = Field(default=None, gt=0)
+
+
+class MoedaCriptoOut(BaseModel):
+    id: str
+    ticker: str
+    nome: str
+
+
+class ItemCriptoOut(BaseModel):
+    ativo_id: int
+    ticker: str
+    nome: str | None
+    coingecko_id: str | None
+    preco_usd: Num | None
+    preco_brl: Num | None
+    market_cap_usd: Num | None
+    variacao_24h: Num | None
+    variacao_7d: Num | None
+    variacao_30d: Num | None
+    fonte: str | None
+    atualizado_em: datetime | None
+    quantidade: Num
+    preco_medio_brl: Num
+    investido_brl: Num
+    mercado_brl: Num | None
+    lucro_aberto_brl: Num | None
+
+
+class PainelCriptoOut(BaseModel):
+    itens: list[ItemCriptoOut]
+    cambio_usd_brl: Num | None
+    cambio_data: date | None
+    avisos: list[str]
+
+
+class MesCriptoOut(BaseModel):
+    investidor_id: int
+    investidor: str
+    competencia: date
+    vendas_brl: Num
+    ganhos_brl: Num | None
+    perdas_brl: Num | None
+    resultado_brl: Num | None
+    limite_brl: Num
+    saldo_limite_brl: Num
+    acima_limite: bool
+
+
+class MonitorCriptoOut(BaseModel):
+    meses: list[MesCriptoOut]
+    avisos: list[str]
+
+
+class PontoCriptoOut(BaseModel):
+    instante: datetime
+    preco_usd: Num
 
 
 class SaldoManualIn(BaseModel):
@@ -524,6 +590,124 @@ class TarefaOut(BaseModel):
     mensagem: str | None
     duracao_s: float | None
     proxima: datetime | None
+
+
+class BackupOut(BaseModel):
+    nome: str
+    tipo: str
+    tamanho: int
+    criado_em: datetime
+
+
+class BackupsOut(BaseModel):
+    disponivel: bool
+    motivo: str | None = None
+    pasta: str | None = None
+    itens: list[BackupOut] = []
+
+
+class RestauracaoOut(BaseModel):
+    restaurado: str
+    revisao: str
+    copia_anterior: str
+
+
+class CelulaNumero(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    n: float = Field(allow_inf_nan=False)
+    f: Literal["moeda", "percentual", "numero"] = "numero"
+    moeda: Literal["R$", "US$", "€"] | None = None
+
+
+class CelulaData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    d: date
+
+
+CelulaExportacao = CelulaNumero | CelulaData | Annotated[str, Field(max_length=2000)] | None
+
+
+class AbaExportacao(BaseModel):
+    titulo: str = Field(min_length=1, max_length=120)
+    colunas: list[Annotated[str, Field(max_length=200)]] = Field(max_length=200)
+    linhas: list[list[CelulaExportacao]] = Field(max_length=100_000)
+
+
+class ExportacaoIn(BaseModel):
+    nome: str = Field(min_length=1, max_length=60, pattern=r"^[\w\- ]+$")
+    abas: list[AbaExportacao] = Field(min_length=1, max_length=30)
+
+
+class LinhaExtratoOut(BaseModel):
+    numero: int
+    descricao: str
+    data: date | None
+    ticker: str | None
+    tipo: str
+    evento: str | None
+    quantidade: Num
+    preco: Num
+    valor: Num
+    instituicao: str | None
+    daytrade: bool
+    status: Literal["novo", "duplicado", "verificar", "ignorado"]
+    motivo: str | None
+
+
+class PreviaExtratoOut(BaseModel):
+    relatorio: Literal["NEGOCIACAO", "MOVIMENTACAO", "PROVENTOS"]
+    linhas: list[LinhaExtratoOut]
+    ativos_novos: dict[str, str]
+    corretoras_novas: list[str]
+
+
+class ResultadoExtratoOut(BaseModel):
+    operacoes: int
+    proventos: int
+    ativos_criados: list[str]
+    corretoras_criadas: list[str]
+
+
+class TotaisAluguelOut(BaseModel):
+    bruto: Num
+    taxas: Num
+    irrf: Num
+    liquido: Num
+
+
+class AluguelAtivoOut(TotaisAluguelOut):
+    ticker: str
+    lancamentos: int
+    ultimo: date
+
+
+class AluguelMesOut(TotaisAluguelOut):
+    mes: str
+
+
+class ResumoAluguelOut(BaseModel):
+    anos: list[int]
+    totais: TotaisAluguelOut
+    lancamentos: int
+    por_ativo: list[AluguelAtivoOut]
+    por_mes: list[AluguelMesOut]
+
+
+class ItemAluguelOut(BaseModel):
+    data: date
+    ticker: str | None
+    raiz: str
+    valor: Num
+    taxas: Num
+    irrf: Num
+    linhas: list[int]
+    status: Literal["novo", "duplicado", "verificar", "sem_ativo"]
+    motivo: str | None
+    hash: str
+
+
+class ResultadoAluguelOut(BaseModel):
+    gravados: int
 
 
 class FonteFundamentosOut(BaseModel):

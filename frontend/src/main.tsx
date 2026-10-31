@@ -5,8 +5,10 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Layout, PAGINAS } from "./components/Layout";
 import { ProvedorInvestidor } from "./InvestidorContext";
 import { Alocacao } from "./pages/Alocacao";
+import { Aluguel } from "./pages/Aluguel";
 import { Caixa } from "./pages/Caixa";
 import { Configuracoes } from "./pages/Configuracoes";
+import { Cripto } from "./pages/Cripto";
 import { EmConstrucao } from "./pages/EmConstrucao";
 import { ImpostoRenda } from "./pages/ImpostoRenda";
 import { Operacoes } from "./pages/Operacoes";
@@ -29,12 +31,14 @@ const prontas: Record<string, JSX.Element> = {
   "/dashboard": <Rentabilidade />,
   "/operacoes": <Operacoes />,
   "/proventos": <Proventos />,
+  "/aluguel": <Aluguel />,
   "/caixa": <Caixa />,
   "/alocacao": <Alocacao />,
   "/radar": <Radar />,
   "/ir": <ImpostoRenda />,
   "/status": <StatusAtivo />,
   "/valuation": <Valuation />,
+  "/cripto": <Cripto />,
 };
 
 createRoot(document.getElementById("root")!).render(
@@ -48,7 +52,7 @@ createRoot(document.getElementById("root")!).render(
                 <Route
                   key={p.caminho}
                   path={p.caminho}
-                  element={prontas[p.caminho] ?? <EmConstrucao titulo={p.rotulo} fase={"fase" in p ? p.fase : undefined} />}
+                  element={prontas[p.caminho] ?? <EmConstrucao titulo={p.rotulo} />}
                 />
               ))}
               <Route path="/configuracoes" element={<Configuracoes />} />

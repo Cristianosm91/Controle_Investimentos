@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, Query
+from fastapi import Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
 from ..db import get_session
@@ -27,3 +27,20 @@ def obter_ou_404(sessao: Session, modelo, id_: int):
     if obj is None:
         raise HTTPException(404, f"{modelo.__name__} {id_} não encontrado")
     return obj
+
+
+async def ler_corpo(request: Request, limite: int) -> bytes:
+    """Lê o corpo bruto (upload de arquivo) recusando o que passar do limite antes de carregar tudo."""
+    declarado = request.headers.get("content-length")
+    mensagem = f"Arquivo maior que {limite // (1024 * 1024)} MB"
+    if declarado and declarado.isdigit() and int(declarado) > limite:
+        raise HTTPException(413, mensagem)
+    partes, recebido = [], 0
+    async for bloco in request.stream():
+        recebido += len(bloco)
+        if recebido > limite:
+            raise HTTPException(413, mensagem)
+        partes.append(bloco)
+    if not recebido:
+        raise HTTPException(422, "Arquivo vazio")
+    return b"".join(partes)

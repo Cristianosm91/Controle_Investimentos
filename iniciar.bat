@@ -1,5 +1,5 @@
 @echo off
-rem Sobe o ControleInv em http://127.0.0.1:8000 (API + interface).
+rem Sobe o InvestHub+ em http://127.0.0.1:8000 (API + interface).
 setlocal
 cd /d "%~dp0"
 
@@ -48,6 +48,6 @@ exit /b 0
 
 :erro
 echo.
-echo Falha ao iniciar o ControleInv.
+echo Falha ao iniciar o InvestHub+.
 pause
 exit /b 1

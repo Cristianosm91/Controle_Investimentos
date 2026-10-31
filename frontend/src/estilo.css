@@ -58,11 +58,26 @@ button.secundario {
   color: var(--primaria);
 }
 
-button.link {
+button.link,
+a.link {
   background: none;
   border: none;
   color: var(--primaria);
   padding: 0 0.4rem;
+}
+
+a.link {
+  text-decoration: none;
+}
+
+label.botao-arquivo {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--primaria);
+  border-radius: 6px;
+  padding: 0.4rem 0.9rem;
+  color: var(--primaria);
+  cursor: pointer;
 }
 
 button.perigo {
@@ -150,12 +165,25 @@ select {
 .topo {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 1.2rem;
   padding: 0.6rem 1.5rem;
   background: var(--painel);
   border-bottom: 1px solid var(--borda);
   position: sticky;
   top: 0;
   z-index: 5;
+}
+
+.exportar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.exportar button {
+  padding: 0.25rem 0.6rem;
+  font-size: 0.85rem;
 }
 
 .conteudo {
@@ -471,6 +499,60 @@ select {
   align-items: center;
 }
 
+.modal.largo {
+  width: min(1180px, 100%);
+}
+
+.importar-extrato .formulario.em-linha {
+  margin: 0.8rem 0;
+}
+
+.importar-extrato .rolagem {
+  max-height: 55vh;
+  overflow: auto;
+  margin: 0.6rem 0 0.8rem;
+}
+
+.importar-extrato .rolagem thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.importar-extrato .etiquetas button.etiqueta {
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.importar-extrato .etiquetas button.etiqueta.ativa {
+  border-color: var(--primaria);
+}
+
+.etiqueta.status-novo {
+  background: #dcfce7;
+  color: var(--positivo);
+}
+
+.etiqueta.status-duplicado {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.etiqueta.status-verificar {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.etiqueta.status-ignorado {
+  background: #f1f5f9;
+  color: #94a3b8;
+}
+
+.importar-extrato tr.linha-duplicado td,
+.importar-extrato tr.linha-ignorado td {
+  color: #94a3b8;
+}
+
 .modal-topo h3 {
   margin: 0;
 }
@@ -694,9 +776,9 @@ span.texto-limitado {
 }
 
 .radar .radar-adicionar {
-  border-color: #fb6400;
-  background: #fb6400;
-  color: #0e0e0e;
+  border-color: var(--primaria);
+  background: var(--primaria);
+  color: #fff;
   font-weight: 600;
   min-height: 2.4rem;
 }

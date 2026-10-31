@@ -7,11 +7,16 @@ from fastapi.staticfiles import StaticFiles
 
 from .api import (
     alocacao,
+    aluguel,
     ativos,
     atualizacoes,
+    backup,
     cadastros,
     carteira,
     configuracoes,
+    cripto,
+    exportacao,
+    extratos,
     fundamentos,
     ir,
     lancamentos,
@@ -34,11 +39,11 @@ async def ciclo_de_vida(_app: FastAPI):
     jobs.parar()
 
 
-app = FastAPI(title="ControleInv", version="0.1.0", lifespan=ciclo_de_vida)
+app = FastAPI(title="InvestHub+", version="0.1.0", lifespan=ciclo_de_vida)
 
 for modulo in (
     cadastros, ativos, lancamentos, carteira, atualizacoes, rentabilidade, configuracoes, alocacao, ir, fundamentos, radar,
-    status, valuation,
+    status, valuation, cripto, backup, exportacao, extratos, aluguel,
 ):
     app.include_router(modulo.router, prefix="/api")
 

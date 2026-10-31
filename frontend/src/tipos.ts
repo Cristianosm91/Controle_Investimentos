@@ -114,6 +114,61 @@ export interface Ativo {
   taxa_aa: number | null;
   data_base: string | null;
   cnpj: string | null;
+  coingecko_id: string | null;
+}
+
+export interface MoedaCripto {
+  id: string;
+  ticker: string;
+  nome: string;
+}
+
+export interface ItemCripto {
+  ativo_id: number;
+  ticker: string;
+  nome: string | null;
+  coingecko_id: string | null;
+  preco_usd: number | null;
+  preco_brl: number | null;
+  market_cap_usd: number | null;
+  variacao_24h: number | null;
+  variacao_7d: number | null;
+  variacao_30d: number | null;
+  fonte: string | null;
+  atualizado_em: string | null;
+  quantidade: number;
+  preco_medio_brl: number;
+  investido_brl: number;
+  mercado_brl: number | null;
+  lucro_aberto_brl: number | null;
+}
+
+export interface PainelCripto {
+  itens: ItemCripto[];
+  cambio_usd_brl: number | null;
+  cambio_data: string | null;
+  avisos: string[];
+}
+
+export interface MonitorCripto {
+  meses: {
+    investidor_id: number;
+    investidor: string;
+    competencia: string;
+    vendas_brl: number;
+    ganhos_brl: number | null;
+    perdas_brl: number | null;
+    resultado_brl: number | null;
+    limite_brl: number;
+    saldo_limite_brl: number;
+    acima_limite: boolean;
+  }[];
+  avisos: string[];
+}
+
+export interface PontoCripto {
+  instante: string;
+  preco_usd: number;
 }
 
 export interface ItemRadar {
@@ -276,6 +331,86 @@ export interface Tarefa {
   mensagem: string | null;
   duracao_s: number | null;
   proxima: string | null;
+}
+
+export interface Backup {
+  nome: string;
+  tipo: "manual" | "automatico" | "antes-restauracao";
+  tamanho: number;
+  criado_em: string;
+}
+
+export interface Backups {
+  disponivel: boolean;
+  motivo: string | null;
+  pasta: string | null;
+  itens: Backup[];
+}
+
+export interface Restauracao {
+  restaurado: string;
+  revisao: string;
+  copia_anterior: string;
+}
+
+export type StatusExtrato = "novo" | "duplicado" | "verificar" | "ignorado";
+
+export interface LinhaExtrato {
+  numero: number;
+  descricao: string;
+  data: string | null;
+  ticker: string | null;
+  tipo: "OPERACAO" | "PROVENTO" | "IGNORADA";
+  evento: string | null;
+  quantidade: number;
+  preco: number;
+  valor: number;
+  instituicao: string | null;
+  daytrade: boolean;
+  status: StatusExtrato;
+  motivo: string | null;
+}
+
+export interface PreviaExtrato {
+  relatorio: "NEGOCIACAO" | "MOVIMENTACAO" | "PROVENTOS";
+  linhas: LinhaExtrato[];
+  ativos_novos: Record<string, string>;
+  corretoras_novas: string[];
+}
+
+export interface ResultadoExtrato {
+  operacoes: number;
+  proventos: number;
+  ativos_criados: string[];
+  corretoras_criadas: string[];
+}
+
+export interface TotaisAluguel {
+  bruto: number;
+  taxas: number;
+  irrf: number;
+  liquido: number;
+}
+
+export interface ResumoAluguel {
+  anos: number[];
+  totais: TotaisAluguel;
+  lancamentos: number;
+  por_ativo: (TotaisAluguel & { ticker: string; lancamentos: number; ultimo: string })[];
+  por_mes: (TotaisAluguel & { mes: string })[];
+}
+
+export interface ItemAluguel {
+  data: string;
+  ticker: string | null;
+  raiz: string;
+  valor: number;
+  taxas: number;
+  irrf: number;
+  linhas: number[];
+  status: "novo" | "duplicado" | "verificar" | "sem_ativo";
+  motivo: string | null;
+  hash: string;
 }
 
 export type Benchmark = "ibov" | "ifix" | "cdi" | "ipca";

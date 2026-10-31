@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useDeferredValue, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, query } from "../api";
-import { classeSinal, moeda, numero, percentual } from "../formato";
+import { moeda, numero, percentual } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
 import type { Alocacao as TAlocacao, GrupoAlocacao, ItemAlocacao } from "../tipos";
 
@@ -41,7 +41,7 @@ function TabelaGrupos({ titulo, grupos }: { titulo: string; grupos: GrupoAlocaca
                 <Desvio alvo={g.peso_alvo} atual={g.peso_atual} />
               </td>
               <td className="num">{moeda(g.valor_atual)}</td>
-              <td className={`num ${classeSinal(g.ajuste)}`}>{moeda(g.ajuste)}</td>
+              <td className="num">{moeda(g.ajuste)}</td>
             </tr>
           ))}
         </tbody>
@@ -134,7 +134,7 @@ export function Alocacao() {
             </div>
             <div className="card">
               <span>Compras sugeridas</span>
-              <strong className={classeSinal(compras)}>{moeda(compras)}</strong>
+              <strong>{moeda(compras)}</strong>
             </div>
             {modo === "rebalancear" && (
               <div className="card">
@@ -213,7 +213,7 @@ export function Alocacao() {
                     </td>
                     <td className="num">{moeda(i.valor_atual)}</td>
                     <td className="num">{moeda(i.valor_alvo)}</td>
-                    <td className={`num ${classeSinal(i.ajuste)}`}>{moeda(i.ajuste)}</td>
+                    <td className="num">{moeda(i.ajuste)}</td>
                     <td className="num">{i.quantidade ? numero(i.quantidade, 4) : "—"}</td>
                   </tr>
                 ))}

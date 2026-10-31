@@ -267,7 +267,15 @@ interface FormProv {
   observacao: string;
 }
 
-export function FormProvento({ provento: p, aoFechar }: { provento?: Provento; aoFechar: () => void }) {
+export function FormProvento({
+  provento: p,
+  eventoInicial = "DIVIDENDO",
+  aoFechar,
+}: {
+  provento?: Provento;
+  eventoInicial?: string;
+  aoFechar: () => void;
+}) {
   const investidorPadrao = useInvestidorPadrao();
   const [f, setF] = useState<FormProv>(
     p
@@ -279,7 +287,7 @@ export function FormProvento({ provento: p, aoFechar }: { provento?: Provento; a
         }
       : {
           investidor_id: investidorPadrao, ativo_id: "", corretora_id: "", data_pagamento: hoje(), data_com: "",
-          evento: "DIVIDENDO", valor: "", irrf: "0", taxas: "0", moeda: "BRL", cambio: "1", cambioAuto: true, observacao: "",
+          evento: eventoInicial, valor: "", irrf: "0", taxas: "0", moeda: "BRL", cambio: "1", cambioAuto: true, observacao: "",
         },
   );
   const mudar = (parcial: Partial<FormProv>) => setF((atual) => ({ ...atual, ...parcial }));

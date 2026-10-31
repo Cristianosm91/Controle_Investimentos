@@ -37,6 +37,21 @@ class Corretora(Base):
     cnpj: Mapped[str | None] = mapped_column(String(14))
 
 
+class CriptoMercado(Base):
+    """Último snapshot por ativo; preços e capitalização em USD."""
+
+    __tablename__ = "cripto_mercado"
+
+    ativo_id: Mapped[int] = mapped_column(ForeignKey("ativo.id", ondelete="CASCADE"), primary_key=True)
+    preco_usd: Mapped[Decimal] = mapped_column(Valor)
+    market_cap_usd: Mapped[Decimal | None] = mapped_column(Numeric(30, 8, asdecimal=True))
+    variacao_24h: Mapped[Decimal | None] = mapped_column(Valor)
+    variacao_7d: Mapped[Decimal | None] = mapped_column(Valor)
+    variacao_30d: Mapped[Decimal | None] = mapped_column(Valor)
+    fonte: Mapped[str] = mapped_column(String(30))
+    atualizado_em: Mapped[datetime] = mapped_column(DateTime)
+
+
 class Ativo(Base):
     __tablename__ = "ativo"
 
@@ -58,6 +73,7 @@ class Ativo(Base):
     data_base: Mapped[date | None] = mapped_column(Date)
     # CNPJ da empresa/fundo emissor (ficha Bens e Direitos da DIRPF).
     cnpj: Mapped[str | None] = mapped_column(String(14))
+    coingecko_id: Mapped[str | None] = mapped_column(String(120), unique=True)
 
 
 class Operacao(Base):

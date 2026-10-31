@@ -1,4 +1,4 @@
-# ControleInv
+# InvestHub+
 
 > Controle de investimentos pessoal e multi-investidor — carteira, proventos, rentabilidade e imposto de renda, rodando localmente no seu computador.
 
@@ -9,7 +9,7 @@
 ![SQLite](https://img.shields.io/badge/SQLite-local-003B57?logo=sqlite&logoColor=white)
 ![Status](https://img.shields.io/badge/status-em%20desenvolvimento-orange)
 
-O **ControleInv** substitui planilhas de controle de investimentos (Google Sheets/Excel) por uma aplicação web local. Ele consolida operações, proventos e cotações de vários investidores, calcula posição e preço médio conforme as regras da Receita Federal e evolui, por fases, para rentabilidade, alocação e apuração de IR.
+O **InvestHub+** substitui planilhas de controle de investimentos (Google Sheets/Excel) por uma aplicação web local. Ele consolida operações, proventos e cotações de vários investidores, calcula posição e preço médio conforme as regras da Receita Federal e evolui, por fases, para rentabilidade, alocação e apuração de IR.
 
 ---
 
@@ -44,16 +44,42 @@ O **ControleInv** substitui planilhas de controle de investimentos (Google Sheet
 | **Portfólio** | Posições abertas com quantidade, preço médio, cotação, valor investido/mercado, lucro do dia, lucro aberto, proventos e peso. Tabela ordenável, agrupamento por estratégia, book, carteira, classe ou setor com subtotais, gráficos de exposição (book, classe, setor, ativo), visão consolidada ou separada por investidor e, opcionalmente, saldo em caixa somado ao patrimônio. |
 | **Operações** | Lançamento, edição e exclusão pela interface; histórico com filtros por ticker e período; compra, venda, day trade e eventos societários. Câmbio preenchido automaticamente pela PTAX; em ativos personalizados, o preço vem da cota da data. |
 | **Proventos** | Lançamento, edição e exclusão de dividendos, JCP, rendimentos, bonificações e amortizações, com IRRF e conversão cambial. Matriz mensal ano × mês e ativo × mês. |
+| **Aluguel (BTC)** | Remuneração bruta, taxa de intermediação, IRRF e líquido do aluguel de ações (doador) por ativo e por mês, com filtro de ano; lista e cadastro dos lançamentos; importação do extrato da conta da corretora (.xlsx/.csv) com prévia e detecção de duplicidade. |
 | **Caixa** | Aportes, saques, créditos e débitos por investidor e corretora, com saldo por corretora e moeda. A partir de uma data configurável, compras, vendas, amortizações e proventos líquidos movimentam o saldo automaticamente. |
 | **Alocação** | Peso-alvo (estratégia × book × peso do ativo na carteira) × atual por estratégia, book e ativo; simulador de aporte (só comprar ou rebalanceamento completo, respeitando o preço-teto) com valor e quantidade sugeridos. |
+| **Radar** | Watchlist de ativos da B3 (com ou sem posição): cotação, fundamentos (Fundamentus), variações de 1/7/14 dias, drawdown de 60 dias, faixa de 52 semanas, estimativa de Graham e YoC. |
+| **Status do ativo** | Drill-down por ativo, carteira ou book: investido, mercado, lucro aberto, proventos 12 meses, YoC, trades swing/day trade, distribuição do resultado e linha do tempo de operações e proventos. |
+| **Valuation** | Graham, Bazin, DCF (FCFE 5 anos), Gordon, P/L histórico e setorial e P/VP justificado, com premissas editáveis salvas por ativo; TIR/XIRR e TWR mensal do ativo. Não é recomendação de investimento. |
 | **Imposto de Renda** | Apuração mensal por CPF (ações, BDR, ETF, opções, day trade, FII) com isenção de R$ 20 mil, compensação de prejuízo por grupo, abatimento de IRRF e DARF 6015 com acúmulo abaixo de R$ 10; registro de DARFs pagos; exterior (GCAP até 2023, anual pela Lei 14.754/2023 desde 2024); relatório de apoio à DIRPF com exportação CSV e impressão/PDF. |
-| **Configurações** | Investidores, estratégias e books (com classe → book e exceções por ativo), carteiras (peso-alvo, preço-teto, ranking), ativos personalizados (renda fixa com rendimento por CDI/SELIC/IPCA/IGP-M/prefixado ou saldo manual), parâmetros, imposto de renda (regras fiscais com vigência, prejuízo inicial) e status das atualizações. |
+| **Configurações** | Investidores, estratégias e books (com classe → book e exceções por ativo), carteiras (peso-alvo, preço-teto, ranking), ativos personalizados (renda fixa com rendimento por CDI/SELIC/IPCA/IGP-M/prefixado ou saldo manual), parâmetros, imposto de renda (regras fiscais com vigência, prejuízo inicial), status das atualizações e backup. |
 | **Cotações** | Atualização automática no pregão (Yahoo Finance, B3 e EUA), fechamento oficial da B3 (COTAHIST) e câmbio pela PTAX do Banco Central. Histórico diário desde a primeira operação. Status das atualizações em Configurações. |
-| **Importação** | Importa a planilha de controle existente (`.xlsx`) de forma idempotente e concilia o resultado com os valores calculados pela própria planilha. |
+| **Importação** | Importa a planilha de controle existente (`.xlsx`) de forma idempotente e concilia o resultado com os valores calculados pela própria planilha. Importa os relatórios **Negociação**, **Movimentação** e **Proventos recebidos** da Área do Investidor da B3 (botão *Importar extrato B3* em Operações e Proventos). |
+| **Exportação** | Botões **CSV** e **XLSX** no topo de todas as páginas: exportam as tabelas visíveis (uma aba por tabela no XLSX, com moeda, percentual, número e data tipados); listas paginadas saem completas, com o filtro atual. |
+| **Backup** | Backup automático diário (mantém os 10 mais recentes) e manual em `%LOCALAPPDATA%\InvestHub\backups`; download e restauração validada (cópia do banco atual antes de restaurar e migração automática de backups antigos). |
+| **Cripto** | Busca no catálogo CoinGecko, vínculo por identificador canônico, preços USD/BRL, variações 24h/7d/30d, capitalização, histórico e posições. CoinGecko principal; Kraken como fallback somente de preço para moedas com vínculo verificado. Monitor mensal de vendas/ganhos por investidor, sem calcular imposto ou DARF. |
+
+#### Cripto: fontes e limites
+
+- Adicione uma moeda em **Cripto**, ou vincule um ativo `CRIPTO` existente ao ID CoinGecko. Símbolos repetidos não são tratados como a mesma moeda.
+- Novos ativos usam USD; o vínculo de ativos existentes preserva moeda e operações. Registre compras/vendas em **Operações**, com o câmbio da data.
+- **Atualizar cripto** e o job próprio atualizam somente ativos cadastrados com cotação automática, inclusive nos fins de semana. Snapshots são persistidos; a tela informa data/fonte e sinaliza dados com mais de duas horas.
+- Busca: cache de cinco minutos; gráfico USD: até 90 dias, cache de 15 minutos. Falhas de rede/rate limit são informadas; não é gerado histórico fictício. No fallback Kraken, capitalização e variações ficam indisponíveis. Moedas sem vínculo Kraken verificado não usam ticker como aproximação.
+- Valores monetários persistidos têm oito casas decimais; preços que arredondariam a zero não são gravados. Capitalização usa precisão ampliada.
+- O monitor soma vendas brutas de todas as criptos **por investidor**, incluindo taxas no cálculo dos ganhos/perdas e custo histórico anterior ao ano. O limite de R$ 35 mil é apenas referência: **não confirma isenção**, não classifica custódia/regime fiscal e não altera P10. A apuração existente de exterior permanece independente; consulte orientação fiscal.
+- Execute `python -m alembic upgrade head` antes de iniciar a versão com cripto.
+
+#### Extrato da B3: o que é importado
+
+- **Negociação** → compras e vendas (mercado à vista, fracionário — o sufixo `F` é removido — e opções). Compra e venda do mesmo ativo no dia com quantidades iguais é marcada como day trade; quantidades diferentes ficam como *Verificar*. Termo, futuro e exercício de opções não são importados.
+- **Movimentação** → dividendos, JCP (valor líquido creditado), rendimentos, amortizações (reduzem o custo) e desdobramentos. Liquidações, aluguel (BTC), Tesouro Direto e eventos que exigem dados ausentes no relatório (grupamento, bonificação, incorporação, subscrição, frações) aparecem como *Não importado*, com o motivo.
+- O relatório é de um CPF: escolha o investidor. A B3 não informa corretagem/emolumentos — as taxas entram zeradas.
+- **Proventos recebidos** → dividendos, JCP, rendimentos e reembolsos de proventos de ações emprestadas (gravados como *Reembolso de JSCP*, como na planilha — confira o tipo); o valor do relatório já é líquido.
+- Duplicidade: a soma diária por ativo e evento é comparada com o que já existe (planilha, digitação ou importação anterior); igual = *Já existe*, diferente = *Verificar* (importa só se marcado). Reimportar o mesmo arquivo não duplica.
+- Ativos e corretoras ausentes são cadastrados; a classe é deduzida do ticker/nome do produto — confira em Configurações.
 
 ### Em desenvolvimento
 
-Radar/watchlist, criptomoedas e valuation. Veja o [plano de desenvolvimento](PLANO_DESENVOLVIMENTO.md).
+Opcionais da Fase 6 (autenticação para uso em rede, relatório diário por e-mail, PWA). Veja o [plano de desenvolvimento](PLANO_DESENVOLVIMENTO.md).
 
 ---
 
@@ -156,14 +182,16 @@ Copie `.env.example` para `.env` se quiser alterar o padrão:
 
 | Variável | Padrão | Descrição |
 |---|---|---|
-| `CONTROLEINV_DB_PATH` | `%LOCALAPPDATA%\ControleInv\controleinv.db` | Caminho do banco SQLite |
-| `CONTROLEINV_DATABASE_URL` | *(vazio)* | URL de um PostgreSQL (local, Neon, Supabase, Aiven). Quando definida, substitui o SQLite |
-| `CONTROLEINV_JOBS_ATIVOS` | `true` | Liga as atualizações automáticas em segundo plano |
-| `CONTROLEINV_COTACOES_INTERVALO_MIN` | `15` | Intervalo das cotações no pregão (seg–sex, 10h–18h) |
-| `CONTROLEINV_COTAHIST_HORA` | `21` | Hora da busca do fechamento oficial da B3 (repete às 8h) |
-| `CONTROLEINV_PTAX_DIAS_UTEIS_ANTES` | `0` | Defasagem da PTAX sugerida nos lançamentos (0 = data do fato gerador) |
+| `INVESTHUB_DB_PATH` | `%LOCALAPPDATA%\InvestHub\investhub.db` | Caminho do banco SQLite |
+| `INVESTHUB_DATABASE_URL` | *(vazio)* | URL de um PostgreSQL (local, Neon, Supabase, Aiven). Quando definida, substitui o SQLite |
+| `INVESTHUB_JOBS_ATIVOS` | `true` | Liga as atualizações automáticas em segundo plano |
+| `INVESTHUB_COTACOES_INTERVALO_MIN` | `15` | Intervalo das cotações no pregão (seg–sex, 10h–18h) |
+| `INVESTHUB_COTAHIST_HORA` | `21` | Hora da busca do fechamento oficial da B3 (repete às 8h) |
+| `INVESTHUB_PTAX_DIAS_UTEIS_ANTES` | `0` | Defasagem da PTAX sugerida nos lançamentos (0 = data do fato gerador) |
 
 > O banco fica propositalmente fora de pastas sincronizadas (OneDrive, Dropbox), pois a sincronização de um SQLite aberto pode corrompê-lo.
+
+> **Vindo do nome anterior (ControleInv)?** Na primeira execução, se `%LOCALAPPDATA%\InvestHub\investhub.db` ainda não existir, o banco `%LOCALAPPDATA%\ControleInv\controleinv.db` é copiado para lá automaticamente (o original é mantido como backup). Variáveis com o prefixo antigo `CONTROLEINV_` continuam aceitas; se as duas existirem, vale a `INVESTHUB_`.
 
 > Para usar PostgreSQL em vez de SQLite, veja [Banco de dados: SQLite ou PostgreSQL](#banco-de-dados-sqlite-ou-postgresql).
 
@@ -194,7 +222,7 @@ O app funciona com dois tipos de banco. **Você não precisa mudar nada para com
    Clique no botão de copiar. **Esse endereço contém sua senha: não compartilhe nem publique.**
 3. **Crie o arquivo `.env`.** Na pasta principal do projeto (a mesma do `iniciar.bat`), crie um arquivo chamado `.env` (ou abra o existente) no Bloco de Notas e adicione a linha abaixo, colando o endereço copiado depois do `=`:
    ```text
-   CONTROLEINV_DATABASE_URL=postgresql://usuario:senha@ep-exemplo-123.sa-east-1.aws.neon.tech/neondb?sslmode=require
+   INVESTHUB_DATABASE_URL=postgresql://usuario:senha@ep-exemplo-123.sa-east-1.aws.neon.tech/neondb?sslmode=require
    ```
    Ao salvar no Bloco de Notas, escolha *Tipo: Todos os arquivos* para não virar `.env.txt`.
 4. **Instale o componente do PostgreSQL (só uma vez).** Se o app já estava instalado antes desta versão, abra o PowerShell na pasta principal do projeto e rode:
@@ -208,7 +236,7 @@ O app funciona com dois tipos de banco. **Você não precisa mudar nada para com
 
 ### Como voltar para o SQLite
 
-Abra o `.env` e apague a linha `CONTROLEINV_DATABASE_URL` (ou coloque `#` no início dela para desativá-la). Reinicie o app: ele volta a usar o arquivo do SQLite, com os dados que estavam lá.
+Abra o `.env` e apague a linha `INVESTHUB_DATABASE_URL` (ou coloque `#` no início dela para desativá-la). Reinicie o app: ele volta a usar o arquivo do SQLite, com os dados que estavam lá.
 
 ### Problemas comuns
 
@@ -219,7 +247,7 @@ Abra o `.env` e apague a linha `CONTROLEINV_DATABASE_URL` (ou coloque `#` no in�
 | Erro `password authentication failed` | Senha do banco foi trocada no painel | Copie o endereço atualizado para o `.env` |
 | Erro `No module named 'psycopg'` | Componente do passo 4 não instalado | Rode o comando do passo 4 |
 
-> Também funciona com Supabase, Aiven ou PostgreSQL instalado no computador: basta colocar o endereço de conexão deles no `CONTROLEINV_DATABASE_URL`. No plano grátis do Supabase o projeto é **pausado após ~7 dias sem uso** e precisa ser reativado manualmente no painel.
+> Também funciona com Supabase, Aiven ou PostgreSQL instalado no computador: basta colocar o endereço de conexão deles no `INVESTHUB_DATABASE_URL`. No plano grátis do Supabase o projeto é **pausado após ~7 dias sem uso** e precisa ser reativado manualmente no painel.
 
 ---
 

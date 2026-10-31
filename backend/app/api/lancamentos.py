@@ -42,10 +42,12 @@ def _validar_refs(sessao: Session, dados: BaseModel) -> None:
         obter_ou_404(sessao, Corretora, dados.corretora_id)
 
 
-def _listar(sessao: Session, modelo, campo_data, schema, investidores, ticker, inicio, fim, limite, deslocamento):
+def _listar(sessao: Session, modelo, campo_data, schema, investidores, ticker, inicio, fim, limite, deslocamento, evento=None):
     base = select(modelo)
     if investidores:
         base = base.where(modelo.investidor_id.in_(investidores))
+    if evento:
+        base = base.where(modelo.evento == evento)
     if ticker and hasattr(modelo, "ativo_id"):
         base = base.join(Ativo, Ativo.id == modelo.ativo_id).where(Ativo.ticker == ticker.strip().upper())
     if inicio:
@@ -128,9 +130,11 @@ def listar_proventos(
     fim: date | None = None,
     limite: Limite = 200,
     deslocamento: Deslocamento = 0,
+    evento: Annotated[str | None, Query(max_length=20)] = None,
 ):
     return _listar(
-        sessao, Provento, Provento.data_pagamento, ProventoOut, investidores, ticker, inicio, fim, limite, deslocamento
+        sessao, Provento, Provento.data_pagamento, ProventoOut, investidores, ticker, inicio, fim, limite, deslocamento,
+        evento,
     )
 
 

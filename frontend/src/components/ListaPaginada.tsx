@@ -1,10 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api, query } from "../api";
+import { lerTabela } from "../exportar";
 import type { Pagina } from "../tipos";
 import { CampoData } from "./CampoData";
+import { useFonteExportacao } from "./Exportacao";
 
 const POR_PAGINA = 100;
+const LOTE_EXPORTACAO = 1000;
 
 export interface ColunaLista<T> {
   titulo: string;
@@ -25,6 +28,8 @@ interface Props<T> {
   /** Conteúdo da última coluna de cada linha (ex.: editar/excluir). */
   acoes?: (item: T) => ReactNode;
   filtroTicker?: boolean;
+  /** Parâmetros fixos da consulta (ex.: { evento: "ALUGUEL" }). */
+  filtrosFixos?: Record<string, string>;
 }
 
 export function ListaPaginada<T>({
@@ -37,17 +42,57 @@ export function ListaPaginada<T>({
   topo,
   acoes,
   filtroTicker = true,
+  filtrosFixos,
 }: Props<T>) {
   const [ticker, setTicker] = useState("");
   const [inicio, setInicio] = useState("");
   const [fim, setFim] = useState("");
   const [pagina, setPagina] = useState(0);
 
-  const params = { investidores: filtroInvestidores, ticker, inicio, fim, limite: POR_PAGINA, deslocamento: pagina * POR_PAGINA };
+  const params = {
+    ...filtrosFixos,
+    investidores: filtroInvestidores,
+    ticker,
+    inicio,
+    fim,
+    limite: POR_PAGINA,
+    deslocamento: pagina * POR_PAGINA,
+  };
   const { data, isLoading, error } = useQuery({
     queryKey: [recurso, params],
     queryFn: () => api.get<Pagina<T>>(`/${recurso}${query(params)}`),
     placeholderData: (anterior) => anterior,
+  });
+
+  // Exportação: carrega todas as páginas do filtro atual e lê de uma tabela oculta com as mesmas colunas.
+  const [completos, setCompletos] = useState<T[] | null>(null);
+  const tabelaOculta = useRef<HTMLTableElement>(null);
+  const aoRenderizar = useRef<((tabela: HTMLTableElement) => void) | null>(null);
+  useEffect(() => {
+    if (completos && tabelaOculta.current && aoRenderizar.current) {
+      aoRenderizar.current(tabelaOculta.current);
+      aoRenderizar.current = null;
+    }
+  }, [completos]);
+  useFonteExportacao(async () => {
+    const todos: T[] = [];
+    for (let deslocamento = 0; ; ) {
+      const lote = await api.get<Pagina<T>>(
+        `/${recurso}${query({ ...params, limite: LOTE_EXPORTACAO, deslocamento })}`,
+      );
+      todos.push(...lote.itens);
+      deslocamento += lote.itens.length;
+      if (!lote.itens.length || deslocamento >= lote.total) break;
+    }
+    const tabela = await new Promise<HTMLTableElement>((resolver) => {
+      aoRenderizar.current = resolver;
+      setCompletos(todos);
+    });
+    try {
+      return lerTabela(tabela, titulo);
+    } finally {
+      setCompletos(null);
+    }
   });
 
   const total = data?.total ?? 0;
@@ -77,7 +122,7 @@ export function ListaPaginada<T>({
 
       {data && (
         <>
-          <div className="tabela-container">
+          <div className="tabela-container" data-exportar="ignorar">
             <table className="tabela">
               <thead>
                 <tr>
@@ -115,6 +160,29 @@ export function ListaPaginada<T>({
             </button>
           </div>
         </>
+      )}
+
+      {completos && (
+        <div hidden data-exportar="ignorar">
+          <table ref={tabelaOculta}>
+            <thead>
+              <tr>
+                {colunas.map((c) => (
+                  <th key={c.titulo}>{c.titulo}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {completos.map((item) => (
+                <tr key={chave(item)}>
+                  {colunas.map((c) => (
+                    <td key={c.titulo}>{c.render(item)}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   );

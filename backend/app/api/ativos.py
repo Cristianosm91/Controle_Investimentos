@@ -45,10 +45,17 @@ def criar_ativo(dados: AtivoIn, sessao: SessaoDep):
 @router.put("/{id_}", response_model=AtivoOut)
 def alterar_ativo(id_: int, dados: AtivoIn, sessao: SessaoDep):
     obj = obter_ou_404(sessao, Ativo, id_)
+    if obj.coingecko_id is not None and (
+        dados.classe != "CRIPTO"
+        or ("coingecko_id" in dados.model_fields_set and dados.coingecko_id != obj.coingecko_id)
+    ):
+        raise HTTPException(409, "Não altere a identidade de uma cripto vinculada; cadastre um ativo distinto")
     era_calculado = renda_fixa.calculado(obj)
     campos = dados.model_dump()
     if "cnpj" not in dados.model_fields_set:
         campos.pop("cnpj")  # formulários que não editam o CNPJ não o apagam
+    if "coingecko_id" not in dados.model_fields_set and dados.classe == "CRIPTO":
+        campos.pop("coingecko_id")
     for campo, valor in campos.items():
         setattr(obj, campo, valor)
     try:

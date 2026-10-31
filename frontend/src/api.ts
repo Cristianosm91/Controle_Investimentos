@@ -7,11 +7,15 @@ export class ErroApi extends Error {
   }
 }
 
-async function requisitar<T>(metodo: string, caminho: string, corpo?: unknown): Promise<T> {
+async function requisitar<T>(metodo: string, caminho: string, corpo?: unknown, arquivo?: File): Promise<T> {
   const resposta = await fetch(`/api${caminho}`, {
     method: metodo,
-    headers: corpo === undefined ? undefined : { "Content-Type": "application/json" },
-    body: corpo === undefined ? undefined : JSON.stringify(corpo),
+    headers: arquivo
+      ? { "Content-Type": "application/octet-stream", "X-Nome-Arquivo": encodeURIComponent(arquivo.name) }
+      : corpo === undefined
+        ? undefined
+        : { "Content-Type": "application/json" },
+    body: arquivo ?? (corpo === undefined ? undefined : JSON.stringify(corpo)),
   });
   if (!resposta.ok) {
     let mensagem = resposta.statusText;
@@ -31,6 +35,7 @@ export const api = {
   post: <T>(caminho: string, corpo?: unknown) => requisitar<T>("POST", caminho, corpo ?? {}),
   put: <T>(caminho: string, corpo: unknown) => requisitar<T>("PUT", caminho, corpo),
   del: (caminho: string) => requisitar<void>("DELETE", caminho),
+  enviar: <T>(caminho: string, arquivo: File) => requisitar<T>("POST", caminho, undefined, arquivo),
 };
 
 export function query(params: Record<string, string | number | boolean | null | undefined>): string {
