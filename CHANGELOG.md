@@ -6,6 +6,20 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 
 ## [Não lançado]
 
+### Adicionado
+- Portfólio: "Outros" nas exposições é clicável e mostra todos os itens ("Mostrar menos" recolhe).
+- Gráficos e barras de exposição: dica flutuante acima do cursor com o valor exato do ponto/barra.
+- Rentabilidade: aviso com botão "Carregar histórico de cotações" quando há meses sem cotação histórica.
+- Importador da planilha: criptos do quadro `Histórico de rendimentos` (J:L) viram posições de abertura vinculadas
+  ao CoinGecko (`--data-cripto`, `--somente-cripto`).
+- Histórico de preços das criptos (Yahoo Finance) na carga complementar e na rotina diária, para a Rentabilidade.
+
+### Corrigido
+- Evolução patrimonial com Mercado igual ao Investido nos meses passados: sem histórico de cotações, o app agora
+  carrega automaticamente na inicialização o histórico B3 (COTAHIST) e o complementar (exterior, PTAX, índices).
+- Valuation: botão "Salvar premissas" usa a cor padrão da aplicação.
+- `iniciar.bat` só abre o navegador quando a API responde (antes abria numa tela de erro por alguns segundos).
+
 ## [1.0.0] - 2026-10-31
 
 Primeira versão estável: substitui a planilha de controle de investimentos (Fases 0 a 6 do
