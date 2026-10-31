@@ -2,11 +2,20 @@ from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Query
+from pydantic import BaseModel
 from sqlalchemy import func, select
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import Session, joinedload
 
-from ..models import Ativo, Investidor, Operacao, Provento
-from ..schemas import OperacaoIn, OperacaoOut, Pagina, ProventoIn, ProventoOut
+from ..models import Ativo, Corretora, Investidor, MovCaixa, Operacao, Provento
+from ..schemas import (
+    MovCaixaIn,
+    MovCaixaOut,
+    OperacaoIn,
+    OperacaoOut,
+    Pagina,
+    ProventoIn,
+    ProventoOut,
+)
 from .deps import InvestidoresDep, SessaoDep, obter_ou_404
 
 router = APIRouter(tags=["lançamentos"])
@@ -14,37 +23,68 @@ router = APIRouter(tags=["lançamentos"])
 Limite = Annotated[int, Query(ge=1, le=1000)]
 Deslocamento = Annotated[int, Query(ge=0)]
 
-
-def _filtrar(consulta, modelo, campo_data, investidores, ticker, inicio, fim):
-    if investidores:
-        consulta = consulta.where(modelo.investidor_id.in_(investidores))
-    if ticker:
-        consulta = consulta.join(Ativo, Ativo.id == modelo.ativo_id).where(Ativo.ticker == ticker.strip().upper())
-    if inicio:
-        consulta = consulta.where(campo_data >= inicio)
-    if fim:
-        consulta = consulta.where(campo_data <= fim)
-    return consulta
+Lancamento = Operacao | Provento | MovCaixa
 
 
-def _saida(obj: Operacao | Provento, schema):
+def _saida(obj: Lancamento, schema: type[BaseModel]):
     dados = {c: getattr(obj, c) for c in schema.model_fields if c not in ("ticker", "corretora")}
-    return schema.model_validate(
-        {**dados, "ticker": obj.ativo.ticker, "corretora": obj.corretora.nome if obj.corretora else None}
-    )
+    if "ticker" in schema.model_fields:
+        dados["ticker"] = obj.ativo.ticker
+    dados["corretora"] = obj.corretora.nome if obj.corretora else None
+    return schema.model_validate(dados)
 
 
-def _operacao_out(o: Operacao) -> OperacaoOut:
-    return _saida(o, OperacaoOut)
-
-
-def _provento_out(p: Provento) -> ProventoOut:
-    return _saida(p, ProventoOut)
-
-
-def _validar_refs(sessao, dados) -> None:
+def _validar_refs(sessao: Session, dados: BaseModel) -> None:
     obter_ou_404(sessao, Investidor, dados.investidor_id)
-    obter_ou_404(sessao, Ativo, dados.ativo_id)
+    if getattr(dados, "ativo_id", None) is not None:
+        obter_ou_404(sessao, Ativo, dados.ativo_id)
+    if dados.corretora_id is not None:
+        obter_ou_404(sessao, Corretora, dados.corretora_id)
+
+
+def _listar(sessao: Session, modelo, campo_data, schema, investidores, ticker, inicio, fim, limite, deslocamento):
+    base = select(modelo)
+    if investidores:
+        base = base.where(modelo.investidor_id.in_(investidores))
+    if ticker and hasattr(modelo, "ativo_id"):
+        base = base.join(Ativo, Ativo.id == modelo.ativo_id).where(Ativo.ticker == ticker.strip().upper())
+    if inicio:
+        base = base.where(campo_data >= inicio)
+    if fim:
+        base = base.where(campo_data <= fim)
+
+    total = sessao.scalar(select(func.count()).select_from(base.subquery()))
+    opcoes = [joinedload(modelo.corretora)]
+    if hasattr(modelo, "ativo"):
+        opcoes.append(joinedload(modelo.ativo))
+    itens = sessao.scalars(
+        base.options(*opcoes).order_by(campo_data.desc(), modelo.id.desc()).limit(limite).offset(deslocamento)
+    ).all()
+    return Pagina[schema](total=total or 0, itens=[_saida(o, schema) for o in itens])
+
+
+def _criar(sessao: Session, modelo, dados: BaseModel, schema):
+    _validar_refs(sessao, dados)
+    obj = modelo(**dados.model_dump(), origem="manual")
+    sessao.add(obj)
+    sessao.commit()
+    sessao.refresh(obj)
+    return _saida(obj, schema)
+
+
+def _alterar(sessao: Session, modelo, id_: int, dados: BaseModel, schema):
+    obj = obter_ou_404(sessao, modelo, id_)
+    _validar_refs(sessao, dados)
+    for campo, valor in dados.model_dump().items():
+        setattr(obj, campo, valor)
+    sessao.commit()
+    sessao.refresh(obj)
+    return _saida(obj, schema)
+
+
+def _excluir(sessao: Session, modelo, id_: int) -> None:
+    sessao.delete(obter_ou_404(sessao, modelo, id_))
+    sessao.commit()
 
 
 # ---------- Operações ----------
@@ -59,42 +99,22 @@ def listar_operacoes(
     limite: Limite = 200,
     deslocamento: Deslocamento = 0,
 ):
-    base = _filtrar(select(Operacao), Operacao, Operacao.data, investidores, ticker, inicio, fim)
-    total = sessao.scalar(select(func.count()).select_from(base.subquery()))
-    itens = sessao.scalars(
-        base.options(joinedload(Operacao.ativo), joinedload(Operacao.corretora))
-        .order_by(Operacao.data.desc(), Operacao.id.desc())
-        .limit(limite)
-        .offset(deslocamento)
-    ).all()
-    return Pagina[OperacaoOut](total=total or 0, itens=[_operacao_out(o) for o in itens])
+    return _listar(sessao, Operacao, Operacao.data, OperacaoOut, investidores, ticker, inicio, fim, limite, deslocamento)
 
 
 @router.post("/operacoes", response_model=OperacaoOut, status_code=201)
 def criar_operacao(dados: OperacaoIn, sessao: SessaoDep):
-    _validar_refs(sessao, dados)
-    obj = Operacao(**dados.model_dump(), origem="manual")
-    sessao.add(obj)
-    sessao.commit()
-    sessao.refresh(obj)
-    return _operacao_out(obj)
+    return _criar(sessao, Operacao, dados, OperacaoOut)
 
 
 @router.put("/operacoes/{id_}", response_model=OperacaoOut)
 def alterar_operacao(id_: int, dados: OperacaoIn, sessao: SessaoDep):
-    obj = obter_ou_404(sessao, Operacao, id_)
-    _validar_refs(sessao, dados)
-    for campo, valor in dados.model_dump().items():
-        setattr(obj, campo, valor)
-    sessao.commit()
-    sessao.refresh(obj)
-    return _operacao_out(obj)
+    return _alterar(sessao, Operacao, id_, dados, OperacaoOut)
 
 
 @router.delete("/operacoes/{id_}", status_code=204)
 def excluir_operacao(id_: int, sessao: SessaoDep):
-    sessao.delete(obter_ou_404(sessao, Operacao, id_))
-    sessao.commit()
+    _excluir(sessao, Operacao, id_)
 
 
 # ---------- Proventos ----------
@@ -109,28 +129,50 @@ def listar_proventos(
     limite: Limite = 200,
     deslocamento: Deslocamento = 0,
 ):
-    base = _filtrar(select(Provento), Provento, Provento.data_pagamento, investidores, ticker, inicio, fim)
-    total = sessao.scalar(select(func.count()).select_from(base.subquery()))
-    itens = sessao.scalars(
-        base.options(joinedload(Provento.ativo), joinedload(Provento.corretora))
-        .order_by(Provento.data_pagamento.desc(), Provento.id.desc())
-        .limit(limite)
-        .offset(deslocamento)
-    ).all()
-    return Pagina[ProventoOut](total=total or 0, itens=[_provento_out(p) for p in itens])
+    return _listar(
+        sessao, Provento, Provento.data_pagamento, ProventoOut, investidores, ticker, inicio, fim, limite, deslocamento
+    )
 
 
 @router.post("/proventos", response_model=ProventoOut, status_code=201)
 def criar_provento(dados: ProventoIn, sessao: SessaoDep):
-    _validar_refs(sessao, dados)
-    obj = Provento(**dados.model_dump(), origem="manual")
-    sessao.add(obj)
-    sessao.commit()
-    sessao.refresh(obj)
-    return _provento_out(obj)
+    return _criar(sessao, Provento, dados, ProventoOut)
+
+
+@router.put("/proventos/{id_}", response_model=ProventoOut)
+def alterar_provento(id_: int, dados: ProventoIn, sessao: SessaoDep):
+    return _alterar(sessao, Provento, id_, dados, ProventoOut)
 
 
 @router.delete("/proventos/{id_}", status_code=204)
 def excluir_provento(id_: int, sessao: SessaoDep):
-    sessao.delete(obter_ou_404(sessao, Provento, id_))
-    sessao.commit()
+    _excluir(sessao, Provento, id_)
+
+
+# ---------- Caixa ----------
+
+@router.get("/caixa", response_model=Pagina[MovCaixaOut])
+def listar_caixa(
+    sessao: SessaoDep,
+    investidores: InvestidoresDep,
+    inicio: date | None = None,
+    fim: date | None = None,
+    limite: Limite = 200,
+    deslocamento: Deslocamento = 0,
+):
+    return _listar(sessao, MovCaixa, MovCaixa.data, MovCaixaOut, investidores, None, inicio, fim, limite, deslocamento)
+
+
+@router.post("/caixa", response_model=MovCaixaOut, status_code=201)
+def criar_mov_caixa(dados: MovCaixaIn, sessao: SessaoDep):
+    return _criar(sessao, MovCaixa, dados, MovCaixaOut)
+
+
+@router.put("/caixa/{id_}", response_model=MovCaixaOut)
+def alterar_mov_caixa(id_: int, dados: MovCaixaIn, sessao: SessaoDep):
+    return _alterar(sessao, MovCaixa, id_, dados, MovCaixaOut)
+
+
+@router.delete("/caixa/{id_}", status_code=204)
+def excluir_mov_caixa(id_: int, sessao: SessaoDep):
+    _excluir(sessao, MovCaixa, id_)

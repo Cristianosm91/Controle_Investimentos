@@ -34,4 +34,7 @@ EVENTOS_CAIXA: dict[str, str] = {
     "DEBITO": "Débito",
 }
 
+# Convenção de sinal de `valor` no caixa: entradas > 0, saídas < 0.
+EVENTOS_CAIXA_ENTRADA = frozenset({"APORTE", "CREDITO"})
+
 MOEDAS = ("BRL", "USD", "EUR")

@@ -1,11 +1,13 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { api } from "../api";
+import { PainelAtualizacoes } from "../components/PainelAtualizacoes";
 import { useInvestidor } from "../InvestidorContext";
 import type { Investidor } from "../tipos";
 
 const SECOES = [
   { id: "investidores", rotulo: "Investidores" },
+  { id: "atualizacoes", rotulo: "Atualizações" },
   { id: "estrategias", rotulo: "Estratégias & Books", fase: 3 },
   { id: "carteiras", rotulo: "Carteiras", fase: 3 },
   { id: "ativos", rotulo: "Ativos personalizados", fase: 3 },
@@ -191,6 +193,8 @@ export function Configuracoes() {
       </div>
       {secao === "investidores" ? (
         <Investidores />
+      ) : secao === "atualizacoes" ? (
+        <PainelAtualizacoes />
       ) : (
         <div className="aviso">
           {atual.rotulo}: prevista para a <strong>Fase {"fase" in atual ? atual.fase : ""}</strong>.

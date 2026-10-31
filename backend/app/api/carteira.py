@@ -1,12 +1,11 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 
 from ..dominio import EVENTOS_CAIXA, EVENTOS_OPERACAO, EVENTOS_PROVENTO, MOEDAS
-from ..providers.yahoo import ProvedorYahoo
 from ..schemas import AtualizacaoCotacoesOut, PosicaoOut
+from ..services import jobs
 from ..services.carteira import montar_carteira
-from ..services.cotacoes import atualizar_cotacoes
 from .deps import InvestidoresDep, SessaoDep
 
 router = APIRouter(tags=["carteira"])
@@ -50,8 +49,11 @@ def listar_posicoes(
 
 
 @router.post("/cotacoes/atualizar", response_model=AtualizacaoCotacoesOut)
-def atualizar(sessao: SessaoDep):
-    r = atualizar_cotacoes(sessao, [ProvedorYahoo()])
+def atualizar():
+    try:
+        r = jobs.executar("cotacoes")
+    except jobs.TarefaOcupada as erro:
+        raise HTTPException(409, str(erro))
     return AtualizacaoCotacoesOut(atualizados=r.atualizados, sem_cotacao=r.sem_cotacao)
 
 

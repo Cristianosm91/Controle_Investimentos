@@ -38,15 +38,16 @@ O **ControleInv** substitui planilhas de controle de investimentos (Google Sheet
 | Área | O que faz |
 |---|---|
 | **Multi-investidor** | Cadastro de investidores (com CPF mascarado) e grupos (ex.: Família). Seletor global filtra todas as páginas: um investidor, um grupo ou todos consolidados. |
-| **Portfólio** | Posições abertas com quantidade, preço médio, cotação, valor investido/mercado, lucro do dia, lucro aberto, proventos e peso. Tabela ordenável e visão consolidada ou separada por investidor. |
-| **Operações** | Histórico completo com filtros por ticker e período; compra, venda, day trade e eventos societários. |
-| **Proventos** | Dividendos, JCP, rendimentos, bonificações e amortizações, com IRRF e conversão cambial. |
-| **Cotações** | Atualização sob demanda via Yahoo Finance (B3 e EUA) e câmbio USD/EUR → BRL. |
+| **Portfólio** | Posições abertas com quantidade, preço médio, cotação, valor investido/mercado, lucro do dia, lucro aberto, proventos e peso. Tabela ordenável, agrupamento por classe ou setor com subtotais, gráficos de exposição (classe, setor, ativo) e visão consolidada ou separada por investidor. |
+| **Operações** | Lançamento, edição e exclusão pela interface; histórico com filtros por ticker e período; compra, venda, day trade e eventos societários. Câmbio preenchido automaticamente pela PTAX. |
+| **Proventos** | Lançamento, edição e exclusão de dividendos, JCP, rendimentos, bonificações e amortizações, com IRRF e conversão cambial. |
+| **Caixa** | Aportes, saques, créditos e débitos por investidor e corretora. |
+| **Cotações** | Atualização automática no pregão (Yahoo Finance, B3 e EUA), fechamento oficial da B3 (COTAHIST) e câmbio pela PTAX do Banco Central. Histórico diário desde a primeira operação. Status das atualizações em Configurações. |
 | **Importação** | Importa a planilha de controle existente (`.xlsx`) de forma idempotente e concilia o resultado com os valores calculados pela própria planilha. |
 
 ### Em desenvolvimento
 
-Resumo, rentabilidade (TWR/TIR × IBOV, IFIX, CDI, IPCA), caixa, alocação e rebalanceamento, radar/watchlist, criptomoedas, apuração de IR e DARF, DIRPF e valuation. Veja o [plano de desenvolvimento](PLANO_DESENVOLVIMENTO.md).
+Resumo, rentabilidade (TWR/TIR × IBOV, IFIX, CDI, IPCA), saldo de caixa por corretora, alocação e rebalanceamento, radar/watchlist, criptomoedas, apuração de IR e DARF, DIRPF e valuation. Veja o [plano de desenvolvimento](PLANO_DESENVOLVIMENTO.md).
 
 ---
 
@@ -58,9 +59,11 @@ flowchart LR
     API --> SVC[Serviços de cálculo<br/>posição · PM · lucro]
     SVC --> DB[(SQLite local)]
     API --> PROV[Provedores de cotação]
+    JOB[Jobs agendados<br/>APScheduler] --> PROV
     PROV -.-> YF[Yahoo Finance]
+    PROV -.-> BCB[BCB PTAX]
+    PROV -.-> B3[B3 COTAHIST]
     PROV -.-> GS[Google Sheets ponte<br/>planejado]
-    PROV -.-> B3[B3 COTAHIST<br/>planejado]
 ```
 
 - **Uma única porta:** o FastAPI serve a API em `/api` e a interface compilada em `/`.
@@ -76,7 +79,7 @@ flowchart LR
 |---|---|
 | Backend | Python 3.12+, FastAPI, SQLAlchemy 2, Alembic, Pydantic 2 |
 | Dados | SQLite, pandas, openpyxl |
-| Cotações | yfinance |
+| Cotações | yfinance, httpx (BCB PTAX, B3 COTAHIST), APScheduler |
 | Frontend | React 18, TypeScript, Vite, React Router, TanStack Query |
 | Testes | pytest |
 
@@ -142,6 +145,10 @@ Copie `.env.example` para `.env` se quiser alterar o padrão:
 | Variável | Padrão | Descrição |
 |---|---|---|
 | `CONTROLEINV_DB_PATH` | `%LOCALAPPDATA%\ControleInv\controleinv.db` | Caminho do banco SQLite |
+| `CONTROLEINV_JOBS_ATIVOS` | `true` | Liga as atualizações automáticas em segundo plano |
+| `CONTROLEINV_COTACOES_INTERVALO_MIN` | `15` | Intervalo das cotações no pregão (seg–sex, 10h–18h) |
+| `CONTROLEINV_COTAHIST_HORA` | `21` | Hora da busca do fechamento oficial da B3 (repete às 8h) |
+| `CONTROLEINV_PTAX_DIAS_UTEIS_ANTES` | `0` | Defasagem da PTAX sugerida nos lançamentos (0 = data do fato gerador) |
 
 > O banco fica propositalmente fora de pastas sincronizadas (OneDrive, Dropbox), pois a sincronização de um SQLite aberto pode corrompê-lo.
 
@@ -167,6 +174,19 @@ cd backend
 - **Conciliação:** ao final, compara quantidade e preço médio de cada ativo com a aba `dados.` e lista divergências.
 - **Multi-investidor:** rode uma vez por planilha/investidor usando `--investidor`.
 
+### Histórico de cotações da B3
+
+Depois de importar, carregue o histórico oficial (um arquivo COTAHIST por ano, desde a primeira operação) em **Configurações → Atualizações → Carregar histórico** ou pela linha de comando:
+
+```powershell
+cd backend
+..\.venv\Scripts\python.exe -m scripts.carregar_cotahist              # desde a 1ª operação
+..\.venv\Scripts\python.exe -m scripts.carregar_cotahist --desde 2024
+..\.venv\Scripts\python.exe -m scripts.carregar_cotahist --diario     # só dias pendentes
+```
+
+Depois disso, o job diário mantém o histórico em dia (e recupera dias perdidos ao iniciar o app).
+
 ---
 
 ## Estrutura do projeto
@@ -175,9 +195,9 @@ cd backend
 .
 ├── backend/
 │   ├── app/
-│   │   ├── api/            # Rotas REST (cadastros, ativos, lançamentos, carteira)
-│   │   ├── providers/      # Provedores de cotação (Yahoo, ...)
-│   │   ├── services/       # Regras de negócio (posição, carteira, cotações)
+│   │   ├── api/            # Rotas REST (cadastros, ativos, lançamentos, carteira, atualizações)
+│   │   ├── providers/      # Provedores de cotação (Yahoo, BCB PTAX)
+│   │   ├── services/       # Regras de negócio (posição, carteira, cotações, COTAHIST, jobs)
 │   │   ├── config.py       # Configurações via variáveis de ambiente
 │   │   ├── db.py           # Engine e sessão SQLAlchemy
 │   │   ├── dominio.py      # Vocabulário de eventos e moedas
@@ -185,12 +205,12 @@ cd backend
 │   │   ├── schemas.py      # Contratos de entrada/saída (Pydantic)
 │   │   └── main.py         # Aplicação FastAPI
 │   ├── alembic/            # Migrações do banco
-│   ├── scripts/            # Importador da planilha
+│   ├── scripts/            # Importador da planilha e carga COTAHIST
 │   └── tests/              # Testes automatizados
 ├── frontend/
 │   └── src/
-│       ├── components/     # Layout, seletor de investidor, listas
-│       └── pages/          # Portfólio, Operações, Proventos, Configurações
+│       ├── components/     # Layout, seletor, listas, formulários, exposição
+│       └── pages/          # Portfólio, Operações, Proventos, Caixa, Configurações
 ├── iniciar.bat             # Execução local
 ├── dev.bat                 # Modo desenvolvimento
 └── PLANO_DESENVOLVIMENTO.md
@@ -200,7 +220,7 @@ cd backend
 
 ## Regras de cálculo
 
-Custo, preço médio e lucro são apurados **em BRL**, convertendo cada movimento pelo câmbio (PTAX) da data, como exige a apuração de IR.
+Custo, preço médio e lucro são apurados **em BRL**, convertendo cada movimento pelo câmbio (PTAX) da data, como exige a apuração de IR. Nos lançamentos em moeda estrangeira, o câmbio sugerido é a **PTAX de fechamento, para venda, da data do fato gerador** (Lei 14.754/2023, art. 15); sem boletim na data (fim de semana/feriado), usa-se o último dia útil anterior. O valor pode ser ajustado manualmente.
 
 | Evento | Efeito na posição |
 |---|---|
@@ -228,9 +248,12 @@ Principais recursos:
 | Método | Rota | Descrição |
 |---|---|---|
 | `GET` | `/api/posicoes?investidores=1,2&agrupar=ativo` | Carteira consolidada ou por investidor |
-| `POST` | `/api/cotacoes/atualizar` | Atualiza cotações e câmbio |
+| `POST` | `/api/cotacoes/atualizar` | Atualiza cotações e câmbio agora |
 | `GET/POST/PUT/DELETE` | `/api/operacoes` | Operações (paginadas e filtráveis) |
-| `GET/POST/DELETE` | `/api/proventos` | Proventos |
+| `GET/POST/PUT/DELETE` | `/api/proventos` | Proventos |
+| `GET/POST/PUT/DELETE` | `/api/caixa` | Movimentações de caixa (entrada > 0, saída < 0) |
+| `GET` | `/api/cambio/ptax?moeda=USD&data=2026-10-02` | PTAX oficial (compra/venda) da data |
+| `GET` / `POST` | `/api/atualizacoes` · `/api/atualizacoes/{tarefa}` | Status e disparo das atualizações em segundo plano |
 | `GET/POST/PUT/DELETE` | `/api/investidores` | Investidores |
 | `GET/POST/PUT/DELETE` | `/api/ativos` | Cadastro de ativos |
 
@@ -243,7 +266,7 @@ cd backend
 ..\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Os testes cobrem preço médio, venda, eventos societários, câmbio, day trade e consolidação entre investidores, com casos derivados de valores reais da planilha.
+Os testes cobrem preço médio, venda, eventos societários, câmbio, day trade e consolidação entre investidores (com casos derivados de valores reais da planilha), além da leitura do COTAHIST, da escolha da PTAX e da API de lançamentos e caixa (banco em memória).
 
 ---
 
@@ -252,7 +275,7 @@ Os testes cobrem preço médio, venda, eventos societários, câmbio, day trade 
 | Fase | Entrega | Status |
 |---|---|---|
 | 0 | Fundação: banco, API, importador, layout, cotações | ✅ Concluída |
-| 1 | MVP de carteira: lançamentos pela interface, PTAX oficial, histórico B3 | 🚧 Em andamento |
+| 1 | MVP de carteira: lançamentos pela interface, PTAX oficial, histórico B3 | ✅ Concluída (planilha-ponte Google Sheets adiada) |
 | 2 | Rentabilidade (TWR, TIR) e página de resumo | ⏳ |
 | 3 | Configurações, alocação e rebalanceamento, caixa | ⏳ |
 | 4 | Imposto de renda: apuração mensal, DARF, DIRPF | ⏳ |

@@ -1,13 +1,16 @@
-import { useQuery } from "@tanstack/react-query";
-import { api } from "../api";
+import { useState } from "react";
+import { AcoesLinha } from "../components/AcoesLinha";
+import { FormProvento } from "../components/FormLancamentos";
 import { ListaPaginada, type ColunaLista } from "../components/ListaPaginada";
+import { useDominio } from "../cadastros";
 import { data, moeda } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
-import type { Dominio, Provento } from "../tipos";
+import type { Provento } from "../tipos";
 
 export function Proventos() {
   const { filtro, investidores } = useInvestidor();
-  const { data: dominio } = useQuery({ queryKey: ["dominio"], queryFn: () => api.get<Dominio>("/dominio") });
+  const { data: dominio } = useDominio();
+  const [edicao, setEdicao] = useState<Provento | "novo" | null>(null);
   const nome = (id: number) => investidores.find((i) => i.id === id)?.nome ?? id;
 
   const colunas: ColunaLista<Provento>[] = [
@@ -23,12 +26,24 @@ export function Proventos() {
   ];
 
   return (
-    <ListaPaginada<Provento>
-      titulo="Proventos"
-      recurso="proventos"
-      filtroInvestidores={filtro}
-      colunas={colunas}
-      chave={(p) => p.id}
-    />
+    <>
+      <ListaPaginada<Provento>
+        titulo="Proventos"
+        recurso="proventos"
+        filtroInvestidores={filtro}
+        colunas={colunas}
+        chave={(p) => p.id}
+        cabecalho={<button onClick={() => setEdicao("novo")}>+ Novo provento</button>}
+        acoes={(p) => (
+          <AcoesLinha
+            recurso="proventos"
+            id={p.id}
+            descricao={`${dominio?.eventos_provento[p.evento] ?? p.evento} de ${p.ticker} em ${data(p.data_pagamento)}`}
+            aoEditar={() => setEdicao(p)}
+          />
+        )}
+      />
+      {edicao && <FormProvento provento={edicao === "novo" ? undefined : edicao} aoFechar={() => setEdicao(null)} />}
+    </>
   );
 }

@@ -118,6 +118,8 @@ class MovCaixa(Base):
     origem: Mapped[str] = mapped_column(String(20), default="manual")
     hash_origem: Mapped[str | None] = mapped_column(String(64), unique=True)
 
+    corretora: Mapped[Corretora | None] = relationship()
+
 
 class Cotacao(Base):
     """Uma linha por ativo e dia; a linha do dia corrente é atualizada durante o pregão."""

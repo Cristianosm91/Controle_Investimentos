@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 from sqlalchemy import exists, select
 from sqlalchemy.exc import IntegrityError
 
-from ..models import Corretora, Grupo, Investidor, Operacao, Provento
+from ..models import Corretora, DarfPago, Grupo, Investidor, MovCaixa, Operacao, Provento
 from ..schemas import CorretoraIn, CorretoraOut, GrupoIn, GrupoOut, InvestidorIn, InvestidorOut
 from .deps import SessaoDep, obter_ou_404
 
@@ -52,8 +52,9 @@ def alterar_investidor(id_: int, dados: InvestidorIn, sessao: SessaoDep):
 @router.delete("/investidores/{id_}", status_code=204)
 def excluir_investidor(id_: int, sessao: SessaoDep):
     obj = obter_ou_404(sessao, Investidor, id_)
-    em_uso = sessao.scalar(select(exists().where(Operacao.investidor_id == id_))) or sessao.scalar(
-        select(exists().where(Provento.investidor_id == id_))
+    em_uso = any(
+        sessao.scalar(select(exists().where(modelo.investidor_id == id_)))
+        for modelo in (Operacao, Provento, MovCaixa, DarfPago)
     )
     if em_uso:
         raise HTTPException(409, "Investidor possui lançamentos; desative-o em vez de excluir")

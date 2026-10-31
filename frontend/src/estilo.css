@@ -442,3 +442,111 @@ select {
   display: flex;
   gap: 0.5rem;
 }
+
+/* ---------- modal ---------- */
+
+.modal-fundo {
+  position: fixed;
+  inset: 0;
+  background: rgb(15 23 42 / 0.45);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 5vh 1rem;
+  z-index: 20;
+  overflow-y: auto;
+}
+
+.modal {
+  background: var(--painel);
+  border-radius: 12px;
+  box-shadow: 0 20px 50px rgb(0 0 0 / 0.25);
+  width: min(760px, 100%);
+  padding: 1rem 1.2rem 1.2rem;
+}
+
+.modal-topo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-topo h3 {
+  margin: 0;
+}
+
+.formulario.em-modal {
+  border: none;
+  padding: 0;
+  max-width: none;
+}
+
+.formulario small {
+  font-size: 0.75rem;
+}
+
+.largura-total {
+  grid-column: 1 / -1;
+}
+
+.empurra {
+  margin-left: auto;
+}
+
+.acoes-linha {
+  white-space: nowrap;
+}
+
+.quebra {
+  white-space: normal !important;
+  max-width: 360px;
+}
+
+/* ---------- portfólio: grupos e exposição ---------- */
+
+.linha-grupo td {
+  background: #eef2ff;
+  font-size: 0.85rem;
+}
+
+.exposicoes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 0.8rem;
+  margin-bottom: 1.2rem;
+}
+
+.exposicao {
+  gap: 0.35rem;
+}
+
+.barra-linha {
+  display: grid;
+  grid-template-columns: 7.5rem 1fr 4rem;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.barra-rotulo {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.barra-trilho {
+  background: var(--fundo);
+  border-radius: 4px;
+  height: 0.7rem;
+}
+
+.barra {
+  background: var(--primaria);
+  border-radius: 4px;
+  height: 100%;
+}
+
+.barra-valor {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}

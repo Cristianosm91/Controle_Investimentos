@@ -6,7 +6,15 @@ from sqlalchemy.orm import Session
 
 from ..models import Ativo, Cotacao, CotacaoMoeda
 from ..providers.base import AtivoRef, ProvedorCotacao
+from ..providers.bcb import ProvedorBcb
+from ..providers.yahoo import ProvedorYahoo
 from .carteira import carregar_posicoes
+from .cotahist import FONTE as FONTE_B3
+
+
+def provedores_padrao() -> list[ProvedorCotacao]:
+    """Ordem de prioridade: câmbio oficial pela PTAX; ativos pelo Yahoo."""
+    return [ProvedorBcb(), ProvedorYahoo()]
 
 
 @dataclass
@@ -23,9 +31,10 @@ def ativos_com_posicao(sessao: Session) -> list[Ativo]:
 
 
 def atualizar_cotacoes(
-    sessao: Session, provedores: Sequence[ProvedorCotacao], ativos: Sequence[Ativo] | None = None
+    sessao: Session, provedores: Sequence[ProvedorCotacao] | None = None, ativos: Sequence[Ativo] | None = None
 ) -> ResultadoAtualizacao:
     """Consulta os provedores em ordem; cada um só recebe os ativos que os anteriores não resolveram."""
+    provedores = provedores if provedores is not None else provedores_padrao()
     ativos = list(ativos if ativos is not None else ativos_com_posicao(sessao))
     pendentes = {a.ticker: a for a in ativos}
     resultado = ResultadoAtualizacao()
@@ -42,8 +51,9 @@ def atualizar_cotacoes(
             if linha is None:
                 linha = Cotacao(ativo_id=ativo.id, data=cot.data)
                 sessao.add(linha)
-            linha.preco, linha.variacao_pct, linha.fonte = cot.preco, cot.variacao_pct, cot.fonte
-            resultado.atualizados[ticker] = cot.fonte
+            if linha.fonte != FONTE_B3:  # fechamento oficial prevalece
+                linha.preco, linha.variacao_pct, linha.fonte = cot.preco, cot.variacao_pct, cot.fonte
+            resultado.atualizados[ticker] = linha.fonte
 
     moedas_pendentes = {a.moeda for a in ativos if a.moeda != "BRL"}
     for provedor in provedores:

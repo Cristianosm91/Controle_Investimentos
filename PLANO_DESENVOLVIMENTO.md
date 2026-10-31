@@ -248,14 +248,15 @@ Requisitos: cache local, retry com backoff, timeout, log de falhas, nunca bloque
 - [x] Layout base React: menu lateral, seletor global de investidor, rota de Configurações
 - [x] Interface `ProvedorCotacao` + provedor Yahoo (cotações e câmbio)
 
-### Fase 1 — MVP de carteira (núcleo)
-- [ ] CRUD de investidores ✅, ativos (API ✅), operações (API ✅, formulário ⏳), proventos (API ✅, formulário ⏳), caixa
+### Fase 1 — MVP de carteira (núcleo) ✅
+- [x] CRUD de investidores, ativos (API + cadastro rápido no formulário), operações, proventos e caixa (API + formulários de lançamento/edição/exclusão)
 - [x] Serviço de posição/PM/lucro de trades por investidor (com eventos societários e câmbio) + visão consolidada
-- [ ] Job de cotações com fallback (Yahoo ✅ → Google Sheets ponte) + PTAX oficial do BCB
-- [ ] Carga histórica B3 COTAHIST (desde a 1ª operação, 2017) + job diário
-- [ ] **P2 Portfólio** (tabela ordenável e cards ✅; agrupamento e gráficos de exposição ⏳)
-- [ ] **P5 Operações** e **P4 Proventos** (listagem com filtros ✅; formulários de lançamento ⏳)
+- [x] Job de cotações (APScheduler: Yahoo a cada 15 min no pregão) + PTAX oficial do BCB (câmbio atual e autopreenchimento nos lançamentos: PTAX venda da data do fato gerador, Lei 14.754/2023 art. 15) — **planilha-ponte Google Sheets adiada** (decisão do usuário)
+- [x] Carga histórica B3 COTAHIST (desde a 1ª operação, 2017) + job diário (21h e 8h, recupera dias perdidos ao iniciar); fechamento oficial prevalece sobre o Yahoo no mesmo dia
+- [x] **P2 Portfólio** (tabela ordenável, cards, agrupamento por classe/setor com subtotais e gráficos de exposição por classe, setor e ativo)
+- [x] **P5 Operações**, **P4 Proventos** e **Caixa** (listagem com filtros e formulários de lançamento)
 - [x] Golden tests: posição e PM batem com `dados.` para todos os ativos abertos (conciliação no importador)
+- [x] Tela "Status das atualizações" (Configurações → Atualizações)
 - **Entrega:** substitui portfólio + lançamentos da planilha
 
 ### Fase 2 — Rentabilidade e resumo

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { api, query } from "../api";
+import { chaveGrupo, Exposicao, somarPor, valorExposicao } from "../components/Exposicao";
 import { classeSinal, data, moeda, numero, percentual } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
 import type { Posicao } from "../tipos";
@@ -107,6 +108,8 @@ function colunas(total: number, nomes: Map<number, string>, porInvestidor: boole
 export function Portfolio() {
   const { filtro, investidores } = useInvestidor();
   const [porInvestidor, setPorInvestidor] = useState(false);
+  const [agrupar, setAgrupar] = useState<"" | "classe" | "setor">("");
+  const [verExposicao, setVerExposicao] = useState(true);
   const [ordem, setOrdem] = useState<{ chave: string; desc: boolean }>({ chave: "classe", desc: false });
   const cliente = useQueryClient();
 
@@ -155,11 +158,60 @@ export function Portfolio() {
   const ordenarPor = (chave: string) =>
     setOrdem((o) => ({ chave, desc: o.chave === chave ? !o.desc : false }));
 
+  const grupos = useMemo(() => {
+    if (!agrupar) return [{ nome: "", itens: ordenadas }];
+    const mapa = new Map<string, Posicao[]>();
+    for (const p of ordenadas) {
+      const g = chaveGrupo(p, agrupar);
+      mapa.set(g, [...(mapa.get(g) ?? []), p]);
+    }
+    return somarPor(posicoes, agrupar).map(([nome]) => ({ nome, itens: mapa.get(nome) ?? [] }));
+  }, [agrupar, ordenadas, posicoes]);
+
+  const linha = (p: Posicao) => (
+    <tr key={`${p.investidor_id ?? 0}-${p.ativo_id}`}>
+      {cols.map((c) => (
+        <td key={c.chave} className={c.numerica ? "num" : ""}>
+          {c.render(p)}
+        </td>
+      ))}
+    </tr>
+  );
+
+  const totalExposicao = useMemo(() => posicoes.reduce((s, p) => s + valorExposicao(p), 0), [posicoes]);
+
+  const subtotal = (nome: string, itens: Posicao[]) => {
+    const mercado = itens.reduce((s, p) => s + valorExposicao(p), 0);
+    const custo = itens.reduce((s, p) => s + p.custo, 0);
+    const lucro = itens.reduce((s, p) => s + (p.lucro_aberto ?? 0), 0);
+    return (
+      <tr key={`grupo-${nome}`} className="linha-grupo">
+        <td colSpan={cols.length}>
+          <strong>{nome}</strong> · {itens.length} ativo(s) · {percentual(totalExposicao ? mercado / totalExposicao : null)} ·
+          Investido {moeda(custo)} · Mercado {moeda(mercado)} ·{" "}
+          <span className={classeSinal(lucro)}>Lucro aberto {moeda(lucro)}</span>
+        </td>
+      </tr>
+    );
+  };
+
   return (
     <section>
       <div className="titulo-linha">
         <h1>Portfólio</h1>
         <div className="acoes">
+          <label className="check">
+            Agrupar
+            <select value={agrupar} onChange={(e) => setAgrupar(e.target.value as typeof agrupar)}>
+              <option value="">—</option>
+              <option value="classe">Classe</option>
+              <option value="setor">Setor</option>
+            </select>
+          </label>
+          <label className="check">
+            <input type="checkbox" checked={verExposicao} onChange={(e) => setVerExposicao(e.target.checked)} />
+            Exposição
+          </label>
           <label className="check">
             <input type="checkbox" checked={porInvestidor} onChange={(e) => setPorInvestidor(e.target.checked)} />
             Separar por investidor
@@ -215,6 +267,8 @@ export function Portfolio() {
       {error && <div className="erro">{(error as Error).message}</div>}
       {!isLoading && posicoes.length === 0 && <div className="aviso">Nenhuma posição aberta.</div>}
 
+      {verExposicao && posicoes.length > 0 && <Exposicao posicoes={posicoes} />}
+
       {posicoes.length > 0 && (
         <div className="tabela-container">
           <table className="tabela">
@@ -228,17 +282,7 @@ export function Portfolio() {
                 ))}
               </tr>
             </thead>
-            <tbody>
-              {ordenadas.map((p) => (
-                <tr key={`${p.investidor_id ?? 0}-${p.ativo_id}`}>
-                  {cols.map((c) => (
-                    <td key={c.chave} className={c.numerica ? "num" : ""}>
-                      {c.render(p)}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
+            <tbody>{grupos.flatMap((g) => [...(g.nome ? [subtotal(g.nome, g.itens)] : []), ...g.itens.map(linha)])}</tbody>
           </table>
         </div>
       )}

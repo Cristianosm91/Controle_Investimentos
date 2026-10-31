@@ -1,17 +1,28 @@
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from .api import ativos, cadastros, carteira, lancamentos
-from .config import RAIZ_PROJETO
+from .api import ativos, atualizacoes, cadastros, carteira, lancamentos
+from .config import RAIZ_PROJETO, settings
+from .services import jobs
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
-app = FastAPI(title="ControleInv", version="0.1.0")
 
-for modulo in (cadastros, ativos, lancamentos, carteira):
+@asynccontextmanager
+async def ciclo_de_vida(_app: FastAPI):
+    if settings.jobs_ativos:
+        jobs.iniciar()
+    yield
+    jobs.parar()
+
+
+app = FastAPI(title="ControleInv", version="0.1.0", lifespan=ciclo_de_vida)
+
+for modulo in (cadastros, ativos, lancamentos, carteira, atualizacoes):
     app.include_router(modulo.router, prefix="/api")
 
 

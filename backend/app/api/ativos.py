@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import exists, select
 from sqlalchemy.exc import IntegrityError
 
-from ..models import Ativo, Operacao
+from ..models import Ativo, Operacao, Provento
 from ..schemas import AtivoIn, AtivoOut
 from .deps import SessaoDep, obter_ou_404
 
@@ -49,7 +49,7 @@ def alterar_ativo(id_: int, dados: AtivoIn, sessao: SessaoDep):
 @router.delete("/{id_}", status_code=204)
 def excluir_ativo(id_: int, sessao: SessaoDep):
     obj = obter_ou_404(sessao, Ativo, id_)
-    if sessao.scalar(select(exists().where(Operacao.ativo_id == id_))):
-        raise HTTPException(409, "Ativo possui operações e não pode ser excluído")
+    if any(sessao.scalar(select(exists().where(m.ativo_id == id_))) for m in (Operacao, Provento)):
+        raise HTTPException(409, "Ativo possui lançamentos e não pode ser excluído")
     sessao.delete(obj)
     sessao.commit()

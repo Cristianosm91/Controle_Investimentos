@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 RAIZ_PROJETO = Path(__file__).resolve().parents[2]
@@ -22,6 +23,14 @@ class Settings(BaseSettings):
     db_path: Path = _db_padrao()
     host: str = "127.0.0.1"
     port: int = 8000
+
+    # Lei 14.754/2023 art. 15: PTAX de venda da data do fato gerador (0 = a própria data).
+    ptax_dias_uteis_antes: int = Field(default=0, ge=0, le=5)
+
+    jobs_ativos: bool = True
+    cotacoes_intervalo_min: int = Field(default=15, ge=5)
+    # Arquivo diário da B3 sai à noite; o job tenta a partir deste horário.
+    cotahist_hora: int = Field(default=21, ge=0, le=23)
 
     @property
     def db_url(self) -> str:

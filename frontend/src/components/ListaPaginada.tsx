@@ -17,9 +17,23 @@ interface Props<T> {
   filtroInvestidores: string | undefined;
   colunas: ColunaLista<T>[];
   chave: (item: T) => number;
+  /** Botões à direita dos filtros (ex.: "+ Nova operação"). */
+  cabecalho?: ReactNode;
+  /** Conteúdo da última coluna de cada linha (ex.: editar/excluir). */
+  acoes?: (item: T) => ReactNode;
+  filtroTicker?: boolean;
 }
 
-export function ListaPaginada<T>({ titulo, recurso, filtroInvestidores, colunas, chave }: Props<T>) {
+export function ListaPaginada<T>({
+  titulo,
+  recurso,
+  filtroInvestidores,
+  colunas,
+  chave,
+  cabecalho,
+  acoes,
+  filtroTicker = true,
+}: Props<T>) {
   const [ticker, setTicker] = useState("");
   const [inicio, setInicio] = useState("");
   const [fim, setFim] = useState("");
@@ -44,9 +58,12 @@ export function ListaPaginada<T>({ titulo, recurso, filtroInvestidores, colunas,
       <div className="titulo-linha">
         <h1>{titulo}</h1>
         <div className="acoes filtros">
-          <input placeholder="Ticker" value={ticker} onChange={(e) => filtrar(() => setTicker(e.target.value.toUpperCase()))} />
+          {filtroTicker && (
+            <input placeholder="Ticker" value={ticker} onChange={(e) => filtrar(() => setTicker(e.target.value.toUpperCase()))} />
+          )}
           <input type="date" value={inicio} onChange={(e) => filtrar(() => setInicio(e.target.value))} title="Data inicial" />
           <input type="date" value={fim} onChange={(e) => filtrar(() => setFim(e.target.value))} title="Data final" />
+          {cabecalho}
         </div>
       </div>
 
@@ -64,6 +81,7 @@ export function ListaPaginada<T>({ titulo, recurso, filtroInvestidores, colunas,
                       {c.titulo}
                     </th>
                   ))}
+                  {acoes && <th />}
                 </tr>
               </thead>
               <tbody>
@@ -74,6 +92,7 @@ export function ListaPaginada<T>({ titulo, recurso, filtroInvestidores, colunas,
                         {c.render(item)}
                       </td>
                     ))}
+                    {acoes && <td className="num acoes-linha">{acoes(item)}</td>}
                   </tr>
                 ))}
               </tbody>

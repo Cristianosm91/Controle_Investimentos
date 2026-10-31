@@ -1,11 +1,11 @@
 import re
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated, Generic, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, PlainSerializer, field_validator, model_validator
 
-from .dominio import EVENTOS_OPERACAO, EVENTOS_PROVENTO, MOEDAS
+from .dominio import EVENTOS_CAIXA, EVENTOS_CAIXA_ENTRADA, EVENTOS_OPERACAO, EVENTOS_PROVENTO, MOEDAS
 
 T = TypeVar("T")
 
@@ -15,6 +15,13 @@ Num = Annotated[Decimal, PlainSerializer(float, return_type=float, when_used="js
 
 class _Saida(BaseModel):
     model_config = ConfigDict(from_attributes=True)
+
+
+def _validar_moeda(moeda: str, cambio: Decimal) -> None:
+    if moeda not in MOEDAS:
+        raise ValueError(f"Moeda deve ser uma de {MOEDAS}")
+    if moeda == "BRL" and cambio != 1:
+        raise ValueError("Lançamento em BRL deve ter câmbio 1")
 
 
 # ---------- Grupos / Investidores / Corretoras ----------
@@ -125,10 +132,7 @@ class OperacaoIn(BaseModel):
         ev, q, p = self.evento, self.quantidade, self.preco
         if ev not in EVENTOS_OPERACAO:
             raise ValueError(f"Evento inválido: {ev}")
-        if self.moeda not in MOEDAS:
-            raise ValueError(f"Moeda deve ser uma de {MOEDAS}")
-        if self.moeda == "BRL" and self.cambio != 1:
-            raise ValueError("Operação em BRL deve ter câmbio 1")
+        _validar_moeda(self.moeda, self.cambio)
         regras = {
             "C": q > 0 and p >= 0,
             "BONIFICACAO": q > 0 and p >= 0,
@@ -151,6 +155,7 @@ class OperacaoOut(_Saida):
     investidor_id: int
     ativo_id: int
     ticker: str
+    corretora_id: int | None
     corretora: str | None
     data: date
     evento: str
@@ -181,12 +186,12 @@ class ProventoIn(BaseModel):
     cambio: Decimal = Field(default=Decimal(1), gt=0)
     observacao: str | None = Field(default=None, max_length=200)
 
-    @field_validator("evento")
-    @classmethod
-    def _evento(cls, v: str) -> str:
-        if v not in EVENTOS_PROVENTO:
-            raise ValueError(f"Evento inválido: {v}")
-        return v
+    @model_validator(mode="after")
+    def _validar(self) -> "ProventoIn":
+        if self.evento not in EVENTOS_PROVENTO:
+            raise ValueError(f"Evento inválido: {self.evento}")
+        _validar_moeda(self.moeda, self.cambio)
+        return self
 
 
 class ProventoOut(_Saida):
@@ -194,6 +199,7 @@ class ProventoOut(_Saida):
     investidor_id: int
     ativo_id: int
     ticker: str
+    corretora_id: int | None
     corretora: str | None
     data_pagamento: date
     data_com: date | None
@@ -204,6 +210,53 @@ class ProventoOut(_Saida):
     moeda: str
     cambio: Num
     observacao: str | None
+
+
+# ---------- Caixa ----------
+
+class MovCaixaIn(BaseModel):
+    investidor_id: int
+    corretora_id: int | None = None
+    data: date
+    evento: str
+    valor: Decimal = Field(description="Entrada > 0 (aporte/crédito); saída < 0 (saque/débito)")
+    moeda: str = "BRL"
+    observacao: str | None = Field(default=None, max_length=200)
+
+    @model_validator(mode="after")
+    def _validar(self) -> "MovCaixaIn":
+        if self.evento not in EVENTOS_CAIXA:
+            raise ValueError(f"Evento inválido: {self.evento}")
+        if self.moeda not in MOEDAS:
+            raise ValueError(f"Moeda deve ser uma de {MOEDAS}")
+        entrada = self.evento in EVENTOS_CAIXA_ENTRADA
+        if self.valor == 0 or (self.valor > 0) != entrada:
+            raise ValueError(f"Valor deve ser {'positivo' if entrada else 'negativo'} para {self.evento}")
+        return self
+
+
+class MovCaixaOut(_Saida):
+    id: int
+    investidor_id: int
+    corretora_id: int | None
+    corretora: str | None
+    data: date
+    evento: str
+    valor: Num
+    moeda: str
+    observacao: str | None
+    origem: str
+
+
+# ---------- Câmbio ----------
+
+class PtaxOut(BaseModel):
+    moeda: str
+    data_solicitada: date
+    data_cotacao: date
+    compra: Num
+    venda: Num
+    fonte: str
 
 
 # ---------- Carteira / Cotações ----------
@@ -236,6 +289,18 @@ class PosicaoOut(BaseModel):
 class AtualizacaoCotacoesOut(BaseModel):
     atualizados: dict[str, str]
     sem_cotacao: list[str]
+
+
+class TarefaOut(BaseModel):
+    nome: str
+    descricao: str
+    em_execucao: bool
+    inicio: datetime | None
+    fim: datetime | None
+    sucesso: bool | None
+    mensagem: str | None
+    duracao_s: float | None
+    proxima: datetime | None
 
 
 class Pagina(BaseModel, Generic[T]):

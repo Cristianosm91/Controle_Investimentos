@@ -1,13 +1,16 @@
-import { useQuery } from "@tanstack/react-query";
-import { api } from "../api";
+import { useState } from "react";
+import { AcoesLinha } from "../components/AcoesLinha";
+import { FormOperacao } from "../components/FormLancamentos";
 import { ListaPaginada, type ColunaLista } from "../components/ListaPaginada";
+import { useDominio } from "../cadastros";
 import { classeSinal, data, moeda, numero } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
-import type { Dominio, Operacao } from "../tipos";
+import type { Operacao } from "../tipos";
 
 export function Operacoes() {
   const { filtro, investidores } = useInvestidor();
-  const { data: dominio } = useQuery({ queryKey: ["dominio"], queryFn: () => api.get<Dominio>("/dominio") });
+  const { data: dominio } = useDominio();
+  const [edicao, setEdicao] = useState<Operacao | "nova" | null>(null);
   const nome = (id: number) => investidores.find((i) => i.id === id)?.nome ?? id;
 
   const colunas: ColunaLista<Operacao>[] = [
@@ -32,12 +35,24 @@ export function Operacoes() {
   ];
 
   return (
-    <ListaPaginada<Operacao>
-      titulo="Operações"
-      recurso="operacoes"
-      filtroInvestidores={filtro}
-      colunas={colunas}
-      chave={(o) => o.id}
-    />
+    <>
+      <ListaPaginada<Operacao>
+        titulo="Operações"
+        recurso="operacoes"
+        filtroInvestidores={filtro}
+        colunas={colunas}
+        chave={(o) => o.id}
+        cabecalho={<button onClick={() => setEdicao("nova")}>+ Nova operação</button>}
+        acoes={(o) => (
+          <AcoesLinha
+            recurso="operacoes"
+            id={o.id}
+            descricao={`${dominio?.eventos_operacao[o.evento] ?? o.evento} de ${o.ticker} em ${data(o.data)}`}
+            aoEditar={() => setEdicao(o)}
+          />
+        )}
+      />
+      {edicao && <FormOperacao operacao={edicao === "nova" ? undefined : edicao} aoFechar={() => setEdicao(null)} />}
+    </>
   );
 }

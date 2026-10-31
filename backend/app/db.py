@@ -20,7 +20,8 @@ def criar_engine(url: str | None = None) -> Engine:
     url = url or settings.db_url
     if url.startswith("sqlite:///") and url != "sqlite:///:memory:":
         Path(url.removeprefix("sqlite:///")).parent.mkdir(parents=True, exist_ok=True)
-    eng = create_engine(url, connect_args={"check_same_thread": False})
+    # timeout: jobs em segundo plano e API gravam no mesmo arquivo.
+    eng = create_engine(url, connect_args={"check_same_thread": False, "timeout": 30})
 
     @event.listens_for(eng, "connect")
     def _ativar_fk(conexao, _registro) -> None:

@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Layout, PAGINAS } from "./components/Layout";
 import { ProvedorInvestidor } from "./InvestidorContext";
+import { Caixa } from "./pages/Caixa";
 import { Configuracoes } from "./pages/Configuracoes";
 import { EmConstrucao } from "./pages/EmConstrucao";
 import { Operacoes } from "./pages/Operacoes";
@@ -19,6 +20,7 @@ const prontas: Record<string, JSX.Element> = {
   "/portfolio": <Portfolio />,
   "/operacoes": <Operacoes />,
   "/proventos": <Proventos />,
+  "/caixa": <Caixa />,
 };
 
 createRoot(document.getElementById("root")!).render(
