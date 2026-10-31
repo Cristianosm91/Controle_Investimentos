@@ -42,14 +42,21 @@ def _validar_refs(sessao: Session, dados: BaseModel) -> None:
         obter_ou_404(sessao, Corretora, dados.corretora_id)
 
 
-def _listar(sessao: Session, modelo, campo_data, schema, investidores, ticker, inicio, fim, limite, deslocamento, evento=None):
+def _listar(
+    sessao: Session, modelo, campo_data, schema, investidores, ticker, inicio, fim, limite, deslocamento, evento=None,
+    classe=None,
+):
     base = select(modelo)
     if investidores:
         base = base.where(modelo.investidor_id.in_(investidores))
     if evento:
         base = base.where(modelo.evento == evento)
-    if ticker and hasattr(modelo, "ativo_id"):
-        base = base.join(Ativo, Ativo.id == modelo.ativo_id).where(Ativo.ticker == ticker.strip().upper())
+    if (ticker or classe) and hasattr(modelo, "ativo_id"):
+        base = base.join(Ativo, Ativo.id == modelo.ativo_id)
+        if ticker:
+            base = base.where(Ativo.ticker == ticker.strip().upper())
+        if classe:
+            base = base.where(Ativo.classe == classe)
     if inicio:
         base = base.where(campo_data >= inicio)
     if fim:
@@ -96,12 +103,16 @@ def listar_operacoes(
     sessao: SessaoDep,
     investidores: InvestidoresDep,
     ticker: str | None = None,
+    classe: str | None = None,
     inicio: date | None = None,
     fim: date | None = None,
     limite: Limite = 200,
     deslocamento: Deslocamento = 0,
 ):
-    return _listar(sessao, Operacao, Operacao.data, OperacaoOut, investidores, ticker, inicio, fim, limite, deslocamento)
+    return _listar(
+        sessao, Operacao, Operacao.data, OperacaoOut, investidores, ticker, inicio, fim, limite, deslocamento,
+        classe=classe,
+    )
 
 
 @router.post("/operacoes", response_model=OperacaoOut, status_code=201)

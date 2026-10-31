@@ -24,6 +24,28 @@ def test_operacao_crud(cliente, ids):
     assert cliente.get("/api/operacoes").json()["total"] == 0
 
 
+def test_operacoes_filtradas_por_classe(cliente, ids):
+    fii = cliente.post("/api/ativos", json={"ticker": "HGLG11", "classe": "FII"}).json()["id"]
+    cripto = cliente.post("/api/ativos", json={"ticker": "BTC", "classe": "CRIPTO"}).json()["id"]
+    for ativo_id in (ids["ativo_id"], fii, cripto):
+        resposta = cliente.post(
+            "/api/operacoes",
+            json={
+                "investidor_id": ids["investidor_id"],
+                "ativo_id": ativo_id,
+                "data": "2026-01-05",
+                "evento": "C",
+                "quantidade": 1,
+                "preco": 10,
+            },
+        )
+        assert resposta.status_code == 201
+
+    resultado = cliente.get("/api/operacoes", params={"classe": "FII"}).json()
+    assert resultado["total"] == 1
+    assert resultado["itens"][0]["ticker"] == "HGLG11"
+
+
 def test_operacao_rejeita_sinal_e_corretora_inexistente(cliente, ids):
     base = {**ids, "data": "2026-01-05", "evento": "V", "preco": 30}
     assert cliente.post("/api/operacoes", json={**base, "quantidade": 10}).status_code == 422
