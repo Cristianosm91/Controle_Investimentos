@@ -8,6 +8,7 @@ import { Alocacao } from "./pages/Alocacao";
 import { Caixa } from "./pages/Caixa";
 import { Configuracoes } from "./pages/Configuracoes";
 import { EmConstrucao } from "./pages/EmConstrucao";
+import { ImpostoRenda } from "./pages/ImpostoRenda";
 import { Operacoes } from "./pages/Operacoes";
 import { Portfolio } from "./pages/Portfolio";
 import { Proventos } from "./pages/Proventos";
@@ -27,6 +28,7 @@ const prontas: Record<string, JSX.Element> = {
   "/proventos": <Proventos />,
   "/caixa": <Caixa />,
   "/alocacao": <Alocacao />,
+  "/ir": <ImpostoRenda />,
 };
 
 createRoot(document.getElementById("root")!).render(

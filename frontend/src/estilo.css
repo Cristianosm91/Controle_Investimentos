@@ -626,3 +626,52 @@ select {
   background: #f9fafb;
   border-top: 2px solid var(--borda);
 }
+/* ---------- imposto de renda ---------- */
+
+a.botao {
+  display: inline-block;
+  border: 1px solid var(--primaria);
+  border-radius: 6px;
+  padding: 0.4rem 0.9rem;
+  text-decoration: none;
+}
+
+a.botao.secundario {
+  color: var(--primaria);
+}
+
+.relatorio h3 {
+  margin-top: 1.2rem;
+}
+
+@media print {
+  .tabela-container {
+    overflow: visible;
+  }
+
+  .menu,
+  .topo,
+  .nao-imprimir {
+    display: none !important;
+  }
+
+  .conteudo {
+    padding: 0;
+  }
+
+  .tabela th,
+  .tabela td {
+    white-space: normal;
+    font-size: 0.75rem;
+    padding: 0.25rem 0.4rem;
+  }
+
+  .tabela th {
+    position: static;
+  }
+
+  .card,
+  .tabela {
+    break-inside: avoid;
+  }
+}

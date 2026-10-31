@@ -101,7 +101,10 @@ def test_alocacao_inclui_ativo_de_carteira_sem_posicao(cliente, base):
 
 
 def test_parametros_e_saldo_de_caixa(cliente, base):
-    assert cliente.get("/api/parametros").json() == {"caixa_data_inicio": None, "caixa_no_portfolio": False}
+    assert cliente.get("/api/parametros").json() == {
+        "caixa_data_inicio": None, "caixa_no_portfolio": False,
+        "ir_ano_inicio": None, "ir_bdr_como_acao": False, "ir_daytrade_no_limite": False,
+    }
     cliente.post("/api/caixa", json={"investidor_id": base["inv"], "corretora_id": base["corretora"], "data": "2026-01-02",
                                      "evento": "APORTE", "valor": 10000})
     _compra(cliente, base, base["petr"], data="2025-12-01")  # antes do início: ignorada

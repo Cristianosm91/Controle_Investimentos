@@ -113,6 +113,7 @@ export interface Ativo {
   indexador_pct: number | null;
   taxa_aa: number | null;
   data_base: string | null;
+  cnpj: string | null;
 }
 
 export interface Corretora {
@@ -207,6 +208,8 @@ export interface Dominio {
   moedas: string[];
   indexadores: Record<string, string>;
   categorias_carteira: string[];
+  categorias_ir: Record<string, string>;
+  grupos_prejuizo: Record<string, string>;
 }
 
 // ---------- Configurações ----------
@@ -254,6 +257,9 @@ export interface Carteira {
 export interface Parametros {
   caixa_data_inicio: string | null;
   caixa_no_portfolio: boolean;
+  ir_ano_inicio: number | null;
+  ir_bdr_como_acao: boolean;
+  ir_daytrade_no_limite: boolean;
 }
 
 export interface Cota {
@@ -317,5 +323,109 @@ export interface Alocacao {
   estrategias: GrupoAlocacao[];
   books: GrupoAlocacao[];
   ativos: ItemAlocacao[];
+  avisos: string[];
+}
+
+// ---------- Imposto de renda ----------
+
+export interface RegraFiscal {
+  id: number;
+  categoria: string;
+  vigencia_inicio: string;
+  vigencia_fim: string | null;
+  aliquota: number;
+  limite_isencao: number | null;
+  apuracao: "MENSAL" | "ANUAL";
+  observacao: string | null;
+}
+
+export interface PrejuizoInicial {
+  grupo: string;
+  valor: number;
+}
+
+export interface DarfPago {
+  id: number;
+  investidor_id: number;
+  competencia: string;
+  data_pagamento: string;
+  valor: number;
+}
+
+export interface CategoriaMesIR {
+  categoria: string;
+  vendas: number;
+  lucro: number;
+  isento: boolean;
+  base: number;
+  aliquota: number | null;
+  imposto: number;
+}
+
+export interface MesIR {
+  competencia: string;
+  categorias: CategoriaMesIR[];
+  prejuizo: Record<string, number>;
+  imposto: number;
+  irrf: number;
+  irrf_compensado: number;
+  irrf_saldo: number;
+  darf_mes: number;
+  darf_anterior: number;
+  darf: number;
+  darf_transportado: number;
+  pago: number;
+  saldo: number;
+}
+
+export interface AnoExterior {
+  ano: number;
+  vendas: number;
+  lucro: number;
+  dividendos: number;
+  imposto_pago_exterior: number;
+  base: number;
+  imposto: number;
+  prejuizo: number;
+  regimes: string[];
+}
+
+export interface ApuracaoIR {
+  anos: number[];
+  meses: MesIR[];
+  exterior: AnoExterior[];
+  nao_apurados: string[];
+}
+
+export interface BemDireito {
+  ativo_id: number;
+  ticker: string;
+  nome: string | null;
+  cnpj: string | null;
+  tipo: string;
+  quantidade: number;
+  custo_anterior: number;
+  custo_atual: number;
+  discriminacao: string;
+}
+
+export interface Rendimento {
+  ficha: "ISENTO" | "EXCLUSIVO" | "OUTROS";
+  tipo: string;
+  ativo_id: number | null;
+  ticker: string | null;
+  cnpj: string | null;
+  valor: number;
+  irrf: number;
+}
+
+export interface Dirpf {
+  ano: number;
+  bens: BemDireito[];
+  rendimentos: Rendimento[];
+  meses: MesIR[];
+  prejuizo_final: Record<string, number>;
+  irrf_saldo_final: number;
+  exterior: AnoExterior | null;
   avisos: string[];
 }

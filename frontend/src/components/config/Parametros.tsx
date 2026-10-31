@@ -4,10 +4,18 @@ import { api } from "../../api";
 import { invalidarDerivados, useParametros } from "../../cadastros";
 import type { Parametros as TParametros } from "../../tipos";
 
+const PADRAO: TParametros = {
+  caixa_data_inicio: null,
+  caixa_no_portfolio: false,
+  ir_ano_inicio: null,
+  ir_bdr_como_acao: false,
+  ir_daytrade_no_limite: false,
+};
+
 export function Parametros() {
   const { data } = useParametros();
   const cliente = useQueryClient();
-  const [form, setForm] = useState<TParametros>({ caixa_data_inicio: null, caixa_no_portfolio: false });
+  const [form, setForm] = useState<TParametros>(PADRAO);
   const [salvo, setSalvo] = useState(false);
 
   useEffect(() => {
@@ -64,7 +72,7 @@ export function Parametros() {
       </form>
       <p className="sutil">
         Câmbio dos lançamentos no exterior: PTAX de venda da data (Lei 14.754/2023), definido em <code>.env</code>{" "}
-        (<code>CONTROLEINV_PTAX_DIAS_UTEIS_ANTES</code>). Parâmetros de IR chegam na Fase 4.
+        (<code>CONTROLEINV_PTAX_DIAS_UTEIS_ANTES</code>). Parâmetros de IR ficam em Configurações → Imposto de renda.
       </p>
     </>
   );

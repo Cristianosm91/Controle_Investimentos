@@ -46,13 +46,14 @@ O **ControleInv** substitui planilhas de controle de investimentos (Google Sheet
 | **Proventos** | Lançamento, edição e exclusão de dividendos, JCP, rendimentos, bonificações e amortizações, com IRRF e conversão cambial. Matriz mensal ano × mês e ativo × mês. |
 | **Caixa** | Aportes, saques, créditos e débitos por investidor e corretora, com saldo por corretora e moeda. A partir de uma data configurável, compras, vendas, amortizações e proventos líquidos movimentam o saldo automaticamente. |
 | **Alocação** | Peso-alvo (estratégia × book × peso do ativo na carteira) × atual por estratégia, book e ativo; simulador de aporte (só comprar ou rebalanceamento completo, respeitando o preço-teto) com valor e quantidade sugeridos. |
-| **Configurações** | Investidores, estratégias e books (com classe → book e exceções por ativo), carteiras (peso-alvo, preço-teto, ranking), ativos personalizados (renda fixa com rendimento por CDI/SELIC/IPCA/IGP-M/prefixado ou saldo manual), parâmetros e status das atualizações. |
+| **Imposto de Renda** | Apuração mensal por CPF (ações, BDR, ETF, opções, day trade, FII) com isenção de R$ 20 mil, compensação de prejuízo por grupo, abatimento de IRRF e DARF 6015 com acúmulo abaixo de R$ 10; registro de DARFs pagos; exterior (GCAP até 2023, anual pela Lei 14.754/2023 desde 2024); relatório de apoio à DIRPF com exportação CSV e impressão/PDF. |
+| **Configurações** | Investidores, estratégias e books (com classe → book e exceções por ativo), carteiras (peso-alvo, preço-teto, ranking), ativos personalizados (renda fixa com rendimento por CDI/SELIC/IPCA/IGP-M/prefixado ou saldo manual), parâmetros, imposto de renda (regras fiscais com vigência, prejuízo inicial) e status das atualizações. |
 | **Cotações** | Atualização automática no pregão (Yahoo Finance, B3 e EUA), fechamento oficial da B3 (COTAHIST) e câmbio pela PTAX do Banco Central. Histórico diário desde a primeira operação. Status das atualizações em Configurações. |
 | **Importação** | Importa a planilha de controle existente (`.xlsx`) de forma idempotente e concilia o resultado com os valores calculados pela própria planilha. |
 
 ### Em desenvolvimento
 
-Radar/watchlist, criptomoedas, apuração de IR e DARF, DIRPF e valuation. Veja o [plano de desenvolvimento](PLANO_DESENVOLVIMENTO.md).
+Radar/watchlist, criptomoedas e valuation. Veja o [plano de desenvolvimento](PLANO_DESENVOLVIMENTO.md).
 
 ---
 
@@ -260,6 +261,15 @@ cd backend
 
 Compara mês a mês investido, mercado, proventos, lucro de trades e TWR com a aba `dashboard.` da planilha.
 
+### Conciliação do imposto de renda
+
+```powershell
+cd backend
+..\.venv\Scripts\python.exe -m scripts.conciliar_ir "C:\caminho\planilha.xlsx" --investidor "Nome"
+```
+
+Compara mês a mês as vendas e o lucro por categoria e o DARF com a aba `apuração IR`. Divergências de DARF esperadas: a planilha mantém prejuízo separado por classe (ações × BDR) e não transporta o saldo de IRRF; o app segue a RFB.
+
 ---
 
 ## Estrutura do projeto
@@ -268,9 +278,9 @@ Compara mês a mês investido, mercado, proventos, lucro de trades e TWR com a a
 .
 ├── backend/
 │   ├── app/
-│   │   ├── api/            # Rotas REST (cadastros, ativos, lançamentos, carteira, atualizações, configurações, alocação)
+│   │   ├── api/            # Rotas REST (cadastros, ativos, lançamentos, carteira, atualizações, configurações, alocação, IR)
 │   │   ├── providers/      # Provedores de cotação (Yahoo, BCB PTAX)
-│   │   ├── services/       # Regras de negócio (posição, carteira, cotações, COTAHIST, rentabilidade, alocação, caixa, renda fixa, jobs)
+│   │   ├── services/       # Regras de negócio (posição, carteira, cotações, COTAHIST, rentabilidade, alocação, caixa, renda fixa, IR, DIRPF, jobs)
 │   │   ├── config.py       # Configurações via variáveis de ambiente
 │   │   ├── db.py           # Engine e sessão SQLAlchemy
 │   │   ├── dominio.py      # Vocabulário de eventos e moedas
@@ -278,12 +288,12 @@ Compara mês a mês investido, mercado, proventos, lucro de trades e TWR com a a
 │   │   ├── schemas.py      # Contratos de entrada/saída (Pydantic)
 │   │   └── main.py         # Aplicação FastAPI
 │   ├── alembic/            # Migrações do banco
-│   ├── scripts/            # Importador da planilha e carga COTAHIST
+│   ├── scripts/            # Importador da planilha, carga COTAHIST e conciliações
 │   └── tests/              # Testes automatizados
 ├── frontend/
 │   └── src/
 │       ├── components/     # Layout, seletor, listas, formulários, exposição; config/ = abas de Configurações
-│       └── pages/          # Resumo, Portfólio, Rentabilidade, Operações, Proventos, Caixa, Alocação, Configurações
+│       └── pages/          # Resumo, Portfólio, Rentabilidade, Operações, Proventos, Caixa, Alocação, Imposto de Renda, Configurações
 ├── iniciar.bat             # Execução local
 ├── dev.bat                 # Modo desenvolvimento
 └── PLANO_DESENVOLVIMENTO.md
@@ -322,6 +332,21 @@ Funcionam como cotas: cada aplicação é uma compra de *valor ÷ cota da data* 
 
 Soma as movimentações da tela Caixa. A partir da data definida em **Configurações → Parâmetros**, também integra: compras (− valor − taxas), vendas e venda de subscrição (+ valor − taxas − IRRF), amortizações (+ valor) e proventos líquidos — na moeda do lançamento, por corretora.
 
+### Imposto de renda
+
+Estimativa por CPF; confira no e-CAC/GCAP antes de recolher. Alíquotas e isenções ficam na tabela de **regras fiscais com vigência** (Configurações → Imposto de renda).
+
+| Regra | Como o app aplica |
+|---|---|
+| Categorias | Ações 15% (isentas com vendas de ações ≤ R$ 20 mil no mês), BDR, ETF e opções 15%, day trade 20%, FII/Fiagro 20%. BDR pode seguir a regra de ações (parâmetro). |
+| Prejuízo | Compensa só dentro do grupo: operações comuns (ações, BDR, ETF, opções), day trade, FII. Prejuízo de mês isento continua compensável. |
+| IRRF | 0,005% e 1% (day trade), conforme lançado nas operações, abatem o imposto do mês; o saldo passa aos meses seguintes até dezembro. |
+| DARF | Código 6015; valor abaixo de R$ 10 acumula para o mês seguinte; DARFs pagos abatem o mês de apuração. |
+| Exterior | Até 2023: ganho de capital mensal (isento com vendas ≤ R$ 35 mil no mês). Desde 2024 (Lei 14.754/2023): lucros e dividendos no ano a 15%, com compensação de prejuízo e crédito do imposto pago no exterior limitado ao imposto sobre os dividendos. |
+| DIRPF | Bens e direitos pelo custo em 31/12 dos dois anos, dividendos (código 09), rendimentos de FII, JCP líquido, lucro isento de ações, prejuízo e IRRF a transportar. O grupo/código dos bens deve ser escolhido no programa da Receita. |
+
+Fora da apuração (avisado na tela): renda fixa, caixa, cripto (Fase 5) e classes sem regra.
+
 ---
 
 ## API
@@ -350,6 +375,10 @@ Principais recursos:
 | `GET` | `/api/rentabilidade/mensal?inicio=&fim=` | Série mensal: investido, mercado, fluxo, lucro, TWR e referências |
 | `GET` | `/api/rentabilidade/resumo` | Patrimônio, TIR, proventos 12m, YoC e TWR por janela |
 | `GET` | `/api/proventos/matriz?ano=` | Proventos líquidos ano × mês (ou ativo × mês de um ano) |
+| `GET` | `/api/ir/apuracao?investidor=1&ano=` | Apuração mensal de IR (DARF 6015) e exterior |
+| `GET/POST/PUT/DELETE` | `/api/ir/darfs` · `/api/ir/regras` | DARFs pagos; regras fiscais com vigência |
+| `GET` · `PUT` | `/api/ir/prejuizos-iniciais?investidor=1` | Prejuízo trazido de antes do primeiro ano apurado |
+| `GET` | `/api/ir/dirpf?investidor=1&ano=` · `/api/ir/dirpf.csv` | Relatório de apoio à DIRPF (JSON ou CSV) |
 | `GET/POST/PUT/DELETE` | `/api/investidores` | Investidores |
 | `GET/POST/PUT/DELETE` | `/api/ativos` | Cadastro de ativos |
 
@@ -362,7 +391,7 @@ cd backend
 ..\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Os testes cobrem preço médio, venda, eventos societários, câmbio, day trade e consolidação entre investidores (com casos derivados de valores reais da planilha), além da leitura do COTAHIST, da escolha da PTAX, dos índices, do TWR (linhas reais da aba `dashboard.`), do XIRR, da alocação/simulador, da renda fixa automática e das APIs de lançamentos, caixa, configurações e rentabilidade (banco em memória).
+Os testes cobrem preço médio, venda, eventos societários, câmbio, day trade e consolidação entre investidores (com casos derivados de valores reais da planilha), além da leitura do COTAHIST, da escolha da PTAX, dos índices, do TWR (linhas reais da aba `dashboard.`), do XIRR, da alocação/simulador, da renda fixa automática, da apuração de IR (isenção, compensação por grupo, IRRF, DARF mínimo, vigência das regras, exterior) e das APIs de lançamentos, caixa, configurações, rentabilidade e IR (banco em memória).
 
 ---
 
@@ -374,7 +403,7 @@ Os testes cobrem preço médio, venda, eventos societários, câmbio, day trade 
 | 1 | MVP de carteira: lançamentos pela interface, PTAX oficial, histórico B3 | ✅ Concluída (planilha-ponte Google Sheets adiada) |
 | 2 | Rentabilidade (TWR, TIR) e página de resumo | ✅ Concluída |
 | 3 | Configurações, alocação e rebalanceamento, caixa | ✅ Concluída |
-| 4 | Imposto de renda: apuração mensal, DARF, DIRPF | ⏳ |
+| 4 | Imposto de renda: apuração mensal, DARF, DIRPF | ✅ Concluída |
 | 5 | Radar, criptomoedas, status do ativo, valuation | ⏳ |
 | 6 | Importação de extratos da B3, exportações e backup | ⏳ |
 

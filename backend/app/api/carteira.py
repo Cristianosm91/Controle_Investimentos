@@ -3,7 +3,16 @@ from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query
 
-from ..dominio import CATEGORIAS_CARTEIRA, EVENTOS_CAIXA, EVENTOS_OPERACAO, EVENTOS_PROVENTO, INDEXADORES, MOEDAS
+from ..dominio import (
+    CATEGORIAS_CARTEIRA,
+    CATEGORIAS_IR,
+    EVENTOS_CAIXA,
+    EVENTOS_OPERACAO,
+    EVENTOS_PROVENTO,
+    GRUPOS_PREJUIZO,
+    INDEXADORES,
+    MOEDAS,
+)
 from ..schemas import AtualizacaoCotacoesOut, PosicaoOut
 from ..services import configuracao, jobs, painel
 from ..services.carteira import montar_carteira
@@ -86,4 +95,6 @@ def dominio():
         "moedas": MOEDAS,
         "indexadores": INDEXADORES,
         "categorias_carteira": CATEGORIAS_CARTEIRA,
+        "categorias_ir": CATEGORIAS_IR,
+        "grupos_prejuizo": GRUPOS_PREJUIZO,
     }

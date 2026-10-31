@@ -12,7 +12,7 @@ export const PAGINAS = [
   { caminho: "/radar", rotulo: "Radar", icone: "📡", fase: 5 },
   { caminho: "/cripto", rotulo: "Cripto", icone: "🪙", fase: 5 },
   { caminho: "/status", rotulo: "Status do ativo", icone: "🔎", fase: 5 },
-  { caminho: "/ir", rotulo: "Imposto de Renda", icone: "🧾", fase: 4 },
+  { caminho: "/ir", rotulo: "Imposto de Renda", icone: "🧾" },
   { caminho: "/valuation", rotulo: "Valuation", icone: "🧮", fase: 5 },
 ] as const;
 

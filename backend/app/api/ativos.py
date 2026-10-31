@@ -46,7 +46,10 @@ def criar_ativo(dados: AtivoIn, sessao: SessaoDep):
 def alterar_ativo(id_: int, dados: AtivoIn, sessao: SessaoDep):
     obj = obter_ou_404(sessao, Ativo, id_)
     era_calculado = renda_fixa.calculado(obj)
-    for campo, valor in dados.model_dump().items():
+    campos = dados.model_dump()
+    if "cnpj" not in dados.model_fields_set:
+        campos.pop("cnpj")  # formulários que não editam o CNPJ não o apagam
+    for campo, valor in campos.items():
         setattr(obj, campo, valor)
     try:
         sessao.commit()

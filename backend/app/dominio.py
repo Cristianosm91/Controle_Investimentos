@@ -49,3 +49,33 @@ INDEXADORES: dict[str, str] = {
 }
 
 CATEGORIAS_CARTEIRA = ("Conservador", "Arrojado", "Renda Passiva")
+
+# ---------- Imposto de renda (renda variável) ----------
+
+CATEGORIAS_IR: dict[str, str] = {
+    "ACAO": "Ações (swing trade)",
+    "BDR": "BDR",
+    "ETF": "ETF Brasil",
+    "OPCAO": "Opções",
+    "DAYTRADE": "Day trade",
+    "FII": "FII / Fiagro",
+    "EXTERIOR": "Exterior",
+}
+
+# Prejuízo só compensa lucro do mesmo grupo: operações comuns, day trade, FII e exterior.
+GRUPO_PREJUIZO: dict[str, str] = {
+    "ACAO": "COMUM", "BDR": "COMUM", "ETF": "COMUM", "OPCAO": "COMUM",
+    "DAYTRADE": "DAYTRADE", "FII": "FII", "EXTERIOR": "EXTERIOR",
+}
+
+GRUPOS_PREJUIZO: dict[str, str] = {
+    "COMUM": "Operações comuns (ações, BDR, ETF, opções)",
+    "DAYTRADE": "Day trade",
+    "FII": "FII / Fiagro",
+    "EXTERIOR": "Exterior",
+}
+
+APURACOES_IR = ("MENSAL", "ANUAL")
+
+DARF_CODIGO_RV = "6015"
+DARF_MINIMO = 10

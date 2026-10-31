@@ -131,7 +131,8 @@ erDiagram
 | `carteira`, `carteira_ativo` | nome, categoria, ativa; ativo, preco_teto, peso, ranking, entra_preco_teto | config.carteiras, carteiras. |
 | `parametro` | chave, valor | config.parâmetros, parametros. |
 | `darf_pago` | investidor, competencia, data_pagamento, valor | darfs. |
-| `prejuizo_inicial` | **investidor**, categoria (normal, DT, FII, cripto), valor, ano | config.parâmetros |
+| `regra_fiscal` | categoria, vigencia_inicio, vigencia_fim, aliquota, limite_isencao, apuracao | regras RFB (Fase 4) |
+| `prejuizo_inicial` | **investidor**, grupo (COMUM, DAYTRADE, FII, EXTERIOR), valor | config.parâmetros |
 | `valuation_premissa` | ticker, LPA, VPA, div_anual, WACC, g, payout, P/L hist./setor, ROE | Valuation |
 
 > `dados.`, `historico.`, `portfolio.`, `dashboard.` etc. **não viram tabelas**: são resultados calculados. `historico.` (posição mensal por ativo **e investidor**) pode virar uma **tabela materializada** `snapshot_mensal` recalculada por job, para performance do dashboard.
@@ -277,12 +278,13 @@ Requisitos: cache local, retry com backoff, timeout, log de falhas, nunca bloque
 - [x] **P7 Alocação & Rebalanceamento**: alvo × atual por estratégia, book e ativo; simulador de aporte (só comprar / rebalancear, respeitar preço-teto), restante do book dividido igualmente entre ativos sem peso definido
 - [x] **P6 Caixa** com saldo por corretora e moeda; integra compras, vendas, amortizações e proventos a partir da data configurada (parâmetro) e pode somar ao patrimônio do Portfólio
 
-### Fase 4 — Imposto de renda
-- [ ] Tabela de regras fiscais com vigência
-- [ ] Apuração mensal por categoria + compensação de prejuízo + IRRF
-- [ ] **P10 IR**: apuração, DARF a pagar, registro de DARFs pagos
-- [ ] Relatório DIRPF (bens e direitos, isentos, exclusivos) com exportação PDF/CSV
-- [ ] Golden tests contra `darf`/`apuração IR`/`Cópia de DARF` (2017–2026)
+### Fase 4 — Imposto de renda ✅
+- [x] Tabela de regras fiscais com vigência (`regra_fiscal`: categoria, início/fim, alíquota, limite de isenção, apuração mensal/anual), editável em Configurações → Imposto de renda; migração carrega as regras da RFB (exterior: GCAP até 2023, anual pela Lei 14.754/2023 desde 2024)
+- [x] Apuração mensal por categoria (ações, BDR, ETF, opções, day trade, FII) + isenção de R$ 20 mil + compensação de prejuízo **por grupo** (operações comuns × day trade × FII, P&R IRPF 679/681) + IRRF abatido e transportado até dezembro (P&R 684/685) + DARF 6015 com acúmulo abaixo de R$ 10. Parâmetros: primeiro ano apurado, BDR como ação, vendas de day trade no limite; prejuízo inicial por CPF e grupo
+- [x] **P10 IR**: apuração mensal com cards de DARF/prejuízo, registro de DARFs pagos (abate o mês), exterior por ano (lucros + dividendos com crédito do imposto pago lá fora)
+- [x] Relatório DIRPF (bens e direitos a custo em 31/12 dos dois anos, dividendos — código 09, rendimentos de FII, JCP líquido, lucro isento, prejuízo/IRRF a transportar) com exportação CSV e impressão/PDF pelo navegador. Grupo/código dos bens **não** foi confirmado em fonte oficial publicada: o relatório traz o tipo e a discriminação, e o código é escolhido no programa da Receita. Novo campo `cnpj` no ativo (editável no relatório)
+- [x] Golden tests (`scripts/conciliar_ir.py`) contra `apuração IR` (2017–2026): 94 meses, lucro/vendas por categoria idênticos em 93; DARF igual em 92. Divergências explicadas: **2020-06** (R$ 73,13 × 72,99) — o app transporta o saldo de IRRF dos meses anteriores (regra da RFB); **2026-01** (R$ 37,54 × 0) — a planilha mantém prejuízo separado por classe e tributa o lucro de BDR, o app compensa com o prejuízo de ações (mesmo grupo de operações comuns); **2026-08** — venda posterior à data da planilha
+- Fora do escopo desta fase: cripto (Fase 5, P13), regras específicas de venda de subscrição de FII até 09/2021, opções/outras classes no limite de R$ 20 mil, carnê-leão de dividendos do exterior antes de 2024
 
 ### Fase 5 — Análise
 - [ ] Job de fundamentos (ações e FII)

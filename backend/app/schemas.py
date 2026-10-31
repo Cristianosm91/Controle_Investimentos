@@ -5,7 +5,17 @@ from typing import Annotated, Generic, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, PlainSerializer, field_validator, model_validator
 
-from .dominio import EVENTOS_CAIXA, EVENTOS_CAIXA_ENTRADA, EVENTOS_OPERACAO, EVENTOS_PROVENTO, INDEXADORES, MOEDAS
+from .dominio import (
+    APURACOES_IR,
+    CATEGORIAS_IR,
+    EVENTOS_CAIXA,
+    EVENTOS_CAIXA_ENTRADA,
+    EVENTOS_OPERACAO,
+    EVENTOS_PROVENTO,
+    GRUPOS_PREJUIZO,
+    INDEXADORES,
+    MOEDAS,
+)
 
 T = TypeVar("T")
 
@@ -88,6 +98,17 @@ class AtivoIn(BaseModel):
     indexador_pct: Decimal | None = Field(default=None, gt=0, description="Fração do índice (1 = 100%)")
     taxa_aa: Decimal | None = Field(default=None, gt=-1, description="Taxa adicional a.a. (fração)")
     data_base: date | None = None
+    cnpj: str | None = None
+
+    @field_validator("cnpj")
+    @classmethod
+    def _cnpj(cls, v: str | None) -> str | None:
+        if not v:
+            return None
+        digitos = re.sub(r"\D", "", v)
+        if len(digitos) != 14:
+            raise ValueError("CNPJ deve ter 14 dígitos")
+        return digitos
 
     @field_validator("ticker", "mercado", "classe", "indexador")
     @classmethod
@@ -133,6 +154,7 @@ class AtivoOut(_Saida):
     indexador_pct: Num | None = None
     taxa_aa: Num | None = None
     data_base: date | None = None
+    cnpj: str | None = None
 
 
 class SaldoManualIn(BaseModel):
@@ -241,6 +263,9 @@ class CarteiraOut(_Saida):
 class ParametrosIO(BaseModel):
     caixa_data_inicio: date | None = None
     caixa_no_portfolio: bool = False
+    ir_ano_inicio: int | None = Field(default=None, ge=1990, le=2100)
+    ir_bdr_como_acao: bool = False
+    ir_daytrade_no_limite: bool = False
 
 
 # ---------- Operações ----------
@@ -561,3 +586,146 @@ class MatrizProventosOut(BaseModel):
     totais_linha: list[Num]
     totais_mes: list[Num]
     total: Num
+
+
+# ---------- Imposto de renda ----------
+
+class RegraFiscalIn(BaseModel):
+    categoria: str
+    vigencia_inicio: date
+    vigencia_fim: date | None = None
+    aliquota: Fracao
+    limite_isencao: Decimal | None = Field(default=None, ge=0)
+    apuracao: str = "MENSAL"
+    observacao: str | None = Field(default=None, max_length=200)
+
+    @model_validator(mode="after")
+    def _validar(self) -> "RegraFiscalIn":
+        if self.categoria not in CATEGORIAS_IR:
+            raise ValueError(f"Categoria deve ser uma de {tuple(CATEGORIAS_IR)}")
+        if self.apuracao not in APURACOES_IR:
+            raise ValueError(f"Apuração deve ser uma de {APURACOES_IR}")
+        if self.vigencia_fim and self.vigencia_fim < self.vigencia_inicio:
+            raise ValueError("Fim da vigência anterior ao início")
+        return self
+
+
+class RegraFiscalOut(_Saida):
+    id: int
+    categoria: str
+    vigencia_inicio: date
+    vigencia_fim: date | None
+    aliquota: Num
+    limite_isencao: Num | None
+    apuracao: str
+    observacao: str | None
+
+
+class PrejuizoInicialIO(BaseModel):
+    grupo: str
+    valor: Num = Field(ge=0)
+
+    @field_validator("grupo")
+    @classmethod
+    def _grupo(cls, v: str) -> str:
+        if v not in GRUPOS_PREJUIZO:
+            raise ValueError(f"Grupo deve ser um de {tuple(GRUPOS_PREJUIZO)}")
+        return v
+
+
+class DarfPagoIn(BaseModel):
+    investidor_id: int
+    competencia: date
+    data_pagamento: date
+    valor: Decimal = Field(gt=0)
+
+    @field_validator("competencia")
+    @classmethod
+    def _primeiro_dia(cls, v: date) -> date:
+        return v.replace(day=1)
+
+
+class DarfPagoOut(_Saida):
+    id: int
+    investidor_id: int
+    competencia: date
+    data_pagamento: date
+    valor: Num
+
+
+class CategoriaMesOut(BaseModel):
+    categoria: str
+    vendas: Num
+    lucro: Num
+    isento: bool
+    base: Num
+    aliquota: Num | None
+    imposto: Num
+
+
+class MesIROut(BaseModel):
+    competencia: date
+    categorias: list[CategoriaMesOut]
+    prejuizo: dict[str, Num]
+    imposto: Num
+    irrf: Num
+    irrf_compensado: Num
+    irrf_saldo: Num
+    darf_mes: Num
+    darf_anterior: Num
+    darf: Num
+    darf_transportado: Num
+    pago: Num
+    saldo: Num
+
+
+class AnoExteriorOut(BaseModel):
+    ano: int
+    vendas: Num
+    lucro: Num
+    dividendos: Num
+    imposto_pago_exterior: Num
+    base: Num
+    imposto: Num
+    prejuizo: Num
+    regimes: list[str]
+
+
+class ApuracaoIROut(BaseModel):
+    anos: list[int]
+    meses: list[MesIROut]
+    exterior: list[AnoExteriorOut]
+    nao_apurados: list[str]
+
+
+class BemDireitoOut(BaseModel):
+    ativo_id: int
+    ticker: str
+    nome: str | None
+    cnpj: str | None
+    tipo: str
+    quantidade: Num
+    custo_anterior: Num
+    custo_atual: Num
+    discriminacao: str
+
+
+class RendimentoOut(BaseModel):
+    ficha: str
+    tipo: str
+    ativo_id: int | None
+    ticker: str | None
+    cnpj: str | None
+    valor: Num
+    irrf: Num
+
+
+class DirpfOut(BaseModel):
+    ano: int
+    bens: list[BemDireitoOut]
+    rendimentos: list[RendimentoOut]
+    meses: list[MesIROut]
+    prejuizo_final: dict[str, Num]
+    irrf_saldo_final: Num
+    exterior: AnoExteriorOut | None
+    avisos: list[str]

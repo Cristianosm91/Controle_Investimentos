@@ -15,6 +15,12 @@ class Parametros:
     caixa_data_inicio: date | None = None
     # Soma o saldo em caixa ao patrimônio do Portfólio.
     caixa_no_portfolio: bool = False
+    # Primeiro ano apurado; operações anteriores só formam posição/preço médio. Vazio = desde a 1ª venda.
+    ir_ano_inicio: int | None = None
+    # BDR com as regras de ações (isenção de R$ 20 mil); a RFB não estende a isenção a BDR.
+    ir_bdr_como_acao: bool = False
+    # Soma as vendas de day trade ao limite de isenção de R$ 20 mil das ações.
+    ir_daytrade_no_limite: bool = False
 
 
 def _ler(texto: str, tipo):
@@ -22,6 +28,8 @@ def _ler(texto: str, tipo):
         return texto == "1"
     if tipo is date:
         return date.fromisoformat(texto) if texto else None
+    if tipo is int:
+        return int(texto) if texto else None
     return texto
 
 
@@ -33,7 +41,13 @@ def _escrever(valor) -> str:
     return "" if valor is None else str(valor)
 
 
-_TIPOS = {"caixa_data_inicio": date, "caixa_no_portfolio": bool}
+_TIPOS = {
+    "caixa_data_inicio": date,
+    "caixa_no_portfolio": bool,
+    "ir_ano_inicio": int,
+    "ir_bdr_como_acao": bool,
+    "ir_daytrade_no_limite": bool,
+}
 
 
 def carregar(sessao: Session) -> Parametros:

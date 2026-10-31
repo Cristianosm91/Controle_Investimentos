@@ -4,6 +4,7 @@ import { api } from "../api";
 import { AtivosPersonalizados } from "../components/config/AtivosPersonalizados";
 import { Carteiras } from "../components/config/Carteiras";
 import { EstrategiasBooks } from "../components/config/EstrategiasBooks";
+import { ImpostoRendaConfig } from "../components/config/ImpostoRenda";
 import { Parametros } from "../components/config/Parametros";
 import { PainelAtualizacoes } from "../components/PainelAtualizacoes";
 import { useInvestidor } from "../InvestidorContext";
@@ -15,6 +16,7 @@ const SECOES = [
   { id: "carteiras", rotulo: "Carteiras" },
   { id: "ativos", rotulo: "Ativos personalizados" },
   { id: "parametros", rotulo: "Parâmetros" },
+  { id: "ir", rotulo: "Imposto de renda" },
   { id: "atualizacoes", rotulo: "Atualizações" },
 ] as const;
 
@@ -189,6 +191,7 @@ export function Configuracoes() {
     carteiras: <Carteiras />,
     ativos: <AtivosPersonalizados />,
     parametros: <Parametros />,
+    ir: <ImpostoRendaConfig />,
     atualizacoes: <PainelAtualizacoes />,
   };
 

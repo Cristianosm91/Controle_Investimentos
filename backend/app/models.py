@@ -56,6 +56,8 @@ class Ativo(Base):
     indexador_pct: Mapped[Decimal | None] = mapped_column(Valor)
     taxa_aa: Mapped[Decimal | None] = mapped_column(Valor)
     data_base: Mapped[date | None] = mapped_column(Date)
+    # CNPJ da empresa/fundo emissor (ficha Bens e Direitos da DIRPF).
+    cnpj: Mapped[str | None] = mapped_column(String(14))
 
 
 class Operacao(Base):
@@ -250,6 +252,32 @@ class DarfPago(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     investidor_id: Mapped[int] = mapped_column(ForeignKey("investidor.id", ondelete="RESTRICT"))
-    competencia: Mapped[date] = mapped_column(Date)
+    competencia: Mapped[date] = mapped_column(Date)  # 1º dia do mês de apuração
     data_pagamento: Mapped[date] = mapped_column(Date)
     valor: Mapped[Decimal] = mapped_column(Valor)
+
+
+class RegraFiscal(Base):
+    """Alíquota e isenção de uma categoria de IR em um período de vigência (mudam por legislação)."""
+
+    __tablename__ = "regra_fiscal"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    categoria: Mapped[str] = mapped_column(String(20))
+    vigencia_inicio: Mapped[date] = mapped_column(Date)
+    vigencia_fim: Mapped[date | None] = mapped_column(Date)
+    aliquota: Mapped[Decimal] = mapped_column(Valor)
+    # Vendas no mês até este valor tornam o lucro isento; vazio = sem isenção.
+    limite_isencao: Mapped[Decimal | None] = mapped_column(Valor)
+    apuracao: Mapped[str] = mapped_column(String(10), default="MENSAL")  # MENSAL | ANUAL
+    observacao: Mapped[str | None] = mapped_column(String(200))
+
+
+class PrejuizoInicial(Base):
+    """Prejuízo a compensar trazido de antes do início da apuração no app (por CPF e grupo de compensação)."""
+
+    __tablename__ = "prejuizo_inicial"
+
+    investidor_id: Mapped[int] = mapped_column(ForeignKey("investidor.id", ondelete="CASCADE"), primary_key=True)
+    grupo: Mapped[str] = mapped_column(String(20), primary_key=True)
+    valor: Mapped[Decimal] = mapped_column(Valor)  # > 0
