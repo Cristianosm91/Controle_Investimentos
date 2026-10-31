@@ -289,7 +289,7 @@ Requisitos: cache local, retry com backoff, timeout, log de falhas, nunca bloque
 - Fora do escopo desta fase: cripto (Fase 5, P13)
 
 ### Fase 5 — Análise
-- [ ] Job de fundamentos (ações e FII)
+- [x] Base de fundamentos para ações e FII: snapshots diários idempotentes, API de consulta e atualização semanal via Fundamentus; Investidor10 listado como indisponível até existir rota pública utilizável e termos verificáveis
 - [ ] **P8 Radar/Watchlist** (drawdown, variações, 52 semanas, indicadores)
 - [ ] **P9 Status do ativo** (drill-down + linha do tempo)
 - [ ] **P11 Valuation** (7 modelos) e TIR/TWR por ativo
