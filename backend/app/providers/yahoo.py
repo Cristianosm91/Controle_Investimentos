@@ -12,6 +12,11 @@ log = logging.getLogger(__name__)
 
 _MERCADOS_EUA = {"NASDAQ", "NYSE", "NYSEARCA", "NYSEAMERICAN", "BATS"}
 
+# Mercado fictício usado só na consulta de histórico de criptos (que não têm mercado no cadastro).
+MERCADO_CRIPTO = "CRIPTO"
+# Criptos cujo símbolo no Yahoo difere do ticker usual (renomeadas ou com homônimos).
+_CRIPTO_YAHOO = {"NANO": "XNO", "SUI": "SUI20947"}
+
 
 def simbolo_yahoo(ativo: AtivoRef) -> str | None:
     mercado = (ativo.mercado or "").upper()
@@ -19,6 +24,8 @@ def simbolo_yahoo(ativo: AtivoRef) -> str | None:
         return f"{ativo.ticker}.SA"
     if mercado in _MERCADOS_EUA:
         return ativo.ticker.replace(".", "-")
+    if mercado == MERCADO_CRIPTO:
+        return f"{_CRIPTO_YAHOO.get(ativo.ticker, ativo.ticker)}-{ativo.moeda}"
     return None
 
 
@@ -102,10 +109,14 @@ class ProvedorYahoo:
             if serie.empty:
                 continue
             desdobramentos = bloco["Stock Splits"].fillna(0) if "Stock Splits" in bloco else None
-            resultado[ativo.ticker] = {
-                dia.date(): Decimal(str(round(float(preco), 6)))
+            # Criptos como SHIB valem frações de centavo: usa a precisão total do banco (8 casas).
+            casas = 8 if ativo.mercado == MERCADO_CRIPTO else 6
+            precos = {
+                dia.date(): Decimal(str(round(float(preco), casas)))
                 for dia, preco in desfazer_ajuste_de_splits(serie, desdobramentos).items()
             }
+            # Preço zerado pelo arredondamento (moeda recém-lançada) valeria a posição em zero.
+            resultado[ativo.ticker] = {dia: preco for dia, preco in precos.items() if preco > 0}
         return resultado
 
 

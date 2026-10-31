@@ -9,9 +9,10 @@ from sqlalchemy.orm import Session
 from app.db import Base
 from app.models import Ativo, Cotacao, CriptoMercado, Investidor, Operacao
 from app.providers import cripto as fonte
-from app.providers.base import CotacaoAtual
+from app.providers.base import AtivoRef, CotacaoAtual
+from app.providers.yahoo import MERCADO_CRIPTO, ProvedorYahoo, simbolo_yahoo
 from app.schemas import AtivoIn
-from app.services import cotacoes, cripto
+from app.services import cotacoes, cripto, historico
 
 
 def snapshot(id_="bitcoin", fonte_="CoinGecko", preco="100", **extras):
@@ -278,3 +279,28 @@ def test_fallback_nao_deixa_metricas_antigas_com_novo_preco(sessao, monkeypatch)
     mercado = sessao.scalar(select(CriptoMercado))
     assert mercado.fonte == "Kraken"
     assert mercado.market_cap_usd is None and mercado.variacao_7d is None
+
+
+def test_simbolo_yahoo_de_cripto():
+    assert simbolo_yahoo(AtivoRef("BTC", MERCADO_CRIPTO, "USD")) == "BTC-USD"
+    assert simbolo_yahoo(AtivoRef("NANO", MERCADO_CRIPTO, "USD")) == "XNO-USD"
+    assert simbolo_yahoo(AtivoRef("SUI", MERCADO_CRIPTO, "USD")) == "SUI20947-USD"
+    assert simbolo_yahoo(AtivoRef("BTC", None, "USD")) is None  # cotação atual segue no CoinGecko
+
+
+def test_historico_complementar_inclui_criptos(sessao, monkeypatch):
+    inv, _, btc, eth = cadastrar(sessao)
+    operacao(sessao, inv, btc, "2026-01-05", "1", "90000")
+    pedidos = []
+
+    def falso_historico(self, ativos, inicio):
+        pedidos.extend(ativos)
+        return {"BTC": {date(2026, 1, 30): D("0.00001234"), date(2026, 2, 27): D("85000")}}
+
+    monkeypatch.setattr(ProvedorYahoo, "historico", falso_historico)
+    resultado = historico.carregar_historico_exterior(sessao)
+
+    assert [(a.ticker, a.mercado) for a in pedidos] == [("BTC", MERCADO_CRIPTO)]  # ETH sem operação fica de fora
+    assert resultado.gravados["cotações"] == 2 and not resultado.falhas
+    precos = {c.data: c.preco for c in sessao.scalars(select(Cotacao).where(Cotacao.ativo_id == btc.id))}
+    assert precos == {date(2026, 1, 30): D("0.00001234"), date(2026, 2, 27): D("85000")}

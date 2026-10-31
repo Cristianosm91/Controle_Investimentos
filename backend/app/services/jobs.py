@@ -16,10 +16,12 @@ from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..db import SessionLocal
+from ..models import Operacao
 from . import backup, cotahist, cripto, fundamentos, historico
 from .cotacoes import atualizar_cotacoes
 
@@ -82,11 +84,11 @@ TAREFAS: dict[str, Tarefa] = {
         Tarefa("cotahist_diario", "Fechamento oficial B3 (COTAHIST diário)", cotahist.carregar_pendentes, _resumo_cotahist),
         Tarefa("cotahist_historico", "Histórico B3 (COTAHIST anual)", cotahist.carregar_historico, _resumo_cotahist),
         Tarefa(
-            "indices_diario", "Índices (CDI, IPCA, SELIC, IGP-M, IBOV, IFIX), PTAX e exterior — recentes",
+            "indices_diario", "Índices (CDI, IPCA, SELIC, IGP-M, IBOV, IFIX), PTAX, exterior e criptos — recentes",
             historico.atualizar_recentes, lambda r: r.resumo(),
         ),
         Tarefa(
-            "historico_complementar", "Histórico de índices, PTAX e ativos do exterior (completo)",
+            "historico_complementar", "Histórico de índices, PTAX, ativos do exterior e criptos (completo)",
             historico.carregar_tudo, lambda r: r.resumo(),
         ),
         Tarefa("fundamentos", "Fundamentos de ações e FIIs (Fundamentus)", fundamentos.atualizar, _resumo_fundamentos),
@@ -174,10 +176,13 @@ def iniciar() -> None:
     )
     _agendador.add_job(_executar_agendado, CronTrigger(hour=12, minute=30), args=["backup"], id="backup")
     _agendador.start()
-    # Recupera dias perdidos enquanto o app estava fechado (só se o histórico já foi carregado).
     with SessionLocal() as sessao:
         if cotahist.ultima_data_b3(sessao):
+            # Recupera dias perdidos enquanto o app estava fechado.
             disparar("cotahist_diario")
+        elif sessao.scalar(select(Operacao.id).limit(1)) is not None:
+            # Sem histórico de preços a rentabilidade usa o custo como valor de mercado nos meses passados.
+            disparar_carga_historica()
     if usa_sqlite() and settings.db_path.is_file() and not backup.automatico_recente(settings.db_path):
         disparar("backup")
     log.info("Agendador iniciado")
@@ -199,6 +204,25 @@ def disparar(nome: str) -> None:
         threading.Thread(target=_executar_agendado, args=[nome], daemon=True, name=f"tarefa-{nome}").start()
         return
     _agendador.add_job(_executar_agendado, args=[nome], id=f"{nome}-manual", replace_existing=True)
+
+
+CARGA_HISTORICA = ("cotahist_historico", "historico_complementar")
+
+
+def disparar_carga_historica() -> None:
+    """Histórico B3 e complementar (PTAX, exterior, índices) em sequência, numa thread própria.
+
+    Em sequência para não concorrerem pela gravação de `cotacao` no SQLite.
+    """
+    for nome in CARGA_HISTORICA:
+        if TAREFAS[nome].em_execucao:
+            raise TarefaOcupada(f"'{TAREFAS[nome].descricao}' já está em execução")
+
+    def rodar() -> None:
+        for nome in CARGA_HISTORICA:
+            _executar_agendado(nome)
+
+    threading.Thread(target=rodar, daemon=True, name="tarefa-carga-historica").start()
 
 
 def proxima_execucao(nome: str) -> datetime | None:

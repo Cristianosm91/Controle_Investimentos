@@ -23,6 +23,15 @@ def listar_tarefas():
     ]
 
 
+@router.post("/atualizacoes/carga-historica", status_code=202)
+def disparar_carga_historica():
+    try:
+        jobs.disparar_carga_historica()
+    except jobs.TarefaOcupada as erro:
+        raise HTTPException(409, str(erro)) from erro
+    return {"status": "agendada"}
+
+
 @router.post("/atualizacoes/{nome}", status_code=202)
 def disparar_tarefa(nome: str):
     if nome not in jobs.TAREFAS:

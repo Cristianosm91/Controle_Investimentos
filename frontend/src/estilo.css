@@ -662,6 +662,42 @@ span.texto-limitado {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
+
+.barra-linha.clicavel {
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.barra-linha.clicavel:hover,
+.barra-linha.clicavel:focus-visible {
+  background: var(--fundo);
+  color: var(--primaria);
+}
+
+.exposicao-recolher {
+  align-self: flex-start;
+  font-size: 0.8rem;
+}
+
+.dica-flutuante {
+  position: fixed;
+  z-index: 1000;
+  pointer-events: none;
+  background: var(--painel, #fff);
+  color: var(--texto);
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgb(15 23 42 / 0.15);
+  padding: 0.35rem 0.55rem;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.dica-titulo {
+  color: var(--sutil);
+}
 /* ---------- painéis e gráficos ---------- */
 
 .paineis {

@@ -7,7 +7,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
 from app.db import Base
-from app.models import Ativo, DarfPago, Investidor, Parametro, PrejuizoInicial, Provento
+from app.models import Ativo, DarfPago, Investidor, Operacao, Parametro, PrejuizoInicial, Provento
 from scripts.importar_planilha import Importador
 
 
@@ -67,3 +67,37 @@ def test_importa_aluguel_darfs_e_parametros_sem_duplicar(sessao):
     assert parametros == {"ir_daytrade_no_limite": "1", "ir_bdr_como_acao": "1", "ir_ano_inicio": "2019"}
     prejuizos = {p.grupo: p.valor for p in sessao.scalars(select(PrejuizoInicial))}
     assert prejuizos == {"COMUM": D(1500), "FII": D(300)}
+
+
+def _planilha_cripto(qtd_btc=0.5):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Histórico de rendimentos"
+    ws["J115"] = 5.4401
+    for linha, (ticker, preco, qtd) in enumerate(
+        [("BTC", 80681.3, qtd_btc), ("XYZ", 2.5, 10), ("MGLU3", 1, 1), ("ZERO", 1, 0)], start=119,
+    ):
+        ws[f"J{linha}"], ws[f"K{linha}"], ws[f"L{linha}"] = ticker, preco, qtd
+    ws["J124"], ws["K124"] = "Date", "Close"
+    ws["J125"], ws["K125"], ws["L125"] = "ETH", 1, 1  # depois do quadro: ignorado
+    return wb
+
+
+def test_importa_criptos_como_abertura_sem_duplicar(sessao):
+    inv = sessao.scalar(select(Investidor))
+    abertura = datetime(2017, 10, 30).date()
+    for qtd in (0.5, 0.7):  # reimportar com quantidade nova não duplica nem altera a abertura
+        imp = Importador(sessao, inv)
+        imp.importar_cripto(_planilha_cripto(qtd), abertura)
+        sessao.flush()
+
+    ops = {o.ativo.ticker: o for o in sessao.scalars(select(Operacao))}
+    assert set(ops) == {"BTC", "XYZ"}
+    btc = ops["BTC"]
+    assert (btc.data, btc.evento, btc.quantidade, btc.preco, btc.moeda, btc.cambio) == (
+        abertura, "C", D("0.5"), D("80681.3"), "USD", D("5.4401"),
+    )
+    assert (btc.ativo.classe, btc.ativo.coingecko_id, btc.ativo.cotacao_automatica) == ("CRIPTO", "bitcoin", True)
+    assert ops["XYZ"].ativo.coingecko_id is None
+    assert any("MGLU3 já cadastrado" in a for a in imp.avisos)
+    assert sessao.scalar(select(Ativo).where(Ativo.ticker == "ETH")) is None
