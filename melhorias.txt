@@ -1,0 +1,13 @@
+Portfólio:
+a opção outros deve ser clicavel para permitir ver todas as opções nas tabelas de exposição
+
+Resumo:
+
+Proventos dos últimos 12 meses: ao passar o mouse em cima da barra, o valor deve aparecer em cima, onde estou passando o mouse. Obs. aplique esse padrão para todas as tabelas da aplicação
+
+Rentabilidade:
+ Evolução patrimonial : o valor investido e o valor de mercado está igual e só muda no mês atual
+
+Valuation:
+
+Botão Salvar premissas laranja e não faz sentido
