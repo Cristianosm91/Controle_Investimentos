@@ -1,0 +1,24 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Dados e segredos (banco fica em %LOCALAPPDATA%\ControleInv)
+.env
+*.db
+*.db-journal
+credenciais*.json
+
+# Planilha pessoal de referência
+Ref/
+
+# Material do ambiente de trabalho (não faz parte do app)
+.github/
+guia-skills/
+.vscode/
+frontend/*.tsbuildinfo

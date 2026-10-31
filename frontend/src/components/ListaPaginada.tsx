@@ -1,0 +1,97 @@
+import { useQuery } from "@tanstack/react-query";
+import { useState, type ReactNode } from "react";
+import { api, query } from "../api";
+import type { Pagina } from "../tipos";
+
+const POR_PAGINA = 100;
+
+export interface ColunaLista<T> {
+  titulo: string;
+  render: (item: T) => ReactNode;
+  numerica?: boolean;
+}
+
+interface Props<T> {
+  titulo: string;
+  recurso: string;
+  filtroInvestidores: string | undefined;
+  colunas: ColunaLista<T>[];
+  chave: (item: T) => number;
+}
+
+export function ListaPaginada<T>({ titulo, recurso, filtroInvestidores, colunas, chave }: Props<T>) {
+  const [ticker, setTicker] = useState("");
+  const [inicio, setInicio] = useState("");
+  const [fim, setFim] = useState("");
+  const [pagina, setPagina] = useState(0);
+
+  const params = { investidores: filtroInvestidores, ticker, inicio, fim, limite: POR_PAGINA, deslocamento: pagina * POR_PAGINA };
+  const { data, isLoading, error } = useQuery({
+    queryKey: [recurso, params],
+    queryFn: () => api.get<Pagina<T>>(`/${recurso}${query(params)}`),
+    placeholderData: (anterior) => anterior,
+  });
+
+  const total = data?.total ?? 0;
+  const paginas = Math.max(1, Math.ceil(total / POR_PAGINA));
+  const filtrar = (f: () => void) => {
+    f();
+    setPagina(0);
+  };
+
+  return (
+    <section>
+      <div className="titulo-linha">
+        <h1>{titulo}</h1>
+        <div className="acoes filtros">
+          <input placeholder="Ticker" value={ticker} onChange={(e) => filtrar(() => setTicker(e.target.value.toUpperCase()))} />
+          <input type="date" value={inicio} onChange={(e) => filtrar(() => setInicio(e.target.value))} title="Data inicial" />
+          <input type="date" value={fim} onChange={(e) => filtrar(() => setFim(e.target.value))} title="Data final" />
+        </div>
+      </div>
+
+      {error && <div className="erro">{(error as Error).message}</div>}
+      {isLoading && <p>Carregando…</p>}
+
+      {data && (
+        <>
+          <div className="tabela-container">
+            <table className="tabela">
+              <thead>
+                <tr>
+                  {colunas.map((c) => (
+                    <th key={c.titulo} className={c.numerica ? "num" : ""}>
+                      {c.titulo}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {data.itens.map((item) => (
+                  <tr key={chave(item)}>
+                    {colunas.map((c) => (
+                      <td key={c.titulo} className={c.numerica ? "num" : ""}>
+                        {c.render(item)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="paginacao">
+            <button disabled={pagina === 0} onClick={() => setPagina(pagina - 1)}>
+              ‹ Anterior
+            </button>
+            <span>
+              Página {pagina + 1} de {paginas} · {total} registros
+            </span>
+            <button disabled={pagina + 1 >= paginas} onClick={() => setPagina(pagina + 1)}>
+              Próxima ›
+            </button>
+          </div>
+        </>
+      )}
+    </section>
+  );
+}

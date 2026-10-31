@@ -1,0 +1,65 @@
+from collections.abc import Sequence
+from dataclasses import dataclass, field
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from ..models import Ativo, Cotacao, CotacaoMoeda
+from ..providers.base import AtivoRef, ProvedorCotacao
+from .carteira import carregar_posicoes
+
+
+@dataclass
+class ResultadoAtualizacao:
+    atualizados: dict[str, str] = field(default_factory=dict)
+    sem_cotacao: list[str] = field(default_factory=list)
+
+
+def ativos_com_posicao(sessao: Session) -> list[Ativo]:
+    ids = {p.ativo_id for p in carregar_posicoes(sessao, None).values() if p.aberta}
+    if not ids:
+        return []
+    return list(sessao.scalars(select(Ativo).where(Ativo.id.in_(ids), Ativo.cotacao_automatica)))
+
+
+def atualizar_cotacoes(
+    sessao: Session, provedores: Sequence[ProvedorCotacao], ativos: Sequence[Ativo] | None = None
+) -> ResultadoAtualizacao:
+    """Consulta os provedores em ordem; cada um só recebe os ativos que os anteriores não resolveram."""
+    ativos = list(ativos if ativos is not None else ativos_com_posicao(sessao))
+    pendentes = {a.ticker: a for a in ativos}
+    resultado = ResultadoAtualizacao()
+
+    for provedor in provedores:
+        if not pendentes:
+            break
+        refs = [AtivoRef(a.ticker, a.mercado, a.moeda) for a in pendentes.values()]
+        for ticker, cot in provedor.cotacoes(refs).items():
+            ativo = pendentes.pop(ticker, None)
+            if ativo is None:
+                continue
+            linha = sessao.scalar(select(Cotacao).where(Cotacao.ativo_id == ativo.id, Cotacao.data == cot.data))
+            if linha is None:
+                linha = Cotacao(ativo_id=ativo.id, data=cot.data)
+                sessao.add(linha)
+            linha.preco, linha.variacao_pct, linha.fonte = cot.preco, cot.variacao_pct, cot.fonte
+            resultado.atualizados[ticker] = cot.fonte
+
+    moedas_pendentes = {a.moeda for a in ativos if a.moeda != "BRL"}
+    for provedor in provedores:
+        if not moedas_pendentes:
+            break
+        for moeda, cot in provedor.cambios(sorted(moedas_pendentes)).items():
+            moedas_pendentes.discard(moeda)
+            linha = sessao.scalar(
+                select(CotacaoMoeda).where(CotacaoMoeda.moeda == moeda, CotacaoMoeda.data == cot.data)
+            )
+            if linha is None:
+                linha = CotacaoMoeda(moeda=moeda, data=cot.data)
+                sessao.add(linha)
+            linha.valor, linha.fonte = cot.preco, cot.fonte
+            resultado.atualizados[moeda] = cot.fonte
+
+    sessao.commit()
+    resultado.sem_cotacao = sorted(pendentes) + sorted(moedas_pendentes)
+    return resultado
