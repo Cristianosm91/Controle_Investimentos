@@ -3,17 +3,34 @@ import { AcoesLinha } from "../components/AcoesLinha";
 import { FormOperacao } from "../components/FormLancamentos";
 import { ImportarExtrato } from "../components/ImportarExtrato";
 import { ListaPaginada, type ColunaLista } from "../components/ListaPaginada";
-import { useDominio } from "../cadastros";
+import { useAtivos, useDominio } from "../cadastros";
 import { classeSinal, data, moeda, numero } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
 import type { Operacao } from "../tipos";
 
+const NOMES_CLASSES: Record<string, string> = {
+  "AÇÃO": "Ações",
+  BDR: "BDRs",
+  ETF: "ETFs",
+  FII: "FIIs",
+  FIAGRO: "Fiagro",
+  CRIPTO: "Criptos",
+  "R.FIXA": "Renda fixa",
+};
+
 export function Operacoes() {
   const { filtro, investidores } = useInvestidor();
   const { data: dominio } = useDominio();
+  const { data: ativos } = useAtivos();
   const [edicao, setEdicao] = useState<Operacao | "nova" | null>(null);
   const [importando, setImportando] = useState(false);
   const nome = (id: number) => investidores.find((i) => i.id === id)?.nome ?? id;
+  const classes = [...new Set(ativos?.map((ativo) => ativo.classe) ?? [])]
+    .sort()
+    .map((valor) => ({
+      valor,
+      rotulo: NOMES_CLASSES[valor] ?? valor.charAt(0) + valor.slice(1).toLowerCase(),
+    }));
 
   const colunas: ColunaLista<Operacao>[] = [
     { titulo: "Data", render: (o) => data(o.data) },
@@ -43,6 +60,7 @@ export function Operacoes() {
         recurso="operacoes"
         filtroInvestidores={filtro}
         colunas={colunas}
+        classes={classes}
         chave={(o) => o.id}
         cabecalho={
           <>
