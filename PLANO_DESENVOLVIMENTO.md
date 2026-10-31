@@ -288,18 +288,19 @@ Requisitos: cache local, retry com backoff, timeout, log de falhas, nunca bloque
 - [x] Importador completa o §7: `Página117` → proventos de aluguel/BTC (120 lançamentos; bruto, taxa e IRRF idênticos ao quadro da aba), `darfs.` → DARFs pagos (competência = mês anterior ao pagamento), `config.parâmetros` → parâmetros de IR e prejuízo transportado (sem sobrescrever o que já foi ajustado no app). BTC entra na ficha de tributação exclusiva da DIRPF
 - Fora do escopo desta fase: cripto (Fase 5, P13)
 
-### Fase 5 — Análise
+### Fase 5 — Análise ✅
 - [x] Base de fundamentos para ações e FII: snapshots diários idempotentes, API de consulta e atualização semanal via Fundamentus; Investidor10 listado como indisponível até existir rota pública utilizável e termos verificáveis
 - [x] **P8 Radar/Watchlist**: cadastro e remoção de ativos B3 sem posição; exibe cotação, fundamentos, variações 1/7/14d, drawdown de 60 dias, faixa de 52 semanas, estimativa de Graham e YoC; métricas dependentes de histórico incompleto ficam indisponíveis; ativos monitorados entram nas atualizações e cargas históricas
 - [x] **P9 Status do ativo**: drill-down por ativo, carteira ou book; investido, mercado, lucro aberto, proventos 12m, YoC, trades swing/day trade, distribuição do resultado e linha do tempo paginada de operações e proventos, respeitando o filtro de investidores
 - [x] **P11 Valuation**: Graham, Bazin, DCF de 5 anos por FCFE, Gordon, P/L histórico, P/L setorial e P/VP justificado; premissas pré-preenchidas quando deriváveis, editáveis e salvas por ativo; TIR/XIRR e TWR mensal por ativo respeitam o filtro global de investidores. A mediana usa somente modelos calculáveis e não é recomendação de investimento
 - [x] **P13 Cripto**: catálogo CoinGecko pesquisável com ID persistido por ativo; preços USD/BRL (PTAX), variações 24h/7d/30d, capitalização, histórico USD e posições filtradas por investidores; CoinGecko principal e Kraken como fallback somente de preço com identidade verificada. Atualização própria 24/7, snapshots locais e avisos de dados ausentes/antigos. Monitor mensal informativo de vendas brutas, ganhos/perdas e referência de R$ 35 mil por investidor, sem afirmar isenção, calcular imposto/DARF ou alterar P10
 
-### Fase 6 — Importação e qualidade de vida
-- [ ] **Importação de extratos** (B3 Área do Investidor — movimentação/negociação em XLSX; notas de corretagem PDF como evolução) — substitui `extratos`
-- [ ] **P12 Aluguel (BTC)** a partir do extrato B3
-- [ ] Exportação CSV/XLSX de qualquer tabela
-- [ ] Backup/restauração do banco
+### Fase 6 — Importação e qualidade de vida ✅
+- [x] **Importação de extratos** B3 (Área do Investidor, XLSX): *Negociação* → compras/vendas (à vista, fracionário, opções; day trade quando compra e venda do dia têm a mesma quantidade) e *Movimentação* → dividendos, JCP (líquido, como já gravado), rendimentos, amortizações e desdobramentos. Prévia por linha (novo / já existe / verificar / não importado, com motivo) antes de gravar; duplicidade pela soma diária por ativo e evento contra tudo o que já existe e por hash de linha (reimportação idempotente, D7); cadastra ativos e corretoras ausentes. Termo, futuro, exercício, grupamento, bonificação, incorporação, subscrição e frações ficam para lançamento manual (o relatório não traz os dados necessários). Notas de corretagem em PDF continuam como evolução
+- [x] **P12 Aluguel (BTC)**: resumo de remuneração, taxa, IRRF e líquido por ativo e por mês (filtro de ano), lista e cadastro dos lançamentos `ALUGUEL`; importação do extrato da conta da corretora (.xlsx/.csv) com a mesma regra da `Página117` — o relatório da B3 não traz o valor da remuneração. Conferido: o extrato real gera os mesmos 120 lançamentos já importados da planilha
+- [x] Exportação CSV/XLSX de qualquer tabela: botões no topo de todas as páginas; células pt-BR convertidas em moeda, percentual, número e data tipados (uma aba por tabela no XLSX); listas paginadas exportam todos os registros do filtro; CSV no padrão Excel pt-BR e proteção contra injeção de fórmulas
+- [x] Backup/restauração do banco (SQLite): backup automático diário e ao iniciar sem backup recente (mantém 10), manual, download, restauração de backup listado ou de arquivo enviado com validação (cabeçalho, `integrity_check`, revisão do Alembic), cópia de segurança prévia e migração automática. Com PostgreSQL, usar o backup do serviço
+- [x] Migrações no SQLite desligam `foreign_keys` ao recriar tabelas (a migração de cripto falhava em bancos com operações) e conferem `PRAGMA foreign_key_check` ao final
 - [ ] (Opcional) autenticação (se sair do computador local), relatório diário por e-mail, PWA/mobile
 
 ---
