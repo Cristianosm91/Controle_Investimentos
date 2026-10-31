@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { api } from "../api";
 import { AtivosPersonalizados } from "../components/config/AtivosPersonalizados";
+import { BackupConfig } from "../components/config/Backup";
 import { Carteiras } from "../components/config/Carteiras";
 import { EstrategiasBooks } from "../components/config/EstrategiasBooks";
 import { ImpostoRendaConfig } from "../components/config/ImpostoRenda";
@@ -18,6 +19,7 @@ const SECOES = [
   { id: "parametros", rotulo: "Parâmetros" },
   { id: "ir", rotulo: "Imposto de renda" },
   { id: "atualizacoes", rotulo: "Atualizações" },
+  { id: "backup", rotulo: "Backup" },
 ] as const;
 
 type SecaoId = (typeof SECOES)[number]["id"];
@@ -193,6 +195,7 @@ export function Configuracoes() {
     parametros: <Parametros />,
     ir: <ImpostoRendaConfig />,
     atualizacoes: <PainelAtualizacoes />,
+    backup: <BackupConfig />,
   };
 
   return (

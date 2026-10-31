@@ -6,9 +6,11 @@ Cada tarefa tem uma trava própria: execução agendada e manual nunca rodam ao 
 import logging
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -18,7 +20,7 @@ from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..db import SessionLocal
-from . import cotahist, cripto, fundamentos, historico
+from . import backup, cotahist, cripto, fundamentos, historico
 from .cotacoes import atualizar_cotacoes
 
 log = logging.getLogger(__name__)
@@ -61,6 +63,18 @@ def _resumo_fundamentos(r: fundamentos.ResultadoFundamentos) -> str:
     return r.resumo()
 
 
+def usa_sqlite() -> bool:
+    return settings.database_url is None
+
+
+def _backup_automatico(_sessao: Session) -> Path | None:
+    return backup.gerar_automatico(settings.db_path) if usa_sqlite() else None
+
+
+def _resumo_backup(r: Path | None) -> str:
+    return f"Salvo {r.name}" if r else "Banco em servidor: use o backup do próprio serviço"
+
+
 TAREFAS: dict[str, Tarefa] = {
     t.nome: t
     for t in (
@@ -77,8 +91,24 @@ TAREFAS: dict[str, Tarefa] = {
         ),
         Tarefa("fundamentos", "Fundamentos de ações e FIIs (Fundamentus)", fundamentos.atualizar, _resumo_fundamentos),
         Tarefa("cripto", "Cripto (CoinGecko → Kraken) e câmbio PTAX", cripto.atualizar, lambda r: r.resumo()),
+        Tarefa("backup", "Backup automático do banco (mantém os 10 últimos)", _backup_automatico, _resumo_backup),
     )
 }
+
+
+@contextmanager
+def exclusivo() -> Iterator[None]:
+    """Trava todas as tarefas (para restaurar o banco); falha se alguma estiver em execução."""
+    obtidas: list[Tarefa] = []
+    try:
+        for tarefa in TAREFAS.values():
+            if not tarefa.trava.acquire(blocking=False):
+                raise TarefaOcupada(f"Aguarde '{tarefa.descricao}' terminar")
+            obtidas.append(tarefa)
+        yield
+    finally:
+        for tarefa in obtidas:
+            tarefa.trava.release()
 
 
 def executar(nome: str) -> Any:
@@ -142,11 +172,14 @@ def iniciar() -> None:
         _executar_agendado, CronTrigger(minute=f"*/{settings.cotacoes_intervalo_min}"),
         args=["cripto"], id="cripto",
     )
+    _agendador.add_job(_executar_agendado, CronTrigger(hour=12, minute=30), args=["backup"], id="backup")
     _agendador.start()
     # Recupera dias perdidos enquanto o app estava fechado (só se o histórico já foi carregado).
     with SessionLocal() as sessao:
         if cotahist.ultima_data_b3(sessao):
             disparar("cotahist_diario")
+    if usa_sqlite() and settings.db_path.is_file() and not backup.automatico_recente(settings.db_path):
+        disparar("backup")
     log.info("Agendador iniciado")
 
 

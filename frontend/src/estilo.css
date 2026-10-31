@@ -58,11 +58,26 @@ button.secundario {
   color: var(--primaria);
 }
 
-button.link {
+button.link,
+a.link {
   background: none;
   border: none;
   color: var(--primaria);
   padding: 0 0.4rem;
+}
+
+a.link {
+  text-decoration: none;
+}
+
+label.botao-arquivo {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--primaria);
+  border-radius: 6px;
+  padding: 0.4rem 0.9rem;
+  color: var(--primaria);
+  cursor: pointer;
 }
 
 button.perigo {

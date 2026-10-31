@@ -592,6 +592,26 @@ class TarefaOut(BaseModel):
     proxima: datetime | None
 
 
+class BackupOut(BaseModel):
+    nome: str
+    tipo: str
+    tamanho: int
+    criado_em: datetime
+
+
+class BackupsOut(BaseModel):
+    disponivel: bool
+    motivo: str | None = None
+    pasta: str | None = None
+    itens: list[BackupOut] = []
+
+
+class RestauracaoOut(BaseModel):
+    restaurado: str
+    revisao: str
+    copia_anterior: str
+
+
 class FonteFundamentosOut(BaseModel):
     id: str
     nome: str

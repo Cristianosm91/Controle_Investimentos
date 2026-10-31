@@ -333,6 +333,26 @@ export interface Tarefa {
   proxima: string | null;
 }
 
+export interface Backup {
+  nome: string;
+  tipo: "manual" | "automatico" | "antes-restauracao";
+  tamanho: number;
+  criado_em: string;
+}
+
+export interface Backups {
+  disponivel: boolean;
+  motivo: string | null;
+  pasta: string | null;
+  itens: Backup[];
+}
+
+export interface Restauracao {
+  restaurado: string;
+  revisao: string;
+  copia_anterior: string;
+}
+
 export type Benchmark = "ibov" | "ifix" | "cdi" | "ipca";
 
 export interface MesRentabilidade {

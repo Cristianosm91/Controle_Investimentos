@@ -13,6 +13,7 @@ const ACAO: Record<string, string> = {
   indices_diario: "Atualizar agora",
   historico_complementar: "Carregar histórico",
   cripto: "Atualizar cripto",
+  backup: "Fazer backup",
 };
 
 export function PainelAtualizacoes() {
