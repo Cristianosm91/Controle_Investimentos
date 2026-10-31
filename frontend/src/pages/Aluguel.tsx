@@ -7,6 +7,7 @@ import { FormProvento } from "../components/FormLancamentos";
 import { GraficoBarras } from "../components/Graficos";
 import { ListaPaginada, type ColunaLista } from "../components/ListaPaginada";
 import { Modal } from "../components/Modal";
+import { ModelosImportacao } from "../components/ModelosImportacao";
 import { data, mesAno, moeda, moedaCompacta, numero } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
 import type { ItemAluguel, Provento, ResumoAluguel } from "../tipos";
@@ -58,6 +59,7 @@ function ImportarAluguel({ aoFechar }: { aoFechar: () => void }) {
           Histórico e Valor. São usadas só as linhas “Crédito Ref. Taxa de Remuneração BTC”, “Taxa de intermediação
           doador” e “DEBITO CBLC IRRF S/ RENDIMENTO DE BTC”, agrupadas por data e ativo.
         </p>
+        <ModelosImportacao modelos={[{ nome: "aluguel", rotulo: "Extrato de aluguel (BTC)" }]} />
         <div className="formulario em-linha">
           <label>
             Investidor
