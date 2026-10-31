@@ -223,6 +223,10 @@ Em **🧾 Imposto de Renda**, escolha o CPF e o ano: a tela mostra a apuração 
 - Duplicidade: a soma diária por ativo e evento é comparada com o que já existe (planilha, digitação ou importação anterior); igual = *Já existe*, diferente = *Verificar* (importa só se marcado). Reimportar o mesmo arquivo não duplica.
 - Ativos e corretoras ausentes são cadastrados; a classe é deduzida do ticker/nome do produto — confira em Configurações.
 
+### Modelos para preencher
+
+Sem o relatório em mãos, baixe o modelo pelos links **Baixar o modelo para preencher** no próprio modal de importação: *Negociação*, *Movimentação* e *Proventos recebidos* (Operações/Proventos → **Importar extrato B3**) e *Extrato de aluguel (BTC)* (Aluguel → **Importar extrato da corretora**). Cada `.xlsx` tem a aba de dados no layout que o importador reconhece (cabeçalho, listas suspensas e formatos de data/valor) e a aba **Instruções** com o significado de cada coluna e um exemplo — o exemplo não é importado. Endpoint: `GET /api/modelos/{b3-negociacao|b3-movimentacao|b3-proventos|aluguel}`.
+
 ---
 
 ## Arquitetura
