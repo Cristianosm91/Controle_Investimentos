@@ -1,5 +1,8 @@
 import io
+import re
+import zipfile
 from datetime import datetime
+from decimal import Decimal
 
 from openpyxl import Workbook
 
@@ -170,3 +173,58 @@ def test_datas_como_datetime(cliente):
     conteudo = xlsx(CAB_NEGOCIACAO, [[datetime(2025, 2, 3), "Venda", "Mercado à Vista", "-", XP, "BOVA11", 5, 120.5, 602.5]])
     linha = enviar(cliente, "previa", conteudo, investidor_id=inv).json()["linhas"][0]
     assert (linha["data"], linha["evento"], linha["quantidade"]) == ("2025-02-03", "V", -5)
+
+
+CAB_PROVENTOS = ["Produto", "Pagamento", "Tipo de Evento", "Instituição", "Quantidade", "Preço unitário", "Valor líquido"]
+XP_PONTO = "XP INVESTIMENTOS CCTVM S/A."
+
+
+def dimensao_a1(conteudo: bytes) -> bytes:
+    """Reproduz o arquivo da B3, que declara a dimensão da planilha como "A1"."""
+    entrada, saida = zipfile.ZipFile(io.BytesIO(conteudo)), io.BytesIO()
+    with zipfile.ZipFile(saida, "w", zipfile.ZIP_DEFLATED) as destino:
+        for item in entrada.infolist():
+            dados = entrada.read(item.filename)
+            if item.filename.startswith("xl/worksheets/sheet"):
+                dados = re.sub(rb'<dimension ref="[^"]+"', b'<dimension ref="A1"', dados)
+            destino.writestr(item, dados)
+    return saida.getvalue()
+
+
+PROVENTOS_RECEBIDOS = dimensao_a1(xlsx(CAB_PROVENTOS, [
+    ["HGBS11 - HEDGE BRASIL SHOPPING FDO INV IMOB", "15/10/2026", "Rendimento", XP_PONTO, "1.350", 0.17, 229.5],
+    ["JHSF3 - JHSF PARTICIPACOES S/A", "09/10/2026", "Dividendo", XP_PONTO, "1.400", 0.07, 96.81],
+    ["ABEV3 - AMBEV S.A.", "06/10/2026", "Reembolso", XP_PONTO, "-", "-", 30.22],
+    ["ITUB4 - ITAU UNIBANCO HOLDING S.A", "01/10/2026", "Juros Sobre Capital Próprio", XP_PONTO, "370", 0.02, 5.55],
+    ["", "", "", "", "", "", ""],
+    ["", "", "", "", "", "", "Total"],
+    ["", "", "", "", "", "", 362.08],
+]))
+
+
+def test_proventos_recebidos(cliente):
+    inv = investidor(cliente)
+    r = enviar(cliente, "previa", PROVENTOS_RECEBIDOS, investidor_id=inv)
+    assert r.status_code == 200, r.text
+    previa = r.json()
+    assert previa["relatorio"] == "PROVENTOS"
+    linhas = por_numero(previa)
+    assert sorted(linhas) == [2, 3, 4, 5]
+    assert (linhas[2]["evento"], linhas[2]["valor"]) == ("RENDIMENTO", 229.5)
+    assert linhas[3]["evento"] == "DIVIDENDO" and linhas[5]["evento"] == "JSCP"
+    assert linhas[4]["evento"] == "REEMBOLSO_JSCP" and "BTC" in linhas[4]["motivo"]
+    assert all(lin["status"] == "novo" for lin in linhas.values())
+    assert previa["ativos_novos"]["HGBS11"] == "FII"
+    resultado = enviar(cliente, "importar", PROVENTOS_RECEBIDOS, investidor_id=inv).json()
+    assert resultado["proventos"] == 4 and resultado["corretoras_criadas"] == ["XP"]
+    assert enviar(cliente, "importar", PROVENTOS_RECEBIDOS, investidor_id=inv).json()["proventos"] == 0
+
+
+def test_quantidade_em_texto_pt_br():
+    from app.services.extrato_b3 import _decimal
+
+    assert _decimal("1.350") == 1350
+    assert _decimal("2.700") == 2700
+    assert _decimal("1.234,56") == Decimal("1234.56")
+    assert _decimal("38.4") == Decimal("38.4")
+    assert _decimal("-") is None
