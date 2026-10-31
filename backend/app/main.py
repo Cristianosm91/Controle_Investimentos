@@ -5,6 +5,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from . import __version__
 from .api import (
     alocacao,
     aluguel,
@@ -39,7 +40,7 @@ async def ciclo_de_vida(_app: FastAPI):
     jobs.parar()
 
 
-app = FastAPI(title="InvestHub+", version="0.1.0", lifespan=ciclo_de_vida)
+app = FastAPI(title="InvestHub+", version=__version__, lifespan=ciclo_de_vida)
 
 for modulo in (
     cadastros, ativos, lancamentos, carteira, atualizacoes, rentabilidade, configuracoes, alocacao, ir, fundamentos, radar,
@@ -50,7 +51,7 @@ for modulo in (
 
 @app.get("/api/saude", tags=["infra"])
 def saude():
-    return {"status": "ok"}
+    return {"status": "ok", "versao": __version__}
 
 
 _DIST = RAIZ_PROJETO / "frontend" / "dist"

@@ -1,5 +1,7 @@
+import { useQuery } from "@tanstack/react-query";
 import { useRef } from "react";
 import { NavLink, Outlet } from "react-router-dom";
+import { api } from "../api";
 import { BotoesExportar, ProvedorExportacao } from "./Exportacao";
 import { SeletorInvestidor } from "./SeletorInvestidor";
 
@@ -29,10 +31,18 @@ export function Layout() {
 
 function Estrutura() {
   const conteudo = useRef<HTMLElement>(null);
+  const { data: saude } = useQuery({
+    queryKey: ["saude"],
+    queryFn: () => api.get<{ versao: string }>("/saude"),
+    staleTime: Infinity,
+  });
   return (
     <div className="app">
       <aside className="menu">
-        <div className="marca">InvestHub+</div>
+        <div className="marca">
+          InvestHub+
+          {saude?.versao && <small className="versao">v{saude.versao}</small>}
+        </div>
         <nav>
           {PAGINAS.map((p) => (
             <NavLink key={p.caminho} to={p.caminho} end={p.caminho === "/"} className="menu-item">
