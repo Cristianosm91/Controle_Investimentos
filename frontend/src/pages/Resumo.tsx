@@ -118,6 +118,7 @@ export function Resumo() {
                 datas={r.proventos_mensais.map(([d]) => d)}
                 valores={r.proventos_mensais.map(([, v]) => v)}
                 formatar={moedaCompacta}
+                cor="var(--primaria)"
               />
             </div>
           </div>

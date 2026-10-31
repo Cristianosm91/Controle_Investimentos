@@ -694,9 +694,9 @@ span.texto-limitado {
 }
 
 .radar .radar-adicionar {
-  border-color: #fb6400;
-  background: #fb6400;
-  color: #0e0e0e;
+  border-color: var(--primaria);
+  background: var(--primaria);
+  color: #fff;
   font-weight: 600;
   min-height: 2.4rem;
 }
