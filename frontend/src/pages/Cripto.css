@@ -1,0 +1,38 @@
+.cripto > .painel,
+.cripto > .tabela-container {
+  margin-bottom: 1.2rem;
+}
+
+.cripto-controles {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 0.8rem;
+}
+
+.cripto label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.cripto-catalogo {
+  margin: 1rem 0;
+}
+
+.cripto input,
+.cripto select {
+  max-width: 100%;
+}
+
+.cripto .tabela td {
+  vertical-align: top;
+}
+
+@media (max-width: 700px) {
+  .cripto-controles {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

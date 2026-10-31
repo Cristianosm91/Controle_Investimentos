@@ -6,7 +6,7 @@ const UMA_HORA = 60 * 60 * 1000;
 
 /** Telas calculadas a partir de lançamentos, cotações e configurações. */
 export function invalidarDerivados(cliente: QueryClient) {
-  for (const chave of ["posicoes", "resumo", "rentabilidade", "proventos-matriz", "alocacao", "caixa-saldos", "ir-apuracao", "ir-dirpf"]) {
+  for (const chave of ["posicoes", "resumo", "rentabilidade", "proventos-matriz", "alocacao", "caixa-saldos", "ir-apuracao", "ir-dirpf", "cripto", "cripto-monitor"]) {
     cliente.invalidateQueries({ queryKey: [chave] });
   }
 }

@@ -50,7 +50,17 @@ O **ControleInv** substitui planilhas de controle de investimentos (Google Sheet
 | **Configurações** | Investidores, estratégias e books (com classe → book e exceções por ativo), carteiras (peso-alvo, preço-teto, ranking), ativos personalizados (renda fixa com rendimento por CDI/SELIC/IPCA/IGP-M/prefixado ou saldo manual), parâmetros, imposto de renda (regras fiscais com vigência, prejuízo inicial) e status das atualizações. |
 | **Cotações** | Atualização automática no pregão (Yahoo Finance, B3 e EUA), fechamento oficial da B3 (COTAHIST) e câmbio pela PTAX do Banco Central. Histórico diário desde a primeira operação. Status das atualizações em Configurações. |
 | **Importação** | Importa a planilha de controle existente (`.xlsx`) de forma idempotente e concilia o resultado com os valores calculados pela própria planilha. |
+| **Cripto** | Busca no catálogo CoinGecko, vínculo por identificador canônico, preços USD/BRL, variações 24h/7d/30d, capitalização, histórico e posições. CoinGecko principal; Kraken como fallback somente de preço para moedas com vínculo verificado. Monitor mensal de vendas/ganhos por investidor, sem calcular imposto ou DARF. |
 
+#### Cripto: fontes e limites
+
+- Adicione uma moeda em **Cripto**, ou vincule um ativo `CRIPTO` existente ao ID CoinGecko. Símbolos repetidos não são tratados como a mesma moeda.
+- Novos ativos usam USD; o vínculo de ativos existentes preserva moeda e operações. Registre compras/vendas em **Operações**, com o câmbio da data.
+- **Atualizar cripto** e o job próprio atualizam somente ativos cadastrados com cotação automática, inclusive nos fins de semana. Snapshots são persistidos; a tela informa data/fonte e sinaliza dados com mais de duas horas.
+- Busca: cache de cinco minutos; gráfico USD: até 90 dias, cache de 15 minutos. Falhas de rede/rate limit são informadas; não é gerado histórico fictício. No fallback Kraken, capitalização e variações ficam indisponíveis. Moedas sem vínculo Kraken verificado não usam ticker como aproximação.
+- Valores monetários persistidos têm oito casas decimais; preços que arredondariam a zero não são gravados. Capitalização usa precisão ampliada.
+- O monitor soma vendas brutas de todas as criptos **por investidor**, incluindo taxas no cálculo dos ganhos/perdas e custo histórico anterior ao ano. O limite de R$ 35 mil é apenas referência: **não confirma isenção**, não classifica custódia/regime fiscal e não altera P10. A apuração existente de exterior permanece independente; consulte orientação fiscal.
+- Execute `python -m alembic upgrade head` antes de iniciar a versão com cripto.
 ### Em desenvolvimento
 
 Radar/watchlist, criptomoedas e valuation. Veja o [plano de desenvolvimento](PLANO_DESENVOLVIMENTO.md).

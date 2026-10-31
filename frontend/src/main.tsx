@@ -7,6 +7,7 @@ import { ProvedorInvestidor } from "./InvestidorContext";
 import { Alocacao } from "./pages/Alocacao";
 import { Caixa } from "./pages/Caixa";
 import { Configuracoes } from "./pages/Configuracoes";
+import { Cripto } from "./pages/Cripto";
 import { EmConstrucao } from "./pages/EmConstrucao";
 import { ImpostoRenda } from "./pages/ImpostoRenda";
 import { Operacoes } from "./pages/Operacoes";
@@ -35,6 +36,7 @@ const prontas: Record<string, JSX.Element> = {
   "/ir": <ImpostoRenda />,
   "/status": <StatusAtivo />,
   "/valuation": <Valuation />,
+  "/cripto": <Cripto />,
 };
 
 createRoot(document.getElementById("root")!).render(

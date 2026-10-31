@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..db import SessionLocal
-from . import cotahist, fundamentos, historico
+from . import cotahist, cripto, fundamentos, historico
 from .cotacoes import atualizar_cotacoes
 
 log = logging.getLogger(__name__)
@@ -76,6 +76,7 @@ TAREFAS: dict[str, Tarefa] = {
             historico.carregar_tudo, lambda r: r.resumo(),
         ),
         Tarefa("fundamentos", "Fundamentos de ações e FIIs (Fundamentus)", fundamentos.atualizar, _resumo_fundamentos),
+        Tarefa("cripto", "Cripto (CoinGecko → Kraken) e câmbio PTAX", cripto.atualizar, lambda r: r.resumo()),
     )
 }
 
@@ -136,6 +137,10 @@ def iniciar() -> None:
     _agendador.add_job(
         _executar_agendado, CronTrigger(day_of_week="mon", hour=8, minute=0),
         args=["fundamentos"], id="fundamentos",
+    )
+    _agendador.add_job(
+        _executar_agendado, CronTrigger(minute=f"*/{settings.cotacoes_intervalo_min}"),
+        args=["cripto"], id="cripto",
     )
     _agendador.start()
     # Recupera dias perdidos enquanto o app estava fechado (só se o histórico já foi carregado).

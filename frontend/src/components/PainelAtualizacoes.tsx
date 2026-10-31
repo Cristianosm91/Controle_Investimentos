@@ -12,6 +12,7 @@ const ACAO: Record<string, string> = {
   cotahist_historico: "Carregar histórico",
   indices_diario: "Atualizar agora",
   historico_complementar: "Carregar histórico",
+  cripto: "Atualizar cripto",
 };
 
 export function PainelAtualizacoes() {
@@ -35,6 +36,7 @@ export function PainelAtualizacoes() {
       <p className="sutil">
         Cotações a cada 15 min no pregão (seg–sex, 10h–18h); fechamento oficial da B3 às 21h e 8h. A carga histórica
         baixa um arquivo da B3 por ano desde a primeira operação.
+        Cripto tem atualização própria 24h por dia, inclusive fins de semana.
       </p>
       {(error ?? disparar.error) && <div className="erro">{((error ?? disparar.error) as Error).message}</div>}
       <table className="tabela compacta">
@@ -61,7 +63,7 @@ export function PainelAtualizacoes() {
                 ) : t.sucesso === null ? (
                   "—"
                 ) : (
-                  <span className={t.sucesso ? "positivo" : "negativo"}>{t.mensagem}</span>
+                  <span className={t.sucesso ? "sutil" : "negativo"}>{t.mensagem}</span>
                 )}
               </td>
               <td>{dataHora(t.proxima)}</td>

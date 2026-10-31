@@ -114,6 +114,61 @@ export interface Ativo {
   taxa_aa: number | null;
   data_base: string | null;
   cnpj: string | null;
+  coingecko_id: string | null;
+}
+
+export interface MoedaCripto {
+  id: string;
+  ticker: string;
+  nome: string;
+}
+
+export interface ItemCripto {
+  ativo_id: number;
+  ticker: string;
+  nome: string | null;
+  coingecko_id: string | null;
+  preco_usd: number | null;
+  preco_brl: number | null;
+  market_cap_usd: number | null;
+  variacao_24h: number | null;
+  variacao_7d: number | null;
+  variacao_30d: number | null;
+  fonte: string | null;
+  atualizado_em: string | null;
+  quantidade: number;
+  preco_medio_brl: number;
+  investido_brl: number;
+  mercado_brl: number | null;
+  lucro_aberto_brl: number | null;
+}
+
+export interface PainelCripto {
+  itens: ItemCripto[];
+  cambio_usd_brl: number | null;
+  cambio_data: string | null;
+  avisos: string[];
+}
+
+export interface MonitorCripto {
+  meses: {
+    investidor_id: number;
+    investidor: string;
+    competencia: string;
+    vendas_brl: number;
+    ganhos_brl: number | null;
+    perdas_brl: number | null;
+    resultado_brl: number | null;
+    limite_brl: number;
+    saldo_limite_brl: number;
+    acima_limite: boolean;
+  }[];
+  avisos: string[];
+}
+
+export interface PontoCripto {
+  instante: string;
+  preco_usd: number;
 }
 
 export interface ItemRadar {
