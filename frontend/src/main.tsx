@@ -21,6 +21,7 @@ import { Rentabilidade } from "./pages/Rentabilidade";
 import { Resumo } from "./pages/Resumo";
 import { StatusAtivo } from "./pages/StatusAtivo";
 import { Valuation } from "./pages/Valuation";
+import { ValuationsSalvos } from "./pages/ValuationsSalvos";
 import "./estilo.css";
 
 const cliente = new QueryClient({
@@ -42,6 +43,7 @@ const prontas: Record<string, JSX.Element> = {
   "/ir": <ImpostoRenda />,
   "/status": <StatusAtivo />,
   "/valuation": <Valuation />,
+  "/valuations-salvos": <ValuationsSalvos />,
   "/cripto": <Cripto />,
 };
 

@@ -640,6 +640,65 @@ span.texto-limitado {
   font-size: 0.85rem;
 }
 
+.filtro-multi {
+  position: relative;
+}
+
+.filtro-multi summary {
+  cursor: pointer;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+  background: var(--painel);
+  white-space: nowrap;
+  list-style-position: inside;
+}
+
+.filtro-multi-opcoes {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.6rem 0.8rem;
+  background: var(--painel);
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+}
+
+.filtro-multi-linha {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.filtro-multi-opcoes > button.link {
+  align-self: flex-start;
+}
+
+.valuation-celula {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-variant-numeric: tabular-nums;
+}
+
+.linha-detalhe > td {
+  background: #f8fafc;
+}
+
+.valuation-detalhe {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 560px;
+}
+
 .exposicoes {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
