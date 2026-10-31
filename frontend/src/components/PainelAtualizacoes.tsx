@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
+import { invalidarDerivados } from "../cadastros";
 import type { Tarefa } from "../tipos";
 
 const dataHora = (iso: string | null) =>
@@ -9,6 +10,8 @@ const ACAO: Record<string, string> = {
   cotacoes: "Atualizar agora",
   cotahist_diario: "Buscar pendentes",
   cotahist_historico: "Carregar histórico",
+  indices_diario: "Atualizar agora",
+  historico_complementar: "Carregar histórico",
 };
 
 export function PainelAtualizacoes() {
@@ -22,7 +25,7 @@ export function PainelAtualizacoes() {
     mutationFn: (nome: string) => api.post(`/atualizacoes/${nome}`),
     onSettled: () => {
       cliente.invalidateQueries({ queryKey: ["atualizacoes"] });
-      cliente.invalidateQueries({ queryKey: ["posicoes"] });
+      invalidarDerivados(cliente);
     },
   });
 

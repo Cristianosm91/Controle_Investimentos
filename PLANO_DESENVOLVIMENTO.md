@@ -259,13 +259,16 @@ Requisitos: cache local, retry com backoff, timeout, log de falhas, nunca bloque
 - [x] Tela "Status das atualizações" (Configurações → Atualizações)
 - **Entrega:** substitui portfólio + lançamentos da planilha
 
-### Fase 2 — Rentabilidade e resumo
-- [ ] Job de índices (CDI, IPCA, SELIC, IGP-M, IBOV, IFIX) + `snapshot_mensal`
-- [ ] TWR, TIR (XIRR), YoC
-- [ ] **P3 Dashboard** (evolução patrimonial, TWR × benchmarks)
-- [ ] **P1 Resumo** (home)
-- [ ] Matriz de proventos (ativo × mês, ano × mês) — completa P4
-- [ ] Golden tests: TWR mensal e TIR batem com `dashboard.`/`portfolio.` (tolerância definida)
+### Fase 2 — Rentabilidade e resumo ✅
+- [x] Job de índices (CDI 4391, SELIC 4390, IPCA 433, IGP-M 189 do SGS; IBOV/IFIX da API de índices da B3) + PTAX diária (SGS 1/21620) + histórico de ativos do exterior (Yahoo, com reversão do ajuste de desdobramentos). Tarefas `indices_diario` (9h e 20h) e `historico_complementar` (carga completa)
+- [x] Série mensal calculada sob demanda (sem `snapshot_mensal`: ~0,2 s para 10 anos / 100 ativos; usa só o último preço de cada mês)
+- [x] TWR (fórmula da aba `dashboard.`), TIR (XIRR próprio, sem scipy) total e por posição, YoC 12m
+- [x] **P3 Dashboard** (TWR acumulado × IBOV/IFIX/CDI/IPCA, evolução patrimonial, resultado mensal, mapa de calor ano × mês)
+- [x] **P1 Resumo** (home): patrimônio, lucro, TIR, janelas Mês/Ano/12m/início × referências, proventos 12m, altas/baixas do dia
+- [x] Matriz de proventos (ano × mês e ativo × mês) — completa P4
+- [x] Conciliação (`scripts/conciliar_rentabilidade.py`): investido, mercado, proventos, trades e TWR mensal **idênticos** de 2018 a 2026 (106/114 meses; TWR jan/2018–jul/2026: planilha 86,82% × app 86,75%). Os 8 meses divergentes (2017) vêm de preço errado de FAED11 na planilha (R$ 96 × R$ 208 oficial da B3). Diferença constante de R$ 97,61 no investido desde jul/2022 = inconsistência INBR31→INTR já registrada
+- [ ] TIR total × planilha: **não conciliável** — a TIR da aba `portfolio.` é valor estático gravado pelo Apps Script `recalcularTIR()`, de data desconhecida (XIRR validado por testes unitários)
+- COTAHIST passa a aceitar o código antigo `XXXX11B` dos FIIs (B3 removeu o sufixo em 2017)
 
 ### Fase 3 — Configurações e alocação
 - [ ] **Tela de Configurações** (estratégias, books, classe→book, carteiras, ativos personalizados, parâmetros)

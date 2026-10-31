@@ -10,6 +10,8 @@ import { EmConstrucao } from "./pages/EmConstrucao";
 import { Operacoes } from "./pages/Operacoes";
 import { Portfolio } from "./pages/Portfolio";
 import { Proventos } from "./pages/Proventos";
+import { Rentabilidade } from "./pages/Rentabilidade";
+import { Resumo } from "./pages/Resumo";
 import "./estilo.css";
 
 const cliente = new QueryClient({
@@ -17,7 +19,9 @@ const cliente = new QueryClient({
 });
 
 const prontas: Record<string, JSX.Element> = {
+  "/": <Resumo />,
   "/portfolio": <Portfolio />,
+  "/dashboard": <Rentabilidade />,
   "/operacoes": <Operacoes />,
   "/proventos": <Proventos />,
   "/caixa": <Caixa />,

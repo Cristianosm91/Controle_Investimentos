@@ -2,6 +2,7 @@ import { useState } from "react";
 import { AcoesLinha } from "../components/AcoesLinha";
 import { FormProvento } from "../components/FormLancamentos";
 import { ListaPaginada, type ColunaLista } from "../components/ListaPaginada";
+import { MatrizProventos } from "../components/MatrizProventos";
 import { useDominio } from "../cadastros";
 import { data, moeda } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
@@ -11,6 +12,7 @@ export function Proventos() {
   const { filtro, investidores } = useInvestidor();
   const { data: dominio } = useDominio();
   const [edicao, setEdicao] = useState<Provento | "novo" | null>(null);
+  const [aba, setAba] = useState<"lancamentos" | "matriz">("lancamentos");
   const nome = (id: number) => investidores.find((i) => i.id === id)?.nome ?? id;
 
   const colunas: ColunaLista<Provento>[] = [
@@ -27,6 +29,20 @@ export function Proventos() {
 
   return (
     <>
+      <div className="abas">
+        <button className={aba === "lancamentos" ? "aba ativa" : "aba"} onClick={() => setAba("lancamentos")}>
+          Lançamentos
+        </button>
+        <button className={aba === "matriz" ? "aba ativa" : "aba"} onClick={() => setAba("matriz")}>
+          Matriz mensal
+        </button>
+      </div>
+      {aba === "matriz" ? (
+        <section>
+          <h1>Proventos</h1>
+          <MatrizProventos filtro={filtro} />
+        </section>
+      ) : (
       <ListaPaginada<Provento>
         titulo="Proventos"
         recurso="proventos"
@@ -43,6 +59,7 @@ export function Proventos() {
           />
         )}
       />
+      )}
       {edicao && <FormProvento provento={edicao === "novo" ? undefined : edicao} aoFechar={() => setEdicao(null)} />}
     </>
   );

@@ -2,7 +2,7 @@ import zipfile
 from datetime import date
 from decimal import Decimal as D
 
-from app.services.cotahist import interpretar_linha, ler_arquivo
+from app.services.cotahist import codigos_b3, interpretar_linha, ler_arquivo
 
 PETR4 = (
     "012026102902PETR4       010PETROBRAS   PN      N2   R$  000000000520500000000053030000000005175000000000522800"
@@ -48,3 +48,26 @@ def test_le_zip_filtrando_tickers(tmp_path):
     resultado = ler_arquivo(arquivo, {"HGLG11"})
     assert list(resultado) == [("HGLG11", date(2026, 10, 29))]
     assert resultado[("HGLG11", date(2026, 10, 29))].preco == D("147.00")
+
+
+def _com_codigo(linha: str, codigo: str) -> str:
+    return linha[:12] + codigo.ljust(12) + linha[24:]
+
+
+def test_fii_aceita_codigo_antigo_com_sufixo_b(tmp_path):
+    antigo = _com_codigo(HGLG11, "HGLG11B")
+    arquivo = tmp_path / "a.zip"
+    with zipfile.ZipFile(arquivo, "w") as z:
+        z.writestr("a.TXT", antigo.encode("latin-1"))
+    assert ler_arquivo(arquivo, {"HGLG11"})[("HGLG11", date(2026, 10, 29))].preco == D("147.00")
+    assert codigos_b3("PETR4") == {"PETR4"}
+    assert codigos_b3("BBFI11B") == {"BBFI11B"}
+
+
+def test_codigo_atual_prevalece_sobre_o_antigo(tmp_path):
+    antigo = _com_codigo(HGLG11, "HGLG11B")
+    antigo = antigo[:108] + "0000000009900" + antigo[121:]
+    arquivo = tmp_path / "a.zip"
+    with zipfile.ZipFile(arquivo, "w") as z:
+        z.writestr("a.TXT", "\n".join([antigo, HGLG11]).encode("latin-1"))
+    assert ler_arquivo(arquivo, {"HGLG11"})[("HGLG11", date(2026, 10, 29))].preco == D("147.00")

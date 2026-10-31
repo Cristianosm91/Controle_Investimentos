@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { api, query } from "../api";
+import { invalidarDerivados } from "../cadastros";
 import { chaveGrupo, Exposicao, somarPor, valorExposicao } from "../components/Exposicao";
 import { classeSinal, data, moeda, numero, percentual } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
@@ -92,6 +93,22 @@ function colunas(total: number, nomes: Map<number, string>, porInvestidor: boole
         </>
       ),
     },
+    {
+      chave: "yoc_12m",
+      titulo: "YoC 12m",
+      numerica: true,
+      valor: (p) => p.yoc_12m,
+      render: (p) => (
+        <span title={`Proventos 12 meses: ${moeda(p.proventos_12m)}`}>{percentual(p.yoc_12m)}</span>
+      ),
+    },
+    {
+      chave: "tir_aa",
+      titulo: "TIR a.a.",
+      numerica: true,
+      valor: (p) => p.tir_aa,
+      render: (p) => <Sinal valor={p.tir_aa}>{percentual(p.tir_aa)}</Sinal>,
+    },
     { chave: "subsetor", titulo: "Subsetor", valor: (p) => p.subsetor, render: (p) => <span className="sutil">{p.subsetor ?? "—"}</span> },
   ];
   if (porInvestidor) {
@@ -124,7 +141,7 @@ export function Portfolio() {
 
   const atualizar = useMutation({
     mutationFn: () => api.post<{ atualizados: Record<string, string>; sem_cotacao: string[] }>("/cotacoes/atualizar"),
-    onSuccess: () => cliente.invalidateQueries({ queryKey: ["posicoes"] }),
+    onSuccess: () => invalidarDerivados(cliente),
   });
 
   const totais = useMemo(() => {

@@ -2,9 +2,9 @@ import { NavLink, Outlet } from "react-router-dom";
 import { SeletorInvestidor } from "./SeletorInvestidor";
 
 export const PAGINAS = [
-  { caminho: "/", rotulo: "Resumo", icone: "🏠", fase: 2 },
+  { caminho: "/", rotulo: "Resumo", icone: "🏠" },
   { caminho: "/portfolio", rotulo: "Portfólio", icone: "💼" },
-  { caminho: "/dashboard", rotulo: "Rentabilidade", icone: "📈", fase: 2 },
+  { caminho: "/dashboard", rotulo: "Rentabilidade", icone: "📈" },
   { caminho: "/proventos", rotulo: "Proventos", icone: "💰" },
   { caminho: "/operacoes", rotulo: "Operações", icone: "🔁" },
   { caminho: "/caixa", rotulo: "Caixa", icone: "🏦" },

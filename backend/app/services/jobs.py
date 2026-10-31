@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from ..config import settings
 from ..db import SessionLocal
-from . import cotahist
+from . import cotahist, historico
 from .cotacoes import atualizar_cotacoes
 
 log = logging.getLogger(__name__)
@@ -63,6 +63,14 @@ TAREFAS: dict[str, Tarefa] = {
         Tarefa("cotacoes", "Cotações (Yahoo) e câmbio (PTAX/BCB)", atualizar_cotacoes, _resumo_cotacoes),
         Tarefa("cotahist_diario", "Fechamento oficial B3 (COTAHIST diário)", cotahist.carregar_pendentes, _resumo_cotahist),
         Tarefa("cotahist_historico", "Histórico B3 (COTAHIST anual)", cotahist.carregar_historico, _resumo_cotahist),
+        Tarefa(
+            "indices_diario", "Índices (CDI, IPCA, SELIC, IGP-M, IBOV, IFIX), PTAX e exterior — recentes",
+            historico.atualizar_recentes, lambda r: r.resumo(),
+        ),
+        Tarefa(
+            "historico_complementar", "Histórico de índices, PTAX e ativos do exterior (completo)",
+            historico.carregar_tudo, lambda r: r.resumo(),
+        ),
     )
 }
 
@@ -116,6 +124,9 @@ def iniciar() -> None:
     _agendador.add_job(
         _executar_agendado, CronTrigger(hour=f"8,{settings.cotahist_hora}", minute=5),
         args=["cotahist_diario"], id="cotahist_diario",
+    )
+    _agendador.add_job(
+        _executar_agendado, CronTrigger(hour="9,20", minute=15), args=["indices_diario"], id="indices_diario",
     )
     _agendador.start()
     # Recupera dias perdidos enquanto o app estava fechado (só se o histórico já foi carregado).

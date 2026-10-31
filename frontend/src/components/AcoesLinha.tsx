@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
+import { invalidarDerivados } from "../cadastros";
 
 interface Props {
   recurso: string;
@@ -14,7 +15,7 @@ export function AcoesLinha({ recurso, id, descricao, aoEditar }: Props) {
     mutationFn: () => api.del(`/${recurso}/${id}`),
     onSuccess: () => {
       cliente.invalidateQueries({ queryKey: [recurso] });
-      cliente.invalidateQueries({ queryKey: ["posicoes"] });
+      invalidarDerivados(cliente);
     },
     onError: (erro) => alert((erro as Error).message),
   });

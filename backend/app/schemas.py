@@ -283,6 +283,9 @@ class PosicaoOut(BaseModel):
     lucro_realizado: Num
     lucro_daytrade: Num
     proventos: Num
+    proventos_12m: Num | None = None
+    yoc_12m: Num | None = None
+    tir_aa: float | None = None
     data_inicio: date | None
 
 
@@ -306,3 +309,63 @@ class TarefaOut(BaseModel):
 class Pagina(BaseModel, Generic[T]):
     total: int
     itens: list[T]
+
+
+# ---------- Rentabilidade ----------
+
+class MesRentabilidadeOut(BaseModel):
+    data: date
+    investido: Num
+    mercado: Num
+    proventos: Num
+    lucro_trades: Num
+    lucro_daytrade: Num
+    fluxo: Num
+    lucro: Num
+    twr: Num
+    twr_acumulado: Num
+    sem_cotacao: int
+    ibov: Num | None
+    ifix: Num | None
+    cdi: Num | None
+    ipca: Num | None
+    ibov_acumulado: Num | None
+    ifix_acumulado: Num | None
+    cdi_acumulado: Num | None
+    ipca_acumulado: Num | None
+
+
+class JanelaOut(BaseModel):
+    """Rentabilidade acumulada em uma janela (mês, ano, 12 meses, desde o início)."""
+
+    nome: str
+    inicio: date
+    twr: Num | None
+    ibov: Num | None
+    ifix: Num | None
+    cdi: Num | None
+    ipca: Num | None
+
+
+class ResumoOut(BaseModel):
+    data_referencia: date | None
+    patrimonio: Num
+    investido: Num
+    lucro_aberto: Num
+    lucro_realizado: Num
+    proventos_total: Num
+    proventos_12m: Num
+    yoc_12m: Num | None
+    tir_aa: float | None
+    tir_am: float | None
+    janelas: list[JanelaOut]
+    proventos_mensais: list[tuple[date, Num]]
+
+
+class MatrizProventosOut(BaseModel):
+    titulo_linhas: str
+    linhas: list[str]
+    valores: list[list[Num]]  # linhas x 12 meses
+    totais_linha: list[Num]
+    totais_mes: list[Num]
+    total: Num

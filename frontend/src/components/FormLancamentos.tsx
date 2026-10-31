@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState, type FormEvent, type ReactNode } from "react";
 import { api } from "../api";
-import { useDominio } from "../cadastros";
+import { invalidarDerivados, useDominio } from "../cadastros";
 import { moeda as fmtMoeda } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
 import type { MovCaixa, Operacao, Provento } from "../tipos";
@@ -25,7 +25,7 @@ function useSalvar<T>(recurso: string, id: number | undefined, aoConcluir: () =>
     mutationFn: (corpo: T) => (id ? api.put(`/${recurso}/${id}`, corpo) : api.post(`/${recurso}`, corpo)),
     onSuccess: () => {
       cliente.invalidateQueries({ queryKey: [recurso] });
-      cliente.invalidateQueries({ queryKey: ["posicoes"] });
+      invalidarDerivados(cliente);
       aoConcluir();
     },
   });

@@ -38,16 +38,18 @@ O **ControleInv** substitui planilhas de controle de investimentos (Google Sheet
 | Área | O que faz |
 |---|---|
 | **Multi-investidor** | Cadastro de investidores (com CPF mascarado) e grupos (ex.: Família). Seletor global filtra todas as páginas: um investidor, um grupo ou todos consolidados. |
+| **Resumo** | Patrimônio, lucro aberto/total, TIR, proventos e YoC dos últimos 12 meses, rentabilidade (TWR) no mês/ano/12 meses/desde o início comparada a IBOV, IFIX, CDI e IPCA, maiores altas e baixas do dia. |
+| **Rentabilidade** | TWR acumulado × referências, evolução patrimonial (mercado × investido), resultado mensal e mapa de calor ano × mês, com seletor de período. |
 | **Portfólio** | Posições abertas com quantidade, preço médio, cotação, valor investido/mercado, lucro do dia, lucro aberto, proventos e peso. Tabela ordenável, agrupamento por classe ou setor com subtotais, gráficos de exposição (classe, setor, ativo) e visão consolidada ou separada por investidor. |
 | **Operações** | Lançamento, edição e exclusão pela interface; histórico com filtros por ticker e período; compra, venda, day trade e eventos societários. Câmbio preenchido automaticamente pela PTAX. |
-| **Proventos** | Lançamento, edição e exclusão de dividendos, JCP, rendimentos, bonificações e amortizações, com IRRF e conversão cambial. |
+| **Proventos** | Lançamento, edição e exclusão de dividendos, JCP, rendimentos, bonificações e amortizações, com IRRF e conversão cambial. Matriz mensal ano × mês e ativo × mês. |
 | **Caixa** | Aportes, saques, créditos e débitos por investidor e corretora. |
 | **Cotações** | Atualização automática no pregão (Yahoo Finance, B3 e EUA), fechamento oficial da B3 (COTAHIST) e câmbio pela PTAX do Banco Central. Histórico diário desde a primeira operação. Status das atualizações em Configurações. |
 | **Importação** | Importa a planilha de controle existente (`.xlsx`) de forma idempotente e concilia o resultado com os valores calculados pela própria planilha. |
 
 ### Em desenvolvimento
 
-Resumo, rentabilidade (TWR/TIR × IBOV, IFIX, CDI, IPCA), saldo de caixa por corretora, alocação e rebalanceamento, radar/watchlist, criptomoedas, apuração de IR e DARF, DIRPF e valuation. Veja o [plano de desenvolvimento](PLANO_DESENVOLVIMENTO.md).
+Saldo de caixa por corretora, alocação e rebalanceamento, radar/watchlist, criptomoedas, apuração de IR e DARF, DIRPF e valuation. Veja o [plano de desenvolvimento](PLANO_DESENVOLVIMENTO.md).
 
 ---
 
@@ -56,7 +58,7 @@ Resumo, rentabilidade (TWR/TIR × IBOV, IFIX, CDI, IPCA), saldo de caixa por cor
 ```mermaid
 flowchart LR
     UI[React + TypeScript<br/>Vite] -->|REST / JSON| API[FastAPI]
-    API --> SVC[Serviços de cálculo<br/>posição · PM · lucro]
+    API --> SVC[Serviços de cálculo<br/>posição · PM · lucro · TWR · TIR]
     SVC --> DB[(SQLite local)]
     API --> PROV[Provedores de cotação]
     JOB[Jobs agendados<br/>APScheduler] --> PROV
@@ -79,7 +81,7 @@ flowchart LR
 |---|---|
 | Backend | Python 3.12+, FastAPI, SQLAlchemy 2, Alembic, Pydantic 2 |
 | Dados | SQLite, pandas, openpyxl |
-| Cotações | yfinance, httpx (BCB PTAX, B3 COTAHIST), APScheduler |
+| Cotações | yfinance, httpx (BCB PTAX/SGS, B3 COTAHIST e índices), APScheduler |
 | Frontend | React 18, TypeScript, Vite, React Router, TanStack Query |
 | Testes | pytest |
 
@@ -187,6 +189,19 @@ cd backend
 
 Depois disso, o job diário mantém o histórico em dia (e recupera dias perdidos ao iniciar o app).
 
+### Índices, PTAX e ativos do exterior
+
+Para a rentabilidade (TWR × referências e valor de mercado mês a mês), carregue também **Configurações → Atualizações → Histórico de índices, PTAX e ativos do exterior**. Ele busca CDI, SELIC, IPCA e IGP-M no SGS do Banco Central, IBOV e IFIX na B3, a PTAX diária e o histórico do Yahoo para ativos dos EUA (desfazendo o ajuste de desdobramentos, pois as quantidades no app são as históricas). Depois, a tarefa diária mantém os meses recentes atualizados.
+
+### Conciliação da rentabilidade
+
+```powershell
+cd backend
+..\.venv\Scripts\python.exe -m scripts.conciliar_rentabilidade "C:\caminho\planilha.xlsx" --investidor "Nome" [--detalhar]
+```
+
+Compara mês a mês investido, mercado, proventos, lucro de trades e TWR com a aba `dashboard.` da planilha.
+
 ---
 
 ## Estrutura do projeto
@@ -197,7 +212,7 @@ Depois disso, o job diário mantém o histórico em dia (e recupera dias perdido
 │   ├── app/
 │   │   ├── api/            # Rotas REST (cadastros, ativos, lançamentos, carteira, atualizações)
 │   │   ├── providers/      # Provedores de cotação (Yahoo, BCB PTAX)
-│   │   ├── services/       # Regras de negócio (posição, carteira, cotações, COTAHIST, jobs)
+│   │   ├── services/       # Regras de negócio (posição, carteira, cotações, COTAHIST, rentabilidade, jobs)
 │   │   ├── config.py       # Configurações via variáveis de ambiente
 │   │   ├── db.py           # Engine e sessão SQLAlchemy
 │   │   ├── dominio.py      # Vocabulário de eventos e moedas
@@ -210,7 +225,7 @@ Depois disso, o job diário mantém o histórico em dia (e recupera dias perdido
 ├── frontend/
 │   └── src/
 │       ├── components/     # Layout, seletor, listas, formulários, exposição
-│       └── pages/          # Portfólio, Operações, Proventos, Caixa, Configurações
+│       └── pages/          # Resumo, Portfólio, Rentabilidade, Operações, Proventos, Caixa, Configurações
 ├── iniciar.bat             # Execução local
 ├── dev.bat                 # Modo desenvolvimento
 └── PLANO_DESENVOLVIMENTO.md
@@ -254,6 +269,9 @@ Principais recursos:
 | `GET/POST/PUT/DELETE` | `/api/caixa` | Movimentações de caixa (entrada > 0, saída < 0) |
 | `GET` | `/api/cambio/ptax?moeda=USD&data=2026-10-02` | PTAX oficial (compra/venda) da data |
 | `GET` / `POST` | `/api/atualizacoes` · `/api/atualizacoes/{tarefa}` | Status e disparo das atualizações em segundo plano |
+| `GET` | `/api/rentabilidade/mensal?inicio=&fim=` | Série mensal: investido, mercado, fluxo, lucro, TWR e referências |
+| `GET` | `/api/rentabilidade/resumo` | Patrimônio, TIR, proventos 12m, YoC e TWR por janela |
+| `GET` | `/api/proventos/matriz?ano=` | Proventos líquidos ano × mês (ou ativo × mês de um ano) |
 | `GET/POST/PUT/DELETE` | `/api/investidores` | Investidores |
 | `GET/POST/PUT/DELETE` | `/api/ativos` | Cadastro de ativos |
 
@@ -266,7 +284,7 @@ cd backend
 ..\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Os testes cobrem preço médio, venda, eventos societários, câmbio, day trade e consolidação entre investidores (com casos derivados de valores reais da planilha), além da leitura do COTAHIST, da escolha da PTAX e da API de lançamentos e caixa (banco em memória).
+Os testes cobrem preço médio, venda, eventos societários, câmbio, day trade e consolidação entre investidores (com casos derivados de valores reais da planilha), além da leitura do COTAHIST, da escolha da PTAX, dos índices, do TWR (linhas reais da aba `dashboard.`), do XIRR e das APIs de lançamentos, caixa e rentabilidade (banco em memória).
 
 ---
 
@@ -276,7 +294,7 @@ Os testes cobrem preço médio, venda, eventos societários, câmbio, day trade 
 |---|---|---|
 | 0 | Fundação: banco, API, importador, layout, cotações | ✅ Concluída |
 | 1 | MVP de carteira: lançamentos pela interface, PTAX oficial, histórico B3 | ✅ Concluída (planilha-ponte Google Sheets adiada) |
-| 2 | Rentabilidade (TWR, TIR) e página de resumo | ⏳ |
+| 2 | Rentabilidade (TWR, TIR) e página de resumo | ✅ Concluída |
 | 3 | Configurações, alocação e rebalanceamento, caixa | ⏳ |
 | 4 | Imposto de renda: apuração mensal, DARF, DIRPF | ⏳ |
 | 5 | Radar, criptomoedas, status do ativo, valuation | ⏳ |

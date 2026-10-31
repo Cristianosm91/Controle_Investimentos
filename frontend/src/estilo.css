@@ -550,3 +550,79 @@ select {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
+/* ---------- painéis e gráficos ---------- */
+
+.paineis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  gap: 0.8rem;
+  margin-bottom: 0.8rem;
+}
+
+.painel {
+  background: var(--painel);
+  border: 1px solid var(--borda);
+  border-radius: 10px;
+  padding: 0.9rem 1rem;
+  margin-bottom: 0.8rem;
+  min-width: 0;
+}
+
+.painel .titulo-linha {
+  margin-bottom: 0.4rem;
+}
+
+.painel .tabela th {
+  position: static;
+}
+
+.grafico svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.grafico .grade {
+  stroke: var(--borda);
+  stroke-width: 1;
+}
+
+.grafico .linha-zero {
+  stroke: #9ca3af;
+  stroke-width: 1;
+}
+
+.grafico .cursor {
+  stroke: #9ca3af;
+  stroke-dasharray: 3 3;
+}
+
+.grafico .eixo {
+  font-size: 11px;
+  fill: var(--sutil);
+}
+
+.legenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  font-size: 0.8rem;
+  min-height: 1.3rem;
+  margin-top: 0.3rem;
+}
+
+.abas.sem-borda {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.tabela.calor td,
+.tabela.matriz td {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8rem;
+}
+
+.tabela.matriz tfoot td {
+  background: #f9fafb;
+  border-top: 2px solid var(--borda);
+}

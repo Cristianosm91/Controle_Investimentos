@@ -1,10 +1,11 @@
+from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query
 
 from ..dominio import EVENTOS_CAIXA, EVENTOS_OPERACAO, EVENTOS_PROVENTO, MOEDAS
 from ..schemas import AtualizacaoCotacoesOut, PosicaoOut
-from ..services import jobs
+from ..services import jobs, painel
 from ..services.carteira import montar_carteira
 from .deps import InvestidoresDep, SessaoDep
 
@@ -19,6 +20,15 @@ def listar_posicoes(
     somente_abertas: bool = True,
 ):
     linhas = montar_carteira(sessao, investidores, consolidado=agrupar == "ativo", somente_abertas=somente_abertas)
+    metricas = painel.metricas_posicoes(
+        sessao,
+        investidores,
+        {
+            # Posição encerrada não precisa de cotação: o valor final é zero.
+            (l.investidor_id, l.ativo.id): (l.posicao.custo, l.valor_mercado if l.posicao.aberta else Decimal(0))
+            for l in linhas
+        },
+    )
     return [
         PosicaoOut(
             investidor_id=l.investidor_id,
@@ -42,9 +52,13 @@ def listar_posicoes(
             lucro_realizado=l.posicao.lucro_realizado,
             lucro_daytrade=l.posicao.lucro_daytrade,
             proventos=l.proventos,
+            proventos_12m=m.proventos_12m,
+            yoc_12m=m.yoc_12m,
+            tir_aa=m.tir_aa,
             data_inicio=l.posicao.data_inicio,
         )
         for l in linhas
+        for m in [metricas[(l.investidor_id, l.ativo.id)]]
     ]
 
 

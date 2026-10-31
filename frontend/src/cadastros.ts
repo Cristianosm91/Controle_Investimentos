@@ -1,8 +1,15 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, type QueryClient } from "@tanstack/react-query";
 import { api, query } from "./api";
 import type { Ativo, Corretora, Dominio, Ptax } from "./tipos";
 
 const UMA_HORA = 60 * 60 * 1000;
+
+/** Telas calculadas a partir de lançamentos e cotações. */
+export function invalidarDerivados(cliente: QueryClient) {
+  for (const chave of ["posicoes", "resumo", "rentabilidade", "proventos-matriz"]) {
+    cliente.invalidateQueries({ queryKey: [chave] });
+  }
+}
 
 export function useDominio() {
   return useQuery({ queryKey: ["dominio"], queryFn: () => api.get<Dominio>("/dominio"), staleTime: Infinity });

@@ -24,6 +24,19 @@ export function data(iso: string | null | undefined): string {
   return `${d}/${m}/${a}`;
 }
 
+/** "2024-03-05" -> "mar./2024". */
+export function mesAno(iso: string): string {
+  const [a, m] = iso.split("-");
+  return `${MESES[Number(m) - 1]}/${a}`;
+}
+
+export const MESES = ["jan.", "fev.", "mar.", "abr.", "mai.", "jun.", "jul.", "ago.", "set.", "out.", "nov.", "dez."];
+
+/** Valor compacto para eixos: R$ 1,2 mi / R$ 350 mil. */
+export function moedaCompacta(valor: number): string {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", notation: "compact", maximumFractionDigits: 1 }).format(valor);
+}
+
 export function classeSinal(valor: number | null | undefined): string {
   if (!valor) return "";
   return valor > 0 ? "positivo" : "negativo";

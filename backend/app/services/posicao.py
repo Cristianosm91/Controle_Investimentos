@@ -90,20 +90,39 @@ def aplicar(p: Posicao, m: Movimento) -> Decimal:
     raise ValueError(f"Evento de operação desconhecido: {ev}")
 
 
-def calcular_posicoes(movimentos: Iterable[Movimento]) -> dict[tuple[int, int], Posicao]:
-    """Posição por (investidor, ativo). Day trade não altera a posição; só acumula lucro."""
-    swing: dict[tuple[int, int], Posicao] = {}
-    daytrade: dict[tuple[int, int], Posicao] = {}
-    for m in sorted(movimentos, key=lambda x: (x.data, x.ordem)):
+class Carteira:
+    """Aplica movimentos em ordem cronológica mantendo as posições; permite fotografar entre datas.
+
+    Day trade não altera a posição swing; só acumula lucro em `lucro_daytrade`.
+    """
+
+    def __init__(self) -> None:
+        self.posicoes: dict[tuple[int, int], Posicao] = {}
+        self._daytrade: dict[tuple[int, int], Posicao] = {}
+
+    def aplicar(self, m: Movimento) -> Decimal:
+        """Aplica o movimento e devolve o lucro realizado (swing ou day trade, conforme o movimento)."""
         chave = (m.investidor_id, m.ativo_id)
-        alvo = daytrade if m.daytrade else swing
+        alvo = self._daytrade if m.daytrade else self.posicoes
         p = alvo.setdefault(chave, Posicao(*chave))
         lucro = aplicar(p, m)
         if m.daytrade:
-            swing.setdefault(chave, Posicao(*chave)).lucro_daytrade += lucro
+            self.posicoes.setdefault(chave, Posicao(*chave)).lucro_daytrade += lucro
         else:
             p.lucro_realizado += lucro
-    return swing
+        return lucro
+
+
+def ordenar(movimentos: Iterable[Movimento]) -> list[Movimento]:
+    return sorted(movimentos, key=lambda x: (x.data, x.ordem))
+
+
+def calcular_posicoes(movimentos: Iterable[Movimento]) -> dict[tuple[int, int], Posicao]:
+    """Posição por (investidor, ativo). Day trade não altera a posição; só acumula lucro."""
+    carteira = Carteira()
+    for m in ordenar(movimentos):
+        carteira.aplicar(m)
+    return carteira.posicoes
 
 
 def consolidar(posicoes: Iterable[Posicao]) -> dict[int, Posicao]:

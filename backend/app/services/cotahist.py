@@ -49,21 +49,34 @@ def interpretar_linha(linha: str) -> Fechamento | None:
     )
 
 
+def codigos_b3(ticker: str) -> set[str]:
+    """Códigos de negociação aceitos para o ticker; FIIs `XXXX11` negociavam como `XXXX11B` até 2017."""
+    codigos = {ticker}
+    if len(ticker) == 6 and ticker.endswith("11") and ticker[:4].isalpha():
+        codigos.add(f"{ticker}B")
+    return codigos
+
+
 def ler_arquivo(caminho_zip: Path, tickers: set[str]) -> dict[tuple[str, date], Fechamento]:
-    """Fechamentos dos tickers pedidos; havendo mais de um registro no dia, fica o de maior volume."""
+    """Fechamentos dos tickers pedidos (aceitando códigos antigos); no mesmo dia vale o código atual
+    e, depois, o registro de maior volume."""
+    por_codigo = {c: t for t in tickers for c in codigos_b3(t)}
     resultado: dict[tuple[str, date], Fechamento] = {}
     with zipfile.ZipFile(caminho_zip) as arquivo:
         for nome in arquivo.namelist():
             with arquivo.open(nome) as bruto:
                 for linha in io.TextIOWrapper(bruto, encoding="latin-1"):
-                    if linha[12:24].strip() not in tickers:
+                    ticker = por_codigo.get(linha[12:24].strip())
+                    if ticker is None:
                         continue
                     f = interpretar_linha(linha)
                     if f is None:
                         continue
-                    atual = resultado.get((f.ticker, f.data))
+                    codigo_atual = f.ticker == ticker
+                    f = Fechamento(ticker, f.data, f.preco, f.volume if codigo_atual else -f.volume)
+                    atual = resultado.get((ticker, f.data))
                     if atual is None or f.volume > atual.volume:
-                        resultado[(f.ticker, f.data)] = f
+                        resultado[(ticker, f.data)] = f
     return resultado
 
 
@@ -105,8 +118,17 @@ def _preco_anterior(sessao: Session, ativo_id: int, antes_de: date) -> Decimal |
     )
 
 
-def gravar(sessao: Session, fechamentos: Iterable[Fechamento], ids: dict[str, int]) -> int:
-    """Upsert em `cotacao`, calculando a variação contra o fechamento anterior do mesmo ativo."""
+def gravar(
+    sessao: Session,
+    fechamentos: Iterable[Fechamento],
+    ids: dict[str, int],
+    fonte: str = FONTE,
+    preservar_fonte: str | None = None,
+) -> int:
+    """Upsert em `cotacao`, calculando a variação contra o fechamento anterior do mesmo ativo.
+
+    Linhas já gravadas com `preservar_fonte` não são sobrescritas.
+    """
     por_ativo: dict[int, list[Fechamento]] = {}
     for f in fechamentos:
         por_ativo.setdefault(ids[f.ticker], []).append(f)
@@ -118,7 +140,7 @@ def gravar(sessao: Session, fechamentos: Iterable[Fechamento], ids: dict[str, in
         for f in lista:
             variacao = f.preco / anterior - 1 if anterior else None
             linhas.append({
-                "ativo_id": ativo_id, "data": f.data, "preco": f.preco, "variacao_pct": variacao, "fonte": FONTE,
+                "ativo_id": ativo_id, "data": f.data, "preco": f.preco, "variacao_pct": variacao, "fonte": fonte,
             })
             anterior = f.preco
 
@@ -133,6 +155,7 @@ def gravar(sessao: Session, fechamentos: Iterable[Fechamento], ids: dict[str, in
                     "fonte": lote.excluded.fonte,
                     "atualizado_em": func.now(),
                 },
+                where=(Cotacao.fonte != preservar_fonte) if preservar_fonte else None,
             )
         )
         sessao.commit()  # lotes curtos: não bloqueia gravações da API durante cargas longas

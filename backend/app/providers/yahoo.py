@@ -71,3 +71,52 @@ class ProvedorYahoo:
             por_simbolo[s]: CotacaoAtual(por_simbolo[s], preco, var, dia, self.nome)
             for s, (dia, preco, var) in self._fechamentos(list(por_simbolo)).items()
         }
+
+    def historico(self, ativos: Sequence[AtivoRef], inicio: date) -> dict[str, dict[date, Decimal]]:
+        """Fechamentos diários (sem ajuste de proventos) desde `inicio`, indexados pelo ticker."""
+        por_simbolo = {s: a for a in ativos if (s := simbolo_yahoo(a))}
+        if not por_simbolo:
+            return {}
+        try:
+            df = yf.download(
+                list(por_simbolo),
+                start=inicio.isoformat(),
+                interval="1d",
+                group_by="ticker",
+                auto_adjust=False,
+                actions=True,
+                progress=False,
+                threads=False,
+            )
+        except Exception:
+            log.exception("Falha ao consultar histórico no Yahoo Finance")
+            return {}
+
+        resultado: dict[str, dict[date, Decimal]] = {}
+        for simbolo, ativo in por_simbolo.items():
+            try:
+                bloco = df[simbolo] if isinstance(df.columns, pd.MultiIndex) else df
+                serie = bloco["Close"].dropna()
+            except KeyError:
+                continue
+            if serie.empty:
+                continue
+            desdobramentos = bloco["Stock Splits"].fillna(0) if "Stock Splits" in bloco else None
+            resultado[ativo.ticker] = {
+                dia.date(): Decimal(str(round(float(preco), 6)))
+                for dia, preco in desfazer_ajuste_de_splits(serie, desdobramentos).items()
+            }
+        return resultado
+
+
+def desfazer_ajuste_de_splits(fechamentos: pd.Series, desdobramentos: pd.Series | None) -> pd.Series:
+    """O Yahoo devolve preços já ajustados por splits; as quantidades do app são as históricas.
+
+    Preço bruto em d = preço ajustado × produto dos fatores de split ocorridos depois de d.
+    """
+    if desdobramentos is None or not (desdobramentos > 0).any():
+        return fechamentos
+    fatores = desdobramentos.where(desdobramentos > 0, 1.0).reindex(fechamentos.index, fill_value=1.0)
+    # Fator acumulado dos splits estritamente posteriores a cada dia.
+    posteriores = fatores[::-1].cumprod()[::-1].shift(-1, fill_value=1.0)
+    return fechamentos * posteriores

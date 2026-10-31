@@ -34,6 +34,9 @@ export interface Posicao {
   lucro_realizado: number;
   lucro_daytrade: number;
   proventos: number;
+  proventos_12m: number | null;
+  yoc_12m: number | null;
+  tir_aa: number | null;
   data_inicio: string | null;
 }
 
@@ -130,6 +133,64 @@ export interface Tarefa {
   mensagem: string | null;
   duracao_s: number | null;
   proxima: string | null;
+}
+
+export type Benchmark = "ibov" | "ifix" | "cdi" | "ipca";
+
+export interface MesRentabilidade {
+  data: string;
+  investido: number;
+  mercado: number;
+  proventos: number;
+  lucro_trades: number;
+  lucro_daytrade: number;
+  fluxo: number;
+  lucro: number;
+  twr: number;
+  twr_acumulado: number;
+  sem_cotacao: number;
+  ibov: number | null;
+  ifix: number | null;
+  cdi: number | null;
+  ipca: number | null;
+  ibov_acumulado: number | null;
+  ifix_acumulado: number | null;
+  cdi_acumulado: number | null;
+  ipca_acumulado: number | null;
+}
+
+export interface Janela {
+  nome: string;
+  inicio: string;
+  twr: number | null;
+  ibov: number | null;
+  ifix: number | null;
+  cdi: number | null;
+  ipca: number | null;
+}
+
+export interface Resumo {
+  data_referencia: string | null;
+  patrimonio: number;
+  investido: number;
+  lucro_aberto: number;
+  lucro_realizado: number;
+  proventos_total: number;
+  proventos_12m: number;
+  yoc_12m: number | null;
+  tir_aa: number | null;
+  tir_am: number | null;
+  janelas: Janela[];
+  proventos_mensais: [string, number][];
+}
+
+export interface MatrizProventos {
+  titulo_linhas: string;
+  linhas: string[];
+  valores: number[][];
+  totais_linha: number[];
+  totais_mes: number[];
+  total: number;
 }
 
 export interface Dominio {
