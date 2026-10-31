@@ -649,6 +649,99 @@ class StatusAtivoOut(BaseModel):
     deslocamento: int
 
 
+# ---------- Valuation ----------
+
+class PremissasValuationIn(BaseModel):
+    lpa: Decimal | None = None
+    vpa: Decimal | None = None
+    dividendo_anual: Decimal | None = None
+    roe: Decimal | None = None
+    payout: Decimal | None = None
+    g: Decimal | None = None
+    ke: Decimal | None = None
+    pl_historico: Decimal | None = None
+    pl_setor: Decimal | None = None
+    fcfe_1: Decimal | None = None
+    fcfe_2: Decimal | None = None
+    fcfe_3: Decimal | None = None
+    fcfe_4: Decimal | None = None
+    fcfe_5: Decimal | None = None
+
+    @field_validator("*")
+    @classmethod
+    def _finito(cls, valor: Decimal | None) -> Decimal | None:
+        if valor is not None and not valor.is_finite():
+            raise ValueError("Premissas devem ser números finitos")
+        return valor
+
+
+class PremissasValuationOut(_Saida):
+    lpa: Num | None
+    vpa: Num | None
+    dividendo_anual: Num | None
+    roe: Num | None
+    payout: Num | None
+    g: Num | None
+    ke: Num | None
+    pl_historico: Num | None
+    pl_setor: Num | None
+    fcfe_1: Num | None
+    fcfe_2: Num | None
+    fcfe_3: Num | None
+    fcfe_4: Num | None
+    fcfe_5: Num | None
+
+
+class ModeloValuationOut(BaseModel):
+    id: Literal["graham", "bazin", "dcf_fcfe", "gordon", "pl_historico", "pl_setor", "pvp_justificado"]
+    rotulo: str
+    preco_justo: Num | None
+    motivo: str | None
+
+
+class AnaliseValuationOut(BaseModel):
+    modelos_disponiveis: int
+    total_modelos: int
+    preco_mediano: Num | None
+    upside_mediano: Num | None
+
+
+class MesValuationOut(BaseModel):
+    data: date
+    investido: Num
+    mercado: Num
+    fluxo: Num
+    twr: Num
+    twr_acumulado: Num
+    sem_cotacao: bool
+
+
+class RentabilidadeValuationOut(BaseModel):
+    data_referencia: date | None
+    tir_aa: Num | None
+    tir_am: Num | None
+    twr_acumulado: Num | None
+    meses: list[MesValuationOut]
+
+
+class ValuationOut(BaseModel):
+    ativo_id: int
+    ticker: str
+    nome: str | None
+    classe: str
+    moeda: str
+    cotacao: Num | None
+    cotacao_data: date | None
+    cotacao_fonte: str | None
+    fundamento_data: date | None
+    fundamento_fonte: str | None
+    premissas_salvas_em: datetime | None
+    premissas: PremissasValuationOut
+    modelos: list[ModeloValuationOut]
+    analise: AnaliseValuationOut
+    rentabilidade: RentabilidadeValuationOut
+
+
 class Pagina(BaseModel, Generic[T]):
     total: int
     itens: list[T]

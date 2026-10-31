@@ -188,6 +188,69 @@ export interface StatusAtivo {
   deslocamento: number;
 }
 
+export interface PremissasValuation {
+  lpa: number | null;
+  vpa: number | null;
+  dividendo_anual: number | null;
+  roe: number | null;
+  payout: number | null;
+  g: number | null;
+  ke: number | null;
+  pl_historico: number | null;
+  pl_setor: number | null;
+  fcfe_1: number | null;
+  fcfe_2: number | null;
+  fcfe_3: number | null;
+  fcfe_4: number | null;
+  fcfe_5: number | null;
+}
+
+export interface ModeloValuation {
+  id: "graham" | "bazin" | "dcf_fcfe" | "gordon" | "pl_historico" | "pl_setor" | "pvp_justificado";
+  rotulo: string;
+  preco_justo: number | null;
+  motivo: string | null;
+}
+
+export interface MesValuation {
+  data: string;
+  investido: number;
+  mercado: number;
+  fluxo: number;
+  twr: number;
+  twr_acumulado: number;
+  sem_cotacao: boolean;
+}
+
+export interface Valuation {
+  ativo_id: number;
+  ticker: string;
+  nome: string | null;
+  classe: string;
+  moeda: string;
+  cotacao: number | null;
+  cotacao_data: string | null;
+  cotacao_fonte: string | null;
+  fundamento_data: string | null;
+  fundamento_fonte: string | null;
+  premissas_salvas_em: string | null;
+  premissas: PremissasValuation;
+  modelos: ModeloValuation[];
+  analise: {
+    modelos_disponiveis: number;
+    total_modelos: number;
+    preco_mediano: number | null;
+    upside_mediano: number | null;
+  };
+  rentabilidade: {
+    data_referencia: string | null;
+    tir_aa: number | null;
+    tir_am: number | null;
+    twr_acumulado: number | null;
+    meses: MesValuation[];
+  };
+}
+
 export interface Corretora {
   id: number;
   nome: string;

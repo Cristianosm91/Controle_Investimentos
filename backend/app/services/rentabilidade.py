@@ -301,8 +301,20 @@ def _ultimos_do_mes(sessao: Session, chave, filtro, modelo):
         yield k, dia if isinstance(dia, date) else date.fromisoformat(dia), Decimal(str(v))
 
 
-def carregar_dados(sessao: Session, investidor_ids: Sequence[int] | None) -> DadosRentabilidade:
-    filtro_op = Operacao.investidor_id.in_(investidor_ids) if investidor_ids else True
+def carregar_dados(
+    sessao: Session,
+    investidor_ids: Sequence[int] | None,
+    ativo_ids: Sequence[int] | None = None,
+) -> DadosRentabilidade:
+    filtros_op = []
+    filtros_prov = []
+    if investidor_ids:
+        filtros_op.append(Operacao.investidor_id.in_(investidor_ids))
+        filtros_prov.append(Provento.investidor_id.in_(investidor_ids))
+    if ativo_ids:
+        filtros_op.append(Operacao.ativo_id.in_(ativo_ids))
+        filtros_prov.append(Provento.ativo_id.in_(ativo_ids))
+
     movimentos = [
         Movimento(
             r.investidor_id, r.ativo_id, r.data, r.evento, r.quantidade, r.preco, r.taxas, r.daytrade, r.id, r.cambio
@@ -311,29 +323,30 @@ def carregar_dados(sessao: Session, investidor_ids: Sequence[int] | None) -> Dad
             select(
                 Operacao.investidor_id, Operacao.ativo_id, Operacao.data, Operacao.evento, Operacao.quantidade,
                 Operacao.preco, Operacao.taxas, Operacao.daytrade, Operacao.id, Operacao.cambio,
-            ).where(filtro_op)
+            ).where(*filtros_op)
         )
     ]
 
-    filtro_prov = Provento.investidor_id.in_(investidor_ids) if investidor_ids else True
     liquido = (Provento.valor - Provento.irrf - Provento.taxas) * Provento.cambio
     proventos = [
         (i, a, d, Decimal(str(v)))
         for i, a, d, v in sessao.execute(
-            select(Provento.investidor_id, Provento.ativo_id, Provento.data_pagamento, liquido).where(filtro_prov)
+            select(Provento.investidor_id, Provento.ativo_id, Provento.data_pagamento, liquido).where(*filtros_prov)
         )
     ]
 
-    ativo_ids = {m.ativo_id for m in movimentos}
+    ids_ativos = set(ativo_ids or ()) | {m.ativo_id for m in movimentos}
     moeda_ativo = (
-        {a: m for a, m in sessao.execute(select(Ativo.id, Ativo.moeda).where(Ativo.id.in_(ativo_ids)))}
-        if ativo_ids
+        {a: m for a, m in sessao.execute(select(Ativo.id, Ativo.moeda).where(Ativo.id.in_(ids_ativos)))}
+        if ids_ativos
         else {}
     )
 
     pontos: dict[int, list[tuple[date, Decimal]]] = {}
-    if ativo_ids:
-        for ativo_id, dia, preco in _ultimos_do_mes(sessao, Cotacao.ativo_id, Cotacao.ativo_id.in_(ativo_ids), Cotacao):
+    if ids_ativos:
+        for ativo_id, dia, preco in _ultimos_do_mes(
+            sessao, Cotacao.ativo_id, Cotacao.ativo_id.in_(ids_ativos), Cotacao
+        ):
             pontos.setdefault(ativo_id, []).append((dia, preco))
 
     cambios: dict[str, list[tuple[date, Decimal]]] = {}

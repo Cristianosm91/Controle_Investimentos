@@ -210,6 +210,31 @@ class AtivoRadar(Base):
     criado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
+class ValuationPremissa(Base):
+    """Premissas editáveis de valuation, persistidas por ativo."""
+
+    __tablename__ = "valuation_premissa"
+    __table_args__ = (UniqueConstraint("ativo_id", name="uq_valuation_premissa_ativo"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    ativo_id: Mapped[int] = mapped_column(ForeignKey("ativo.id", ondelete="CASCADE"))
+    lpa: Mapped[Decimal | None] = mapped_column(Valor)
+    vpa: Mapped[Decimal | None] = mapped_column(Valor)
+    dividendo_anual: Mapped[Decimal | None] = mapped_column(Valor)
+    roe: Mapped[Decimal | None] = mapped_column(Valor)
+    payout: Mapped[Decimal | None] = mapped_column(Valor)
+    g: Mapped[Decimal | None] = mapped_column(Valor)
+    ke: Mapped[Decimal | None] = mapped_column(Valor)
+    pl_historico: Mapped[Decimal | None] = mapped_column(Valor)
+    pl_setor: Mapped[Decimal | None] = mapped_column(Valor)
+    fcfe_1: Mapped[Decimal | None] = mapped_column(Valor)
+    fcfe_2: Mapped[Decimal | None] = mapped_column(Valor)
+    fcfe_3: Mapped[Decimal | None] = mapped_column(Valor)
+    fcfe_4: Mapped[Decimal | None] = mapped_column(Valor)
+    fcfe_5: Mapped[Decimal | None] = mapped_column(Valor)
+    atualizado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
 class IndiceMensal(Base):
     __tablename__ = "indice_mensal"
 

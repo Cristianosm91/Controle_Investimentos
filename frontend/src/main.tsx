@@ -16,6 +16,7 @@ import { Radar } from "./pages/Radar";
 import { Rentabilidade } from "./pages/Rentabilidade";
 import { Resumo } from "./pages/Resumo";
 import { StatusAtivo } from "./pages/StatusAtivo";
+import { Valuation } from "./pages/Valuation";
 import "./estilo.css";
 
 const cliente = new QueryClient({
@@ -33,6 +34,7 @@ const prontas: Record<string, JSX.Element> = {
   "/radar": <Radar />,
   "/ir": <ImpostoRenda />,
   "/status": <StatusAtivo />,
+  "/valuation": <Valuation />,
 };
 
 createRoot(document.getElementById("root")!).render(
