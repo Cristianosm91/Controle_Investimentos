@@ -18,6 +18,7 @@ from .api import (
     radar,
     rentabilidade,
     status,
+    valuation,
 )
 from .config import RAIZ_PROJETO, settings
 from .services import jobs
@@ -37,7 +38,7 @@ app = FastAPI(title="ControleInv", version="0.1.0", lifespan=ciclo_de_vida)
 
 for modulo in (
     cadastros, ativos, lancamentos, carteira, atualizacoes, rentabilidade, configuracoes, alocacao, ir, fundamentos, radar,
-    status,
+    status, valuation,
 ):
     app.include_router(modulo.router, prefix="/api")
 

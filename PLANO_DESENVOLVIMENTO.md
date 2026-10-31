@@ -133,7 +133,7 @@ erDiagram
 | `darf_pago` | investidor, competencia, data_pagamento, valor | darfs. |
 | `regra_fiscal` | categoria, vigencia_inicio, vigencia_fim, aliquota, limite_isencao, apuracao | regras RFB (Fase 4) |
 | `prejuizo_inicial` | **investidor**, grupo (COMUM, DAYTRADE, FII, EXTERIOR), valor | config.parâmetros |
-| `valuation_premissa` | ticker, LPA, VPA, div_anual, WACC, g, payout, P/L hist./setor, ROE | Valuation |
+| `valuation_premissa` | ticker, LPA, VPA, dividendo anual, Ke, g, payout, P/L histórico/setor, ROE, FCFE anual por ação (5 anos) | Valuation |
 
 > `dados.`, `historico.`, `portfolio.`, `dashboard.` etc. **não viram tabelas**: são resultados calculados. `historico.` (posição mensal por ativo **e investidor**) pode virar uma **tabela materializada** `snapshot_mensal` recalculada por job, para performance do dashboard.
 
@@ -160,7 +160,7 @@ erDiagram
 | **TWR** | Mensal e acumulado: (mercado_fim − mercado_ini − fluxo) / (mercado_ini + fluxo) | dashboard. `TWR % a.m`, `TWR_acc` |
 | **YoC / Yield** | YoC = proventos 12m / investido; DPA; yield sobre mercado | portfólio, yields |
 | **Graham** | √(22,5 × LPA × VPA) | portfólio "valor graham", Valuation |
-| **Bazin / DCF / outros** | Bazin = dividendo anual / 6%; DCF com WACC, g inicial, g perpétuo, anos; g = ROE × (1 − payout) | Valuation |
+| **Bazin / DCF / outros** | Bazin = dividendo anual / 6%; DCF = FCFE por ação em 5 anos + valor terminal, descontados por Ke; Gordon = dividendo × (1 + g) / (Ke − g); P/L histórico/setorial = LPA × múltiplo; P/VP justificado = VPA × (ROE − g) / (Ke − g); g pode ser estimado por ROE × (1 − payout) | Valuation |
 | **Preço-teto & upside** | Por carteira; upside = teto / cotação − 1 | carteiras., radar |
 | **Drawdown** | Queda máxima na janela (padrão 60 dias), mín/máx 52 semanas, variações 1/7/14 dias | radar. |
 | **Alocação/Rebalanceamento** | Peso alvo (estratégia × book × carteira × ativo) vs atual; ajuste com aporte; modos só comprar/só vender/manter acima do teto | alocacao., alocação |
@@ -292,7 +292,7 @@ Requisitos: cache local, retry com backoff, timeout, log de falhas, nunca bloque
 - [x] Base de fundamentos para ações e FII: snapshots diários idempotentes, API de consulta e atualização semanal via Fundamentus; Investidor10 listado como indisponível até existir rota pública utilizável e termos verificáveis
 - [x] **P8 Radar/Watchlist**: cadastro e remoção de ativos B3 sem posição; exibe cotação, fundamentos, variações 1/7/14d, drawdown de 60 dias, faixa de 52 semanas, estimativa de Graham e YoC; métricas dependentes de histórico incompleto ficam indisponíveis; ativos monitorados entram nas atualizações e cargas históricas
 - [x] **P9 Status do ativo**: drill-down por ativo, carteira ou book; investido, mercado, lucro aberto, proventos 12m, YoC, trades swing/day trade, distribuição do resultado e linha do tempo paginada de operações e proventos, respeitando o filtro de investidores
-- [ ] **P11 Valuation** (7 modelos) e TIR/TWR por ativo
+- [x] **P11 Valuation**: Graham, Bazin, DCF de 5 anos por FCFE, Gordon, P/L histórico, P/L setorial e P/VP justificado; premissas pré-preenchidas quando deriváveis, editáveis e salvas por ativo; TIR/XIRR e TWR mensal por ativo respeitam o filtro global de investidores. A mediana usa somente modelos calculáveis e não é recomendação de investimento
 - [ ] Provedor CoinGecko → Kraken + **P13 Cripto** (página própria, com controle de isenção R$ 35 mil/mês)
 
 ### Fase 6 — Importação e qualidade de vida
