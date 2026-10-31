@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { AcoesLinha } from "../components/AcoesLinha";
 import { FormOperacao } from "../components/FormLancamentos";
+import { ImportarExtrato } from "../components/ImportarExtrato";
 import { ListaPaginada, type ColunaLista } from "../components/ListaPaginada";
 import { useDominio } from "../cadastros";
 import { classeSinal, data, moeda, numero } from "../formato";
@@ -11,6 +12,7 @@ export function Operacoes() {
   const { filtro, investidores } = useInvestidor();
   const { data: dominio } = useDominio();
   const [edicao, setEdicao] = useState<Operacao | "nova" | null>(null);
+  const [importando, setImportando] = useState(false);
   const nome = (id: number) => investidores.find((i) => i.id === id)?.nome ?? id;
 
   const colunas: ColunaLista<Operacao>[] = [
@@ -42,7 +44,14 @@ export function Operacoes() {
         filtroInvestidores={filtro}
         colunas={colunas}
         chave={(o) => o.id}
-        cabecalho={<button onClick={() => setEdicao("nova")}>+ Nova operação</button>}
+        cabecalho={
+          <>
+            <button className="secundario" onClick={() => setImportando(true)}>
+              Importar extrato B3
+            </button>
+            <button onClick={() => setEdicao("nova")}>+ Nova operação</button>
+          </>
+        }
         acoes={(o) => (
           <AcoesLinha
             recurso="operacoes"
@@ -53,6 +62,7 @@ export function Operacoes() {
         )}
       />
       {edicao && <FormOperacao operacao={edicao === "nova" ? undefined : edicao} aoFechar={() => setEdicao(null)} />}
+      {importando && <ImportarExtrato aoFechar={() => setImportando(false)} />}
     </>
   );
 }

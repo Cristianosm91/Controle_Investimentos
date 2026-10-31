@@ -353,6 +353,38 @@ export interface Restauracao {
   copia_anterior: string;
 }
 
+export type StatusExtrato = "novo" | "duplicado" | "verificar" | "ignorado";
+
+export interface LinhaExtrato {
+  numero: number;
+  descricao: string;
+  data: string | null;
+  ticker: string | null;
+  tipo: "OPERACAO" | "PROVENTO" | "IGNORADA";
+  evento: string | null;
+  quantidade: number;
+  preco: number;
+  valor: number;
+  instituicao: string | null;
+  daytrade: boolean;
+  status: StatusExtrato;
+  motivo: string | null;
+}
+
+export interface PreviaExtrato {
+  relatorio: "NEGOCIACAO" | "MOVIMENTACAO";
+  linhas: LinhaExtrato[];
+  ativos_novos: Record<string, string>;
+  corretoras_novas: string[];
+}
+
+export interface ResultadoExtrato {
+  operacoes: number;
+  proventos: number;
+  ativos_criados: string[];
+  corretoras_criadas: string[];
+}
+
 export type Benchmark = "ibov" | "ifix" | "cdi" | "ipca";
 
 export interface MesRentabilidade {

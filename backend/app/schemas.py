@@ -638,6 +638,36 @@ class ExportacaoIn(BaseModel):
     abas: list[AbaExportacao] = Field(min_length=1, max_length=30)
 
 
+class LinhaExtratoOut(BaseModel):
+    numero: int
+    descricao: str
+    data: date | None
+    ticker: str | None
+    tipo: str
+    evento: str | None
+    quantidade: Num
+    preco: Num
+    valor: Num
+    instituicao: str | None
+    daytrade: bool
+    status: Literal["novo", "duplicado", "verificar", "ignorado"]
+    motivo: str | None
+
+
+class PreviaExtratoOut(BaseModel):
+    relatorio: Literal["NEGOCIACAO", "MOVIMENTACAO"]
+    linhas: list[LinhaExtratoOut]
+    ativos_novos: dict[str, str]
+    corretoras_novas: list[str]
+
+
+class ResultadoExtratoOut(BaseModel):
+    operacoes: int
+    proventos: int
+    ativos_criados: list[str]
+    corretoras_criadas: list[str]
+
+
 class FonteFundamentosOut(BaseModel):
     id: str
     nome: str
