@@ -1,0 +1,71 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState, type FormEvent } from "react";
+import { api } from "../../api";
+import { invalidarDerivados, useParametros } from "../../cadastros";
+import type { Parametros as TParametros } from "../../tipos";
+
+export function Parametros() {
+  const { data } = useParametros();
+  const cliente = useQueryClient();
+  const [form, setForm] = useState<TParametros>({ caixa_data_inicio: null, caixa_no_portfolio: false });
+  const [salvo, setSalvo] = useState(false);
+
+  useEffect(() => {
+    if (data) setForm(data);
+  }, [data]);
+
+  const salvar = useMutation({
+    mutationFn: (p: TParametros) => api.put<TParametros>("/parametros", p),
+    onSuccess: (p) => {
+      cliente.setQueryData(["parametros"], p);
+      invalidarDerivados(cliente);
+      setSalvo(true);
+    },
+  });
+
+  const enviar = (e: FormEvent) => {
+    e.preventDefault();
+    setSalvo(false);
+    salvar.mutate(form);
+  };
+
+  return (
+    <>
+      <h2>Parâmetros</h2>
+      {salvar.error && <div className="erro">{(salvar.error as Error).message}</div>}
+      {salvo && <div className="aviso">Parâmetros salvos.</div>}
+      <form className="formulario" onSubmit={enviar}>
+        <h3>Caixa</h3>
+        <label>
+          Integrar lançamentos ao caixa a partir de
+          <input
+            type="date"
+            value={form.caixa_data_inicio ?? ""}
+            onChange={(e) => setForm({ ...form, caixa_data_inicio: e.target.value || null })}
+          />
+          <small className="sutil">
+            Desta data em diante, compras, vendas, amortizações e proventos líquidos movimentam o saldo da corretora. Em branco = só as
+            movimentações lançadas na tela Caixa. Lance o saldo inicial como aporte nessa data.
+          </small>
+        </label>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={form.caixa_no_portfolio}
+            onChange={(e) => setForm({ ...form, caixa_no_portfolio: e.target.checked })}
+          />
+          Somar o saldo em caixa ao patrimônio do Portfólio
+        </label>
+        <div className="acoes largura-total">
+          <button type="submit" disabled={salvar.isPending}>
+            Salvar
+          </button>
+        </div>
+      </form>
+      <p className="sutil">
+        Câmbio dos lançamentos no exterior: PTAX de venda da data (Lei 14.754/2023), definido em <code>.env</code>{" "}
+        (<code>CONTROLEINV_PTAX_DIAS_UTEIS_ANTES</code>). Parâmetros de IR chegam na Fase 4.
+      </p>
+    </>
+  );
+}

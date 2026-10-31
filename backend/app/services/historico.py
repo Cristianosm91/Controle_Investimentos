@@ -14,7 +14,7 @@ from ..models import Ativo, CotacaoMoeda, IndiceMensal, Operacao
 from ..providers import indices as fontes
 from ..providers.base import AtivoRef
 from ..providers.yahoo import ProvedorYahoo
-from . import cotahist
+from . import cotahist, renda_fixa
 
 log = logging.getLogger(__name__)
 
@@ -146,4 +146,7 @@ def _combinar(sessao: Session, etapas, dias: int | None) -> ResultadoHistorico:
         r = etapa(sessao, desde)
         total.gravados.update(r.gravados)
         total.falhas.extend(r.falhas)
+    # Índices novos mudam as cotas estimadas da renda fixa automática.
+    if recalculados := renda_fixa.atualizar(sessao):
+        total.gravados["renda fixa"] = len(recalculados)
     return total

@@ -1,11 +1,26 @@
 import { moeda, percentual } from "../formato";
 import type { Posicao } from "../tipos";
 
-export type Dimensao = "classe" | "setor" | "ticker";
+export type Dimensao = "classe" | "setor" | "ticker" | "estrategia" | "book" | "carteira";
 
-export const ROTULO_DIMENSAO: Record<Dimensao, string> = { classe: "Classe", setor: "Setor", ticker: "Ativo" };
+export const ROTULO_DIMENSAO: Record<Dimensao, string> = {
+  classe: "Classe",
+  setor: "Setor",
+  ticker: "Ativo",
+  estrategia: "Estratégia",
+  book: "Book",
+  carteira: "Carteira",
+};
 
-export const chaveGrupo = (p: Posicao, d: Dimensao) => (d === "setor" ? p.setor ?? "Sem setor" : p[d]);
+const SEM_VALOR: Record<Exclude<Dimensao, "classe" | "ticker">, string> = {
+  setor: "Sem setor",
+  estrategia: "Sem estratégia",
+  book: "Sem book",
+  carteira: "Sem carteira",
+};
+
+export const chaveGrupo = (p: Posicao, d: Dimensao): string =>
+  d === "classe" || d === "ticker" ? p[d] : p[d] ?? SEM_VALOR[d];
 
 /** Valor de mercado; sem cotação, usa o custo para não sumir da exposição. */
 export const valorExposicao = (p: Posicao) => p.valor_mercado ?? p.custo;
@@ -43,7 +58,7 @@ export function Exposicao({ posicoes }: { posicoes: Posicao[] }) {
   const total = posicoes.reduce((s, p) => s + valorExposicao(p), 0);
   return (
     <div className="exposicoes">
-      {(["classe", "setor", "ticker"] as Dimensao[]).map((d) => (
+      {(["book", "classe", "setor", "ticker"] as Dimensao[]).map((d) => (
         <Barras key={d} titulo={`Exposição por ${ROTULO_DIMENSAO[d].toLowerCase()}`} itens={somarPor(posicoes, d)} total={total} />
       ))}
     </div>

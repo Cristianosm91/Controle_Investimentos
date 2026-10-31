@@ -5,7 +5,7 @@ from typing import Annotated, Generic, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, PlainSerializer, field_validator, model_validator
 
-from .dominio import EVENTOS_CAIXA, EVENTOS_CAIXA_ENTRADA, EVENTOS_OPERACAO, EVENTOS_PROVENTO, MOEDAS
+from .dominio import EVENTOS_CAIXA, EVENTOS_CAIXA_ENTRADA, EVENTOS_OPERACAO, EVENTOS_PROVENTO, INDEXADORES, MOEDAS
 
 T = TypeVar("T")
 
@@ -84,8 +84,12 @@ class AtivoIn(BaseModel):
     moeda: str = "BRL"
     mercado: str | None = "BVMF"
     cotacao_automatica: bool = True
+    indexador: str | None = None
+    indexador_pct: Decimal | None = Field(default=None, gt=0, description="Fração do índice (1 = 100%)")
+    taxa_aa: Decimal | None = Field(default=None, gt=-1, description="Taxa adicional a.a. (fração)")
+    data_base: date | None = None
 
-    @field_validator("ticker", "mercado", "classe")
+    @field_validator("ticker", "mercado", "classe", "indexador")
     @classmethod
     def _maiusculo(cls, v: str | None) -> str | None:
         return v.strip().upper() if v else v
@@ -96,6 +100,23 @@ class AtivoIn(BaseModel):
         if v not in MOEDAS:
             raise ValueError(f"Moeda deve ser uma de {MOEDAS}")
         return v
+
+    @model_validator(mode="after")
+    def _renda_fixa(self) -> "AtivoIn":
+        if self.indexador is None:
+            self.indexador_pct = self.taxa_aa = self.data_base = None
+            return self
+        if self.indexador not in INDEXADORES:
+            raise ValueError(f"Indexador deve ser um de {tuple(INDEXADORES)}")
+        if self.cotacao_automatica:
+            raise ValueError("Ativo com indexador não tem cotação automática")
+        if self.data_base is None:
+            raise ValueError("Informe a data-base (início do rendimento)")
+        if self.indexador == "PRE" and not self.taxa_aa:
+            raise ValueError("Ativo prefixado precisa de taxa a.a.")
+        if self.indexador != "PRE" and self.indexador_pct is None:
+            self.indexador_pct = Decimal(1)
+        return self
 
 
 class AtivoOut(_Saida):
@@ -108,6 +129,118 @@ class AtivoOut(_Saida):
     moeda: str
     mercado: str | None
     cotacao_automatica: bool
+    indexador: str | None = None
+    indexador_pct: Num | None = None
+    taxa_aa: Num | None = None
+    data_base: date | None = None
+
+
+class SaldoManualIn(BaseModel):
+    data: date
+    saldo: Decimal = Field(gt=0, description="Saldo total do ativo (todos os investidores) na moeda do ativo")
+
+
+class CotaOut(BaseModel):
+    ativo_id: int
+    data: date
+    cota: Num
+
+
+# ---------- Configurações: estratégias, books, carteiras, parâmetros ----------
+
+Fracao = Annotated[Decimal, Field(ge=0, le=1)]
+
+
+class EstrategiaIn(BaseModel):
+    nome: str = Field(min_length=1, max_length=60)
+    peso: Fracao
+    ordem: int = 0
+
+
+class EstrategiaOut(_Saida):
+    id: int
+    nome: str
+    peso: Num
+    ordem: int
+
+
+class BookIn(BaseModel):
+    estrategia_id: int
+    nome: str = Field(min_length=1, max_length=60)
+    peso: Fracao
+    ordem: int = 0
+    classes: list[str] = Field(default_factory=list, description="Classes cujo book padrão é este")
+
+    @field_validator("classes")
+    @classmethod
+    def _classes(cls, v: list[str]) -> list[str]:
+        return sorted({c.strip().upper() for c in v if c.strip()})
+
+
+class BookOut(_Saida):
+    id: int
+    estrategia_id: int
+    nome: str
+    peso: Num
+    ordem: int
+    classes: list[str]
+
+
+class ExcecaoBookIn(BaseModel):
+    book_id: int
+    percentual: Annotated[Decimal, Field(gt=0, le=1)]
+
+
+class ExcecaoBookOut(BaseModel):
+    ativo_id: int
+    ticker: str
+    books: list[tuple[int, Num]]
+
+
+class CarteiraAtivoIn(BaseModel):
+    ativo_id: int
+    peso: Fracao | None = Field(default=None, description="Peso-alvo dentro do book; vazio = divide o restante")
+    preco_teto: Decimal | None = Field(default=None, gt=0)
+    ranking: int | None = None
+    entra_preco_teto: bool = True
+
+
+class CarteiraAtivoOut(_Saida):
+    ativo_id: int
+    ticker: str
+    peso: Num | None
+    preco_teto: Num | None
+    ranking: int | None
+    entra_preco_teto: bool
+
+
+class CarteiraIn(BaseModel):
+    nome: str = Field(min_length=1, max_length=60)
+    categoria: str | None = Field(default=None, max_length=30)
+    ativa: bool = True
+    ordem: int = 0
+    ativos: list[CarteiraAtivoIn] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _unicos(self) -> "CarteiraIn":
+        ids = [a.ativo_id for a in self.ativos]
+        if len(ids) != len(set(ids)):
+            raise ValueError("Ativo repetido na carteira")
+        return self
+
+
+class CarteiraOut(_Saida):
+    id: int
+    nome: str
+    categoria: str | None
+    ativa: bool
+    ordem: int
+    ativos: list[CarteiraAtivoOut]
+
+
+class ParametrosIO(BaseModel):
+    caixa_data_inicio: date | None = None
+    caixa_no_portfolio: bool = False
 
 
 # ---------- Operações ----------
@@ -287,6 +420,65 @@ class PosicaoOut(BaseModel):
     yoc_12m: Num | None = None
     tir_aa: float | None = None
     data_inicio: date | None
+    book: str | None = None
+    estrategia: str | None = None
+    carteira: str | None = None
+
+
+class SaldoCaixaOut(BaseModel):
+    corretora_id: int | None
+    corretora: str | None
+    moeda: str
+    movimentacoes: Num
+    operacoes: Num
+    proventos: Num
+    saldo: Num
+    saldo_brl: Num | None
+
+
+class CaixaSaldosOut(BaseModel):
+    integrado_desde: date | None
+    total_brl: Num
+    saldos: list[SaldoCaixaOut]
+
+
+class GrupoAlocacaoOut(BaseModel):
+    nome: str
+    estrategia: str | None
+    peso_alvo: Num
+    peso_atual: Num
+    valor_atual: Num
+    valor_alvo: Num
+    ajuste: Num
+
+
+class ItemAlocacaoOut(BaseModel):
+    ativo_id: int
+    ticker: str
+    nome: str | None
+    classe: str
+    moeda: str
+    book: str
+    carteira: str | None
+    cotacao: Num | None
+    preco_teto: Num | None
+    acima_teto: bool
+    peso_alvo: Num
+    peso_atual: Num
+    valor_atual: Num
+    valor_alvo: Num
+    ajuste: Num
+    quantidade: Num | None
+
+
+class AlocacaoOut(BaseModel):
+    total_atual: Num
+    aporte: Num
+    sobra: Num
+    estrategias: list[GrupoAlocacaoOut]
+    books: list[GrupoAlocacaoOut]
+    ativos: list[ItemAlocacaoOut]
+    avisos: list[str]
 
 
 class AtualizacaoCotacoesOut(BaseModel):

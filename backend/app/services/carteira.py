@@ -2,6 +2,7 @@
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import date
 from decimal import Decimal
 
 from sqlalchemy import func, select
@@ -11,13 +12,17 @@ from ..models import Ativo, Cotacao, CotacaoMoeda, Operacao, Provento
 from .posicao import ZERO, Movimento, Posicao, calcular_posicoes, consolidar
 
 
-def carregar_posicoes(sessao: Session, investidor_ids: Sequence[int] | None) -> dict[tuple[int, int], Posicao]:
+def carregar_posicoes(
+    sessao: Session, investidor_ids: Sequence[int] | None, ate: date | None = None
+) -> dict[tuple[int, int], Posicao]:
     consulta = select(
         Operacao.id, Operacao.investidor_id, Operacao.ativo_id, Operacao.data, Operacao.evento,
         Operacao.quantidade, Operacao.preco, Operacao.taxas, Operacao.daytrade, Operacao.cambio,
     )
     if investidor_ids:
         consulta = consulta.where(Operacao.investidor_id.in_(investidor_ids))
+    if ate:
+        consulta = consulta.where(Operacao.data <= ate)
     movimentos = (
         Movimento(
             r.investidor_id, r.ativo_id, r.data, r.evento, r.quantidade, r.preco, r.taxas, r.daytrade, r.id, r.cambio
@@ -37,7 +42,7 @@ def _proventos_liquidos(sessao: Session, investidor_ids: Sequence[int] | None) -
     return {(i, a): Decimal(str(v or 0)) for i, a, v in sessao.execute(consulta)}
 
 
-def _ultimas_cotacoes(sessao: Session, ativo_ids: set[int]) -> dict[int, Cotacao]:
+def ultimas_cotacoes(sessao: Session, ativo_ids: set[int]) -> dict[int, Cotacao]:
     if not ativo_ids:
         return {}
     ultima = (
@@ -113,7 +118,7 @@ def montar_carteira(
 
     ativo_ids = {a for _, a in por_chave}
     ativos = {a.id: a for a in sessao.scalars(select(Ativo).where(Ativo.id.in_(ativo_ids)))} if ativo_ids else {}
-    cotacoes = _ultimas_cotacoes(sessao, ativo_ids)
+    cotacoes = ultimas_cotacoes(sessao, ativo_ids)
     cambios = cambios_atuais(sessao)
 
     linhas = [

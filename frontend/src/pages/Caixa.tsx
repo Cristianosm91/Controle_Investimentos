@@ -1,11 +1,76 @@
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { Link } from "react-router-dom";
+import { api, query } from "../api";
 import { AcoesLinha } from "../components/AcoesLinha";
 import { FormCaixa } from "../components/FormLancamentos";
 import { ListaPaginada, type ColunaLista } from "../components/ListaPaginada";
 import { useDominio } from "../cadastros";
 import { classeSinal, data, moeda } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
-import type { MovCaixa } from "../tipos";
+import type { CaixaSaldos, MovCaixa } from "../tipos";
+
+function Saldos() {
+  const { filtro } = useInvestidor();
+  const { data: r, error } = useQuery({
+    queryKey: ["caixa-saldos", filtro],
+    queryFn: () => api.get<CaixaSaldos>(`/caixa/saldos${query({ investidores: filtro })}`),
+  });
+  if (error) return <div className="erro">{(error as Error).message}</div>;
+  if (!r) return null;
+  const integrado = r.integrado_desde !== null;
+  return (
+    <div className="painel">
+      <div className="titulo-linha">
+        <h3>Saldo por corretora</h3>
+        <span className="sutil">
+          {integrado ? (
+            <>Integra compras, vendas e proventos desde {data(r.integrado_desde)}</>
+          ) : (
+            <>Só movimentações lançadas</>
+          )}{" "}
+          · <Link to="/configuracoes">ajustar em Parâmetros</Link>
+        </span>
+      </div>
+      {r.saldos.length === 0 ? (
+        <p className="sutil">Sem movimentações.</p>
+      ) : (
+        <table className="tabela">
+          <thead>
+            <tr>
+              <th>Corretora</th>
+              <th>Moeda</th>
+              <th className="num">Movimentações</th>
+              {integrado && <th className="num">Operações</th>}
+              {integrado && <th className="num">Proventos</th>}
+              <th className="num">Saldo</th>
+              <th className="num">Saldo (R$)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {r.saldos.map((s) => (
+              <tr key={`${s.corretora_id ?? 0}-${s.moeda}`}>
+                <td>{s.corretora ?? <span className="sutil">Sem corretora</span>}</td>
+                <td>{s.moeda}</td>
+                <td className="num">{moeda(s.movimentacoes, s.moeda)}</td>
+                {integrado && <td className={`num ${classeSinal(s.operacoes)}`}>{moeda(s.operacoes, s.moeda)}</td>}
+                {integrado && <td className="num">{moeda(s.proventos, s.moeda)}</td>}
+                <td className={`num ${classeSinal(s.saldo)}`}>{moeda(s.saldo, s.moeda)}</td>
+                <td className={`num ${classeSinal(s.saldo_brl)}`}>{moeda(s.saldo_brl)}</td>
+              </tr>
+            ))}
+            <tr className="linha-grupo">
+              <td colSpan={integrado ? 6 : 4}>Total</td>
+              <td className={`num ${classeSinal(r.total_brl)}`}>
+                <strong>{moeda(r.total_brl)}</strong>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
 
 export function Caixa() {
   const { filtro, investidores } = useInvestidor();
@@ -32,6 +97,7 @@ export function Caixa() {
         colunas={colunas}
         chave={(m) => m.id}
         cabecalho={<button onClick={() => setEdicao("nova")}>+ Nova movimentação</button>}
+        topo={<Saldos />}
         acoes={(m) => (
           <AcoesLinha
             recurso="caixa"
@@ -41,7 +107,6 @@ export function Caixa() {
           />
         )}
       />
-      <p className="sutil">Saldo por corretora e integração ao portfólio: Fase 3.</p>
       {edicao && <FormCaixa mov={edicao === "nova" ? undefined : edicao} aoFechar={() => setEdicao(null)} />}
     </>
   );

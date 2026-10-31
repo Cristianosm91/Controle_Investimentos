@@ -270,11 +270,12 @@ Requisitos: cache local, retry com backoff, timeout, log de falhas, nunca bloque
 - [ ] TIR total × planilha: **não conciliável** — a TIR da aba `portfolio.` é valor estático gravado pelo Apps Script `recalcularTIR()`, de data desconhecida (XIRR validado por testes unitários)
 - COTAHIST passa a aceitar o código antigo `XXXX11B` dos FIIs (B3 removeu o sufixo em 2017)
 
-### Fase 3 — Configurações e alocação
-- [ ] **Tela de Configurações** (estratégias, books, classe→book, carteiras, ativos personalizados, parâmetros)
-- [ ] Agrupamento do portfólio por book/carteira
-- [ ] **P7 Alocação & Rebalanceamento** com simulador de aporte
-- [ ] **P6 Caixa** com saldo por corretora
+### Fase 3 — Configurações e alocação ✅
+- [x] **Tela de Configurações**: estratégias e books (pesos, classe → book, exceções por ativo), carteiras (categoria, peso-alvo no book, preço-teto, ranking; um ativo por carteira), ativos personalizados e parâmetros. Migração carrega os padrões da aba `config.totais` (RV 30% / RF 70%, 13 books, ~65 classes) — carteiras, exceções e ativos personalizados estavam vazios na planilha
+- [x] Ativos personalizados: renda fixa automática (cota = 1 na data-base × índice mensal CDI/SELIC/IPCA/IGP-M pró-rata × % do índice + taxa a.a.; mês sem índice repete o último) recalculada nas tarefas de cotações e índices; saldo manual (cota = saldo ÷ quantidade). Formulário de operação sugere a cota da data como preço
+- [x] Agrupamento do portfólio por estratégia, book e carteira (+ exposição por book). Ativo com exceção aparece no book de maior percentual; a alocação usa a distribuição completa
+- [x] **P7 Alocação & Rebalanceamento**: alvo × atual por estratégia, book e ativo; simulador de aporte (só comprar / rebalancear, respeitar preço-teto), restante do book dividido igualmente entre ativos sem peso definido
+- [x] **P6 Caixa** com saldo por corretora e moeda; integra compras, vendas, amortizações e proventos a partir da data configurada (parâmetro) e pode somar ao patrimônio do Portfólio
 
 ### Fase 4 — Imposto de renda
 - [ ] Tabela de regras fiscais com vigência

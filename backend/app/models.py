@@ -50,6 +50,12 @@ class Ativo(Base):
     # Bolsa de origem no padrão do Google Finance (BVMF, NASDAQ, NYSE...).
     mercado: Mapped[str | None] = mapped_column(String(20))
     cotacao_automatica: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Ativo personalizado (cotacao_automatica = False) com rendimento calculado: valor da cota = 1 em
+    # `data_base`, corrigido por `indexador` x `indexador_pct` + `taxa_aa`. Sem indexador = saldo manual.
+    indexador: Mapped[str | None] = mapped_column(String(10))
+    indexador_pct: Mapped[Decimal | None] = mapped_column(Valor)
+    taxa_aa: Mapped[Decimal | None] = mapped_column(Valor)
+    data_base: Mapped[date | None] = mapped_column(Date)
 
 
 class Operacao(Base):
@@ -167,6 +173,76 @@ class Parametro(Base):
 
     chave: Mapped[str] = mapped_column(String(60), primary_key=True)
     valor: Mapped[str] = mapped_column(String(500))
+
+
+class Estrategia(Base):
+    """Divisão de primeiro nível do portfólio (ex.: Renda Variável x Renda Fixa)."""
+
+    __tablename__ = "estrategia"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nome: Mapped[str] = mapped_column(String(60), unique=True)
+    peso: Mapped[Decimal] = mapped_column(Valor, default=Decimal(0))  # fração do portfólio
+    ordem: Mapped[int] = mapped_column(default=0)
+
+
+class Book(Base):
+    __tablename__ = "book"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    estrategia_id: Mapped[int] = mapped_column(ForeignKey("estrategia.id", ondelete="RESTRICT"))
+    nome: Mapped[str] = mapped_column(String(60), unique=True)
+    peso: Mapped[Decimal] = mapped_column(Valor, default=Decimal(0))  # fração da estratégia
+    ordem: Mapped[int] = mapped_column(default=0)
+
+    estrategia: Mapped[Estrategia] = relationship()
+
+
+class ClasseBook(Base):
+    """Book padrão de cada classe de ativo."""
+
+    __tablename__ = "classe_book"
+
+    classe: Mapped[str] = mapped_column(String(20), primary_key=True)
+    book_id: Mapped[int] = mapped_column(ForeignKey("book.id", ondelete="CASCADE"))
+
+
+class AtivoBook(Base):
+    """Exceção: distribui um ativo entre books (substitui o book da classe)."""
+
+    __tablename__ = "ativo_book"
+
+    ativo_id: Mapped[int] = mapped_column(ForeignKey("ativo.id", ondelete="CASCADE"), primary_key=True)
+    book_id: Mapped[int] = mapped_column(ForeignKey("book.id", ondelete="CASCADE"), primary_key=True)
+    percentual: Mapped[Decimal] = mapped_column(Valor)  # fração do ativo
+
+
+class Carteira(Base):
+    __tablename__ = "carteira"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nome: Mapped[str] = mapped_column(String(60), unique=True)
+    categoria: Mapped[str | None] = mapped_column(String(30))
+    ativa: Mapped[bool] = mapped_column(Boolean, default=True)
+    ordem: Mapped[int] = mapped_column(default=0)
+
+
+class CarteiraAtivo(Base):
+    """Um ativo pertence a no máximo uma carteira (agrupamentos sem dupla contagem)."""
+
+    __tablename__ = "carteira_ativo"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    carteira_id: Mapped[int] = mapped_column(ForeignKey("carteira.id", ondelete="CASCADE"))
+    ativo_id: Mapped[int] = mapped_column(ForeignKey("ativo.id", ondelete="CASCADE"), unique=True)
+    # Peso-alvo do ativo dentro do seu book (fração); vazio = divide o restante do book igualmente.
+    peso: Mapped[Decimal | None] = mapped_column(Valor)
+    preco_teto: Mapped[Decimal | None] = mapped_column(Valor)
+    ranking: Mapped[int | None] = mapped_column()
+    entra_preco_teto: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    carteira: Mapped[Carteira] = relationship()
+    ativo: Mapped[Ativo] = relationship()
 
 
 class DarfPago(Base):

@@ -38,3 +38,14 @@ EVENTOS_CAIXA: dict[str, str] = {
 EVENTOS_CAIXA_ENTRADA = frozenset({"APORTE", "CREDITO"})
 
 MOEDAS = ("BRL", "USD", "EUR")
+
+# Indexadores da renda fixa automática (ativos personalizados).
+INDEXADORES: dict[str, str] = {
+    "CDI": "CDI",
+    "SELIC": "SELIC",
+    "IPCA": "IPCA +",
+    "IGPM": "IGP-M +",
+    "PRE": "Prefixado",
+}
+
+CATEGORIAS_CARTEIRA = ("Conservador", "Arrojado", "Renda Passiva")

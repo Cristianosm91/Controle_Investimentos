@@ -38,6 +38,9 @@ export interface Posicao {
   yoc_12m: number | null;
   tir_aa: number | null;
   data_inicio: string | null;
+  book: string | null;
+  estrategia: string | null;
+  carteira: string | null;
 }
 
 export interface Operacao {
@@ -106,6 +109,10 @@ export interface Ativo {
   moeda: string;
   mercado: string | null;
   cotacao_automatica: boolean;
+  indexador: string | null;
+  indexador_pct: number | null;
+  taxa_aa: number | null;
+  data_base: string | null;
 }
 
 export interface Corretora {
@@ -198,4 +205,117 @@ export interface Dominio {
   eventos_provento: Record<string, string>;
   eventos_caixa: Record<string, string>;
   moedas: string[];
+  indexadores: Record<string, string>;
+  categorias_carteira: string[];
+}
+
+// ---------- Configurações ----------
+
+export interface Estrategia {
+  id: number;
+  nome: string;
+  peso: number;
+  ordem: number;
+}
+
+export interface Book {
+  id: number;
+  estrategia_id: number;
+  nome: string;
+  peso: number;
+  ordem: number;
+  classes: string[];
+}
+
+export interface ExcecaoBook {
+  ativo_id: number;
+  ticker: string;
+  books: [number, number][];
+}
+
+export interface CarteiraAtivo {
+  ativo_id: number;
+  ticker: string;
+  peso: number | null;
+  preco_teto: number | null;
+  ranking: number | null;
+  entra_preco_teto: boolean;
+}
+
+export interface Carteira {
+  id: number;
+  nome: string;
+  categoria: string | null;
+  ativa: boolean;
+  ordem: number;
+  ativos: CarteiraAtivo[];
+}
+
+export interface Parametros {
+  caixa_data_inicio: string | null;
+  caixa_no_portfolio: boolean;
+}
+
+export interface Cota {
+  ativo_id: number;
+  data: string;
+  cota: number;
+}
+
+// ---------- Caixa / Alocação ----------
+
+export interface SaldoCaixa {
+  corretora_id: number | null;
+  corretora: string | null;
+  moeda: string;
+  movimentacoes: number;
+  operacoes: number;
+  proventos: number;
+  saldo: number;
+  saldo_brl: number | null;
+}
+
+export interface CaixaSaldos {
+  integrado_desde: string | null;
+  total_brl: number;
+  saldos: SaldoCaixa[];
+}
+
+export interface GrupoAlocacao {
+  nome: string;
+  estrategia: string | null;
+  peso_alvo: number;
+  peso_atual: number;
+  valor_atual: number;
+  valor_alvo: number;
+  ajuste: number;
+}
+
+export interface ItemAlocacao {
+  ativo_id: number;
+  ticker: string;
+  nome: string | null;
+  classe: string;
+  moeda: string;
+  book: string;
+  carteira: string | null;
+  cotacao: number | null;
+  preco_teto: number | null;
+  acima_teto: boolean;
+  peso_alvo: number;
+  peso_atual: number;
+  valor_atual: number;
+  valor_alvo: number;
+  ajuste: number;
+  quantidade: number | null;
+}
+
+export interface Alocacao {
+  total_atual: number;
+  aporte: number;
+  sobra: number;
+  estrategias: GrupoAlocacao[];
+  books: GrupoAlocacao[];
+  ativos: ItemAlocacao[];
+  avisos: string[];
 }

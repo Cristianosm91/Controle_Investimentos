@@ -41,16 +41,18 @@ O **ControleInv** substitui planilhas de controle de investimentos (Google Sheet
 | **Multi-investidor** | Cadastro de investidores (com CPF mascarado) e grupos (ex.: Família). Seletor global filtra todas as páginas: um investidor, um grupo ou todos consolidados. |
 | **Resumo** | Patrimônio, lucro aberto/total, TIR, proventos e YoC dos últimos 12 meses, rentabilidade (TWR) no mês/ano/12 meses/desde o início comparada a IBOV, IFIX, CDI e IPCA, maiores altas e baixas do dia. |
 | **Rentabilidade** | TWR acumulado × referências, evolução patrimonial (mercado × investido), resultado mensal e mapa de calor ano × mês, com seletor de período. |
-| **Portfólio** | Posições abertas com quantidade, preço médio, cotação, valor investido/mercado, lucro do dia, lucro aberto, proventos e peso. Tabela ordenável, agrupamento por classe ou setor com subtotais, gráficos de exposição (classe, setor, ativo) e visão consolidada ou separada por investidor. |
-| **Operações** | Lançamento, edição e exclusão pela interface; histórico com filtros por ticker e período; compra, venda, day trade e eventos societários. Câmbio preenchido automaticamente pela PTAX. |
+| **Portfólio** | Posições abertas com quantidade, preço médio, cotação, valor investido/mercado, lucro do dia, lucro aberto, proventos e peso. Tabela ordenável, agrupamento por estratégia, book, carteira, classe ou setor com subtotais, gráficos de exposição (book, classe, setor, ativo), visão consolidada ou separada por investidor e, opcionalmente, saldo em caixa somado ao patrimônio. |
+| **Operações** | Lançamento, edição e exclusão pela interface; histórico com filtros por ticker e período; compra, venda, day trade e eventos societários. Câmbio preenchido automaticamente pela PTAX; em ativos personalizados, o preço vem da cota da data. |
 | **Proventos** | Lançamento, edição e exclusão de dividendos, JCP, rendimentos, bonificações e amortizações, com IRRF e conversão cambial. Matriz mensal ano × mês e ativo × mês. |
-| **Caixa** | Aportes, saques, créditos e débitos por investidor e corretora. |
+| **Caixa** | Aportes, saques, créditos e débitos por investidor e corretora, com saldo por corretora e moeda. A partir de uma data configurável, compras, vendas, amortizações e proventos líquidos movimentam o saldo automaticamente. |
+| **Alocação** | Peso-alvo (estratégia × book × peso do ativo na carteira) × atual por estratégia, book e ativo; simulador de aporte (só comprar ou rebalanceamento completo, respeitando o preço-teto) com valor e quantidade sugeridos. |
+| **Configurações** | Investidores, estratégias e books (com classe → book e exceções por ativo), carteiras (peso-alvo, preço-teto, ranking), ativos personalizados (renda fixa com rendimento por CDI/SELIC/IPCA/IGP-M/prefixado ou saldo manual), parâmetros e status das atualizações. |
 | **Cotações** | Atualização automática no pregão (Yahoo Finance, B3 e EUA), fechamento oficial da B3 (COTAHIST) e câmbio pela PTAX do Banco Central. Histórico diário desde a primeira operação. Status das atualizações em Configurações. |
 | **Importação** | Importa a planilha de controle existente (`.xlsx`) de forma idempotente e concilia o resultado com os valores calculados pela própria planilha. |
 
 ### Em desenvolvimento
 
-Saldo de caixa por corretora, alocação e rebalanceamento, radar/watchlist, criptomoedas, apuração de IR e DARF, DIRPF e valuation. Veja o [plano de desenvolvimento](PLANO_DESENVOLVIMENTO.md).
+Radar/watchlist, criptomoedas, apuração de IR e DARF, DIRPF e valuation. Veja o [plano de desenvolvimento](PLANO_DESENVOLVIMENTO.md).
 
 ---
 
@@ -266,9 +268,9 @@ Compara mês a mês investido, mercado, proventos, lucro de trades e TWR com a a
 .
 ├── backend/
 │   ├── app/
-│   │   ├── api/            # Rotas REST (cadastros, ativos, lançamentos, carteira, atualizações)
+│   │   ├── api/            # Rotas REST (cadastros, ativos, lançamentos, carteira, atualizações, configurações, alocação)
 │   │   ├── providers/      # Provedores de cotação (Yahoo, BCB PTAX)
-│   │   ├── services/       # Regras de negócio (posição, carteira, cotações, COTAHIST, rentabilidade, jobs)
+│   │   ├── services/       # Regras de negócio (posição, carteira, cotações, COTAHIST, rentabilidade, alocação, caixa, renda fixa, jobs)
 │   │   ├── config.py       # Configurações via variáveis de ambiente
 │   │   ├── db.py           # Engine e sessão SQLAlchemy
 │   │   ├── dominio.py      # Vocabulário de eventos e moedas
@@ -280,8 +282,8 @@ Compara mês a mês investido, mercado, proventos, lucro de trades e TWR com a a
 │   └── tests/              # Testes automatizados
 ├── frontend/
 │   └── src/
-│       ├── components/     # Layout, seletor, listas, formulários, exposição
-│       └── pages/          # Resumo, Portfólio, Rentabilidade, Operações, Proventos, Caixa, Configurações
+│       ├── components/     # Layout, seletor, listas, formulários, exposição; config/ = abas de Configurações
+│       └── pages/          # Resumo, Portfólio, Rentabilidade, Operações, Proventos, Caixa, Alocação, Configurações
 ├── iniciar.bat             # Execução local
 ├── dev.bat                 # Modo desenvolvimento
 └── PLANO_DESENVOLVIMENTO.md
@@ -306,6 +308,20 @@ Custo, preço médio e lucro são apurados **em BRL**, convertendo cada moviment
 
 Posições são calculadas **por investidor e ativo**; a visão consolidada soma quantidades e custos e recalcula o PM ponderado.
 
+### Alocação
+
+- **Peso-alvo do ativo** = peso da estratégia × peso do book na estratégia × peso do ativo no book. O book vem da classe do ativo (ou da exceção por ativo, que o distribui entre books).
+- Dentro do book, ativos com peso definido na carteira usam esse peso; o restante é dividido igualmente entre os demais ativos com posição. Ativos de carteira com peso e sem posição entram como candidatos à compra.
+- **Só comprar**: o aporte cobre os déficits (alvo − atual) proporcionalmente; ativo acima do preço-teto (opcional) ou sem cotação não recebe compra. **Rebalancear**: ajuste = alvo − atual, inclusive vendas.
+
+### Ativos personalizados
+
+Funcionam como cotas: cada aplicação é uma compra de *valor ÷ cota da data* ao preço da cota. Na renda fixa automática a cota vale 1 na data-base e é corrigida pelo índice mensal do BCB (pró-rata por dias corridos) × % do índice e pela taxa a.a. (base 365); mês sem índice publicado repete o último conhecido. No saldo manual, a cota é saldo informado ÷ quantidade.
+
+### Saldo de caixa
+
+Soma as movimentações da tela Caixa. A partir da data definida em **Configurações → Parâmetros**, também integra: compras (− valor − taxas), vendas e venda de subscrição (+ valor − taxas − IRRF), amortizações (+ valor) e proventos líquidos — na moeda do lançamento, por corretora.
+
 ---
 
 ## API
@@ -323,6 +339,12 @@ Principais recursos:
 | `GET/POST/PUT/DELETE` | `/api/operacoes` | Operações (paginadas e filtráveis) |
 | `GET/POST/PUT/DELETE` | `/api/proventos` | Proventos |
 | `GET/POST/PUT/DELETE` | `/api/caixa` | Movimentações de caixa (entrada > 0, saída < 0) |
+| `GET` | `/api/caixa/saldos` | Saldo por corretora e moeda |
+| `GET` | `/api/alocacao?aporte=&modo=comprar\|rebalancear&respeitar_teto=` | Alocação alvo × atual e simulador de aporte |
+| `GET/POST/PUT/DELETE` | `/api/estrategias` · `/api/books` · `/api/carteiras` | Estratégias, books (com classes) e carteiras |
+| `GET` · `PUT` | `/api/books/excecoes` · `/api/ativos/{id}/books` | Exceções de book por ativo |
+| `GET` · `PUT` | `/api/parametros` | Parâmetros de cálculo |
+| `GET` · `POST` | `/api/ativos/{id}/cota?data=` · `/api/ativos/{id}/saldo` | Cota de ativo personalizado; saldo manual |
 | `GET` | `/api/cambio/ptax?moeda=USD&data=2026-10-02` | PTAX oficial (compra/venda) da data |
 | `GET` / `POST` | `/api/atualizacoes` · `/api/atualizacoes/{tarefa}` | Status e disparo das atualizações em segundo plano |
 | `GET` | `/api/rentabilidade/mensal?inicio=&fim=` | Série mensal: investido, mercado, fluxo, lucro, TWR e referências |
@@ -340,7 +362,7 @@ cd backend
 ..\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Os testes cobrem preço médio, venda, eventos societários, câmbio, day trade e consolidação entre investidores (com casos derivados de valores reais da planilha), além da leitura do COTAHIST, da escolha da PTAX, dos índices, do TWR (linhas reais da aba `dashboard.`), do XIRR e das APIs de lançamentos, caixa e rentabilidade (banco em memória).
+Os testes cobrem preço médio, venda, eventos societários, câmbio, day trade e consolidação entre investidores (com casos derivados de valores reais da planilha), além da leitura do COTAHIST, da escolha da PTAX, dos índices, do TWR (linhas reais da aba `dashboard.`), do XIRR, da alocação/simulador, da renda fixa automática e das APIs de lançamentos, caixa, configurações e rentabilidade (banco em memória).
 
 ---
 
@@ -351,7 +373,7 @@ Os testes cobrem preço médio, venda, eventos societários, câmbio, day trade 
 | 0 | Fundação: banco, API, importador, layout, cotações | ✅ Concluída |
 | 1 | MVP de carteira: lançamentos pela interface, PTAX oficial, histórico B3 | ✅ Concluída (planilha-ponte Google Sheets adiada) |
 | 2 | Rentabilidade (TWR, TIR) e página de resumo | ✅ Concluída |
-| 3 | Configurações, alocação e rebalanceamento, caixa | ⏳ |
+| 3 | Configurações, alocação e rebalanceamento, caixa | ✅ Concluída |
 | 4 | Imposto de renda: apuração mensal, DARF, DIRPF | ⏳ |
 | 5 | Radar, criptomoedas, status do ativo, valuation | ⏳ |
 | 6 | Importação de extratos da B3, exportações e backup | ⏳ |

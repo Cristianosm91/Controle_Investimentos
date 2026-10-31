@@ -1,17 +1,21 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { api } from "../api";
+import { AtivosPersonalizados } from "../components/config/AtivosPersonalizados";
+import { Carteiras } from "../components/config/Carteiras";
+import { EstrategiasBooks } from "../components/config/EstrategiasBooks";
+import { Parametros } from "../components/config/Parametros";
 import { PainelAtualizacoes } from "../components/PainelAtualizacoes";
 import { useInvestidor } from "../InvestidorContext";
 import type { Investidor } from "../tipos";
 
 const SECOES = [
   { id: "investidores", rotulo: "Investidores" },
+  { id: "estrategias", rotulo: "Estratégias & Books" },
+  { id: "carteiras", rotulo: "Carteiras" },
+  { id: "ativos", rotulo: "Ativos personalizados" },
+  { id: "parametros", rotulo: "Parâmetros" },
   { id: "atualizacoes", rotulo: "Atualizações" },
-  { id: "estrategias", rotulo: "Estratégias & Books", fase: 3 },
-  { id: "carteiras", rotulo: "Carteiras", fase: 3 },
-  { id: "ativos", rotulo: "Ativos personalizados", fase: 3 },
-  { id: "parametros", rotulo: "Parâmetros", fase: 3 },
 ] as const;
 
 type SecaoId = (typeof SECOES)[number]["id"];
@@ -179,7 +183,14 @@ function Investidores() {
 
 export function Configuracoes() {
   const [secao, setSecao] = useState<SecaoId>("investidores");
-  const atual = SECOES.find((s) => s.id === secao)!;
+  const conteudo: Record<SecaoId, JSX.Element> = {
+    investidores: <Investidores />,
+    estrategias: <EstrategiasBooks />,
+    carteiras: <Carteiras />,
+    ativos: <AtivosPersonalizados />,
+    parametros: <Parametros />,
+    atualizacoes: <PainelAtualizacoes />,
+  };
 
   return (
     <section>
@@ -191,15 +202,7 @@ export function Configuracoes() {
           </button>
         ))}
       </div>
-      {secao === "investidores" ? (
-        <Investidores />
-      ) : secao === "atualizacoes" ? (
-        <PainelAtualizacoes />
-      ) : (
-        <div className="aviso">
-          {atual.rotulo}: prevista para a <strong>Fase {"fase" in atual ? atual.fase : ""}</strong>.
-        </div>
-      )}
+      {conteudo[secao]}
     </section>
   );
 }

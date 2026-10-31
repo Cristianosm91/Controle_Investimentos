@@ -3,9 +3,9 @@ from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query
 
-from ..dominio import EVENTOS_CAIXA, EVENTOS_OPERACAO, EVENTOS_PROVENTO, MOEDAS
+from ..dominio import CATEGORIAS_CARTEIRA, EVENTOS_CAIXA, EVENTOS_OPERACAO, EVENTOS_PROVENTO, INDEXADORES, MOEDAS
 from ..schemas import AtualizacaoCotacoesOut, PosicaoOut
-from ..services import jobs, painel
+from ..services import configuracao, jobs, painel
 from ..services.carteira import montar_carteira
 from .deps import InvestidoresDep, SessaoDep
 
@@ -20,6 +20,7 @@ def listar_posicoes(
     somente_abertas: bool = True,
 ):
     linhas = montar_carteira(sessao, investidores, consolidado=agrupar == "ativo", somente_abertas=somente_abertas)
+    classificacao = configuracao.carregar(sessao)
     metricas = painel.metricas_posicoes(
         sessao,
         investidores,
@@ -56,9 +57,14 @@ def listar_posicoes(
             yoc_12m=m.yoc_12m,
             tir_aa=m.tir_aa,
             data_inicio=l.posicao.data_inicio,
+            book=book.nome if book else None,
+            estrategia=book.estrategia.nome if book else None,
+            carteira=vinculo.carteira.nome if vinculo else None,
         )
         for l in linhas
         for m in [metricas[(l.investidor_id, l.ativo.id)]]
+        for book in [classificacao.book_principal(l.ativo)]
+        for vinculo in [classificacao.carteira(l.ativo.id)]
     ]
 
 
@@ -78,4 +84,6 @@ def dominio():
         "eventos_provento": EVENTOS_PROVENTO,
         "eventos_caixa": EVENTOS_CAIXA,
         "moedas": MOEDAS,
+        "indexadores": INDEXADORES,
+        "categorias_carteira": CATEGORIAS_CARTEIRA,
     }

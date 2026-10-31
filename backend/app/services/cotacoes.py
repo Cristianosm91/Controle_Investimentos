@@ -8,6 +8,7 @@ from ..models import Ativo, Cotacao, CotacaoMoeda
 from ..providers.base import AtivoRef, ProvedorCotacao
 from ..providers.bcb import ProvedorBcb
 from ..providers.yahoo import ProvedorYahoo
+from . import renda_fixa
 from .carteira import carregar_posicoes
 from .cotahist import FONTE as FONTE_B3
 
@@ -35,6 +36,7 @@ def atualizar_cotacoes(
 ) -> ResultadoAtualizacao:
     """Consulta os provedores em ordem; cada um só recebe os ativos que os anteriores não resolveram."""
     provedores = provedores if provedores is not None else provedores_padrao()
+    ativos_padrao = ativos is None
     ativos = list(ativos if ativos is not None else ativos_com_posicao(sessao))
     pendentes = {a.ticker: a for a in ativos}
     resultado = ResultadoAtualizacao()
@@ -71,5 +73,7 @@ def atualizar_cotacoes(
             resultado.atualizados[moeda] = cot.fonte
 
     sessao.commit()
+    if ativos_padrao:
+        resultado.atualizados.update(renda_fixa.atualizar(sessao))
     resultado.sem_cotacao = sorted(pendentes) + sorted(moedas_pendentes)
     return resultado

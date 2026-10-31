@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { api, query } from "../api";
-import { invalidarDerivados } from "../cadastros";
-import { chaveGrupo, Exposicao, somarPor, valorExposicao } from "../components/Exposicao";
+import { invalidarDerivados, useParametros } from "../cadastros";
+import { chaveGrupo, Exposicao, ROTULO_DIMENSAO, somarPor, valorExposicao, type Dimensao } from "../components/Exposicao";
 import { classeSinal, data, moeda, numero, percentual } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
-import type { Posicao } from "../tipos";
+import type { CaixaSaldos, Posicao } from "../tipos";
+
+const AGRUPAMENTOS: Dimensao[] = ["estrategia", "book", "carteira", "classe", "setor"];
 
 type Coluna = {
   chave: string;
@@ -125,7 +127,7 @@ function colunas(total: number, nomes: Map<number, string>, porInvestidor: boole
 export function Portfolio() {
   const { filtro, investidores } = useInvestidor();
   const [porInvestidor, setPorInvestidor] = useState(false);
-  const [agrupar, setAgrupar] = useState<"" | "classe" | "setor">("");
+  const [agrupar, setAgrupar] = useState<Dimensao | "">("");
   const [verExposicao, setVerExposicao] = useState(true);
   const [ordem, setOrdem] = useState<{ chave: string; desc: boolean }>({ chave: "classe", desc: false });
   const cliente = useQueryClient();
@@ -138,6 +140,13 @@ export function Portfolio() {
       ),
   });
   const posicoes = useMemo(() => todas.filter((p) => p.quantidade > 0), [todas]);
+  const { data: parametros } = useParametros();
+  const caixaNoPortfolio = parametros?.caixa_no_portfolio ?? false;
+  const { data: caixa } = useQuery({
+    queryKey: ["caixa-saldos", filtro],
+    queryFn: () => api.get<CaixaSaldos>(`/caixa/saldos${query({ investidores: filtro })}`),
+    enabled: caixaNoPortfolio,
+  });
 
   const atualizar = useMutation({
     mutationFn: () => api.post<{ atualizados: Record<string, string>; sem_cotacao: string[] }>("/cotacoes/atualizar"),
@@ -221,8 +230,11 @@ export function Portfolio() {
             Agrupar
             <select value={agrupar} onChange={(e) => setAgrupar(e.target.value as typeof agrupar)}>
               <option value="">—</option>
-              <option value="classe">Classe</option>
-              <option value="setor">Setor</option>
+              {AGRUPAMENTOS.map((d) => (
+                <option key={d} value={d}>
+                  {ROTULO_DIMENSAO[d]}
+                </option>
+              ))}
             </select>
           </label>
           <label className="check">
@@ -254,6 +266,13 @@ export function Portfolio() {
           <strong>{moeda(totais.mercado)}</strong>
           {totais.semCotacao > 0 && <small className="sutil">{totais.semCotacao} ativo(s) sem cotação</small>}
         </div>
+        {caixaNoPortfolio && caixa && (
+          <div className="card">
+            <span>Caixa · Patrimônio</span>
+            <strong>{moeda(totais.mercado + caixa.total_brl)}</strong>
+            <small className={classeSinal(caixa.total_brl)}>Saldo em caixa: {moeda(caixa.total_brl)}</small>
+          </div>
+        )}
         <div className="card">
           <span>Lucro aberto</span>
           <strong className={classeSinal(totais.lucroAberto)}>{moeda(totais.lucroAberto)}</strong>

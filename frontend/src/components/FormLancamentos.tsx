@@ -1,10 +1,10 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useState, type FormEvent, type ReactNode } from "react";
-import { api } from "../api";
-import { invalidarDerivados, useDominio } from "../cadastros";
-import { moeda as fmtMoeda } from "../formato";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { api, query } from "../api";
+import { invalidarDerivados, useAtivos, useDominio } from "../cadastros";
+import { data as fmtData, moeda as fmtMoeda, numero } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
-import type { MovCaixa, Operacao, Provento } from "../tipos";
+import type { Ativo, Cota, MovCaixa, Operacao, Provento } from "../tipos";
 import { CampoAtivo, CampoCorretora, CampoEvento, CampoInvestidor, CamposMoedaCambio } from "./Campos";
 import { Modal } from "./Modal";
 
@@ -113,8 +113,19 @@ function paraFormOp(o: Operacao): FormOp {
   };
 }
 
+/** Ativo personalizado (sem cotação de mercado): sugere a cota da data como preço de compra/venda. */
+function useCotaPersonalizado(ativo: Ativo | undefined, dataIso: string, ativoParaPreco: boolean) {
+  return useQuery({
+    queryKey: ["cota", ativo?.id, dataIso],
+    queryFn: () => api.get<Cota>(`/ativos/${ativo!.id}/cota${query({ data: dataIso })}`),
+    enabled: !!ativo && !ativo.cotacao_automatica && ativoParaPreco && /^\d{4}-\d{2}-\d{2}$/.test(dataIso),
+    retry: false,
+  });
+}
+
 export function FormOperacao({ operacao, aoFechar }: { operacao?: Operacao; aoFechar: () => void }) {
   const investidorPadrao = useInvestidorPadrao();
+  const { data: ativos = [] } = useAtivos();
   const [f, setF] = useState<FormOp>(
     operacao
       ? paraFormOp(operacao)
@@ -123,6 +134,7 @@ export function FormOperacao({ operacao, aoFechar }: { operacao?: Operacao; aoFe
           preco: "", taxas: "0", irrf: "0", moeda: "BRL", cambio: "1", cambioAuto: true, daytrade: false, observacao: "",
         },
   );
+  const [precoAuto, setPrecoAuto] = useState(!operacao);
   const mudar = (parcial: Partial<FormOp>) => setF((atual) => ({ ...atual, ...parcial }));
   const mudarCambio = useCallback(
     (moeda: string, cambio: string, cambioAuto: boolean) => setF((a) => ({ ...a, moeda, cambio, cambioAuto })),
@@ -130,10 +142,16 @@ export function FormOperacao({ operacao, aoFechar }: { operacao?: Operacao; aoFe
   );
   const salvar = useSalvar("operacoes", operacao?.id, aoFechar);
 
+  const ativo = ativos.find((a) => String(a.id) === f.ativo_id);
+  const ehCompraVenda = f.evento === "C" || f.evento === "V";
+  const cota = useCotaPersonalizado(ativo, f.data, ehCompraVenda);
+  useEffect(() => {
+    if (precoAuto && cota.data) setF((a) => ({ ...a, preco: String(cota.data.cota) }));
+  }, [precoAuto, cota.data]);
+
   const qtd = Number(f.quantidade || 0);
   const preco = Number(f.preco || 0);
   const total = Math.abs(qtd * preco) * Number(f.cambio || 1) + Number(f.taxas || 0) * Number(f.cambio || 1);
-  const ehCompraVenda = f.evento === "C" || f.evento === "V";
 
   const enviar = () =>
     salvar.mutate({
@@ -185,7 +203,26 @@ export function FormOperacao({ operacao, aoFechar }: { operacao?: Operacao; aoFe
       </label>
       <label>
         {PRECO_NEGATIVO.includes(f.evento) ? "Valor devolvido por cota" : "Preço unitário"}
-        <input type="number" step="any" min="0" value={f.preco} onChange={(e) => mudar({ preco: e.target.value })} />
+        <input
+          type="number"
+          step="any"
+          min="0"
+          value={f.preco}
+          onChange={(e) => {
+            setPrecoAuto(false);
+            mudar({ preco: e.target.value });
+          }}
+        />
+        {cota.data && (
+          <small className="sutil">
+            Ativo personalizado: cota em {fmtData(cota.data.data)} = {numero(cota.data.cota, 6)}; quantidade = valor ÷ cota
+            {String(cota.data.cota) !== f.preco && (
+              <button type="button" className="link" onClick={() => setPrecoAuto(true)}>
+                usar
+              </button>
+            )}
+          </small>
+        )}
       </label>
       <label>
         Taxas

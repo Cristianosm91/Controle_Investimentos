@@ -8,7 +8,7 @@ export const PAGINAS = [
   { caminho: "/proventos", rotulo: "Proventos", icone: "💰" },
   { caminho: "/operacoes", rotulo: "Operações", icone: "🔁" },
   { caminho: "/caixa", rotulo: "Caixa", icone: "🏦" },
-  { caminho: "/alocacao", rotulo: "Alocação", icone: "⚖️", fase: 3 },
+  { caminho: "/alocacao", rotulo: "Alocação", icone: "⚖️" },
   { caminho: "/radar", rotulo: "Radar", icone: "📡", fase: 5 },
   { caminho: "/cripto", rotulo: "Cripto", icone: "🪙", fase: 5 },
   { caminho: "/status", rotulo: "Status do ativo", icone: "🔎", fase: 5 },

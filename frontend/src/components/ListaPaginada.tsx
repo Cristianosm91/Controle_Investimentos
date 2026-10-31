@@ -19,6 +19,8 @@ interface Props<T> {
   chave: (item: T) => number;
   /** Botões à direita dos filtros (ex.: "+ Nova operação"). */
   cabecalho?: ReactNode;
+  /** Conteúdo entre o título e a tabela (ex.: resumo de saldos). */
+  topo?: ReactNode;
   /** Conteúdo da última coluna de cada linha (ex.: editar/excluir). */
   acoes?: (item: T) => ReactNode;
   filtroTicker?: boolean;
@@ -31,6 +33,7 @@ export function ListaPaginada<T>({
   colunas,
   chave,
   cabecalho,
+  topo,
   acoes,
   filtroTicker = true,
 }: Props<T>) {
@@ -67,6 +70,7 @@ export function ListaPaginada<T>({
         </div>
       </div>
 
+      {topo}
       {error && <div className="erro">{(error as Error).message}</div>}
       {isLoading && <p>Carregando…</p>}
 
