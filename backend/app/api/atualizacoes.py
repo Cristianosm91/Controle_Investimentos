@@ -30,7 +30,7 @@ def disparar_tarefa(nome: str):
     try:
         jobs.disparar(nome)
     except jobs.TarefaOcupada as erro:
-        raise HTTPException(409, str(erro))
+        raise HTTPException(409, str(erro)) from erro
     return {"status": "agendada"}
 
 
@@ -46,5 +46,5 @@ def consultar_ptax(
     try:
         p = bcb.ptax(moeda, data, defasagem)
     except bcb.ErroPtax as erro:
-        raise HTTPException(502, str(erro))
+        raise HTTPException(502, str(erro)) from erro
     return PtaxOut(moeda=moeda, data_solicitada=data, data_cotacao=p.data, compra=p.compra, venda=p.venda, fonte=bcb.FONTE)

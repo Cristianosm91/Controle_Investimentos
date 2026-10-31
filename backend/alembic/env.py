@@ -1,6 +1,8 @@
 from logging.config import fileConfig
 
 from alembic import context
+from app import models  # noqa: F401  (registra as tabelas no metadata)
+from app.db import Base, criar_engine
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -10,9 +12,6 @@ config = context.config
 # This line sets up loggers basically.
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
-
-from app import models  # noqa: F401  (registra as tabelas no metadata)
-from app.db import Base, criar_engine
 
 target_metadata = Base.metadata
 

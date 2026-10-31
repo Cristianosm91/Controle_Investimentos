@@ -36,7 +36,7 @@ def criar_ativo(dados: AtivoIn, sessao: SessaoDep):
         sessao.commit()
     except IntegrityError:
         sessao.rollback()
-        raise HTTPException(409, f"Ativo {dados.ticker} já cadastrado")
+        raise HTTPException(409, f"Ativo {dados.ticker} já cadastrado") from None
     sessao.refresh(obj)
     renda_fixa.atualizar(sessao, [obj])
     return obj
@@ -55,7 +55,7 @@ def alterar_ativo(id_: int, dados: AtivoIn, sessao: SessaoDep):
         sessao.commit()
     except IntegrityError:
         sessao.rollback()
-        raise HTTPException(409, f"Ativo {dados.ticker} já cadastrado")
+        raise HTTPException(409, f"Ativo {dados.ticker} já cadastrado") from None
     if era_calculado and not renda_fixa.calculado(obj):
         renda_fixa.remover_calculadas(sessao, obj)
     renda_fixa.atualizar(sessao, [obj])
@@ -79,7 +79,7 @@ def informar_saldo(id_: int, dados: SaldoManualIn, sessao: SessaoDep):
     try:
         valor = renda_fixa.informar_saldo(sessao, obj, dados.data, dados.saldo)
     except ValueError as erro:
-        raise HTTPException(422, str(erro))
+        raise HTTPException(422, str(erro)) from erro
     return CotaOut(ativo_id=obj.id, data=dados.data, cota=valor)
 
 

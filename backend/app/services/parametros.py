@@ -21,6 +21,12 @@ class Parametros:
     ir_bdr_como_acao: bool = False
     # Soma as vendas de day trade ao limite de isenção de R$ 20 mil das ações.
     ir_daytrade_no_limite: bool = False
+    # Soma as vendas de opções ao limite de R$ 20 mil.
+    ir_opcoes_no_limite: bool = False
+    # Soma as vendas de outras classes de renda variável (BDR e ETF) ao limite de R$ 20 mil.
+    ir_outras_classes_no_limite: bool = False
+    # Venda de direito de subscrição de FII até 28/09/2021 como isenta (padrão: tributa como FII, 20%).
+    ir_subscricao_fii_isenta: bool = False
 
 
 def _ler(texto: str, tipo):
@@ -47,6 +53,9 @@ _TIPOS = {
     "ir_ano_inicio": int,
     "ir_bdr_como_acao": bool,
     "ir_daytrade_no_limite": bool,
+    "ir_opcoes_no_limite": bool,
+    "ir_outras_classes_no_limite": bool,
+    "ir_subscricao_fii_isenta": bool,
 }
 
 

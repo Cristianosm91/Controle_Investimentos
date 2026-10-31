@@ -266,6 +266,9 @@ class ParametrosIO(BaseModel):
     ir_ano_inicio: int | None = Field(default=None, ge=1990, le=2100)
     ir_bdr_como_acao: bool = False
     ir_daytrade_no_limite: bool = False
+    ir_opcoes_no_limite: bool = False
+    ir_outras_classes_no_limite: bool = False
+    ir_subscricao_fii_isenta: bool = False
 
 
 # ---------- Operações ----------

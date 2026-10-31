@@ -21,7 +21,7 @@ def calcular_alocacao(
     try:
         r = alocacao.calcular(sessao, investidores, aporte, modo, respeitar_teto)
     except ValueError as erro:
-        raise HTTPException(422, str(erro))
+        raise HTTPException(422, str(erro)) from erro
     return AlocacaoOut(
         total_atual=r.total_atual,
         aporte=r.aporte,

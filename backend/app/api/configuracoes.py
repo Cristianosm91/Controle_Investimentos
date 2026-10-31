@@ -29,7 +29,7 @@ def _gravar(sessao: Session, msg_duplicado: str, flush: bool = False) -> None:
         sessao.flush() if flush else sessao.commit()
     except IntegrityError:
         sessao.rollback()
-        raise HTTPException(409, msg_duplicado)
+        raise HTTPException(409, msg_duplicado) from None
 
 
 # ---------- Estratégias ----------

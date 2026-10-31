@@ -19,7 +19,7 @@ def _salvar(sessao, obj, msg_duplicado: str):
         sessao.commit()
     except IntegrityError:
         sessao.rollback()
-        raise HTTPException(409, msg_duplicado)
+        raise HTTPException(409, msg_duplicado) from None
     sessao.refresh(obj)
     return obj
 

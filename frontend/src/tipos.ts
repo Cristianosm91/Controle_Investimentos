@@ -260,6 +260,9 @@ export interface Parametros {
   ir_ano_inicio: number | null;
   ir_bdr_como_acao: boolean;
   ir_daytrade_no_limite: boolean;
+  ir_opcoes_no_limite: boolean;
+  ir_outras_classes_no_limite: boolean;
+  ir_subscricao_fii_isenta: boolean;
 }
 
 export interface Cota {

@@ -32,6 +32,7 @@ ISENTO_DIVIDENDOS = "09 – Lucros e dividendos recebidos"
 ISENTO_FII = "Rendimentos de FII / Fiagro"
 ISENTO_ACOES_20K = "Ganhos líquidos em ações com vendas até R$ 20 mil no mês"
 EXCLUSIVO_JCP = "Juros sobre capital próprio (valor líquido)"
+EXCLUSIVO_BTC = "Aluguel de ações — BTC (remuneração líquida do IRRF)"
 OUTROS = "Outros proventos (classificar manualmente)"
 
 
@@ -128,8 +129,8 @@ def _rendimentos(sessao: Session, investidor_id: int, ano: int, meses: list[MesI
         categoria = categoria_ir(a.classe, a.moeda, False)
         if categoria == "EXTERIOR" or p.evento == "AMORTIZACAO":
             continue  # exterior vai na apuração anual; amortização devolve capital (reduz custo)
-        if p.evento == "JSCP":
-            chave = ("EXCLUSIVO", EXCLUSIVO_JCP)
+        if p.evento in ("JSCP", "ALUGUEL"):
+            chave = ("EXCLUSIVO", EXCLUSIVO_JCP if p.evento == "JSCP" else EXCLUSIVO_BTC)
             valor = (p.valor - p.irrf) * p.cambio
         elif categoria == "FII" and p.evento in ("RENDIMENTO", "DIVIDENDO"):
             chave, valor = ("ISENTO", ISENTO_FII), p.valor * p.cambio
@@ -185,15 +186,22 @@ def para_csv(r: RelatorioDirpf) -> str:
     w.writerow([f"DIRPF {r.ano + 1} - ano-calendário {r.ano} (estimativa; confira no programa da Receita)"])
     w.writerow([])
     w.writerow(["BENS E DIREITOS"])
-    w.writerow(["Tipo", "Ticker", "CNPJ", "Quantidade", f"Situação em 31/12/{r.ano - 1}", f"Situação em 31/12/{r.ano}", "Discriminação"])
+    w.writerow([
+        "Tipo", "Ticker", "CNPJ", "Quantidade", f"Situação em 31/12/{r.ano - 1}", f"Situação em 31/12/{r.ano}", "Discriminação",
+    ])
     for b in r.bens:
-        w.writerow([b.tipo, b.ticker, _formatar_cnpj(b.cnpj), _qtd(b.quantidade), _brl(b.custo_anterior), _brl(b.custo_atual), b.discriminacao])
+        w.writerow([
+            b.tipo, b.ticker, _formatar_cnpj(b.cnpj), _qtd(b.quantidade), _brl(b.custo_anterior), _brl(b.custo_atual),
+            b.discriminacao,
+        ])
     w.writerow([])
     w.writerow(["RENDIMENTOS"])
     w.writerow(["Ficha", "Tipo", "Ticker", "CNPJ da fonte", "Valor", "IR retido"])
     fichas = {"ISENTO": "Isentos e não tributáveis", "EXCLUSIVO": "Tributação exclusiva", "OUTROS": "A classificar"}
     for rend in r.rendimentos:
-        w.writerow([fichas[rend.ficha], rend.tipo, rend.ticker or "", _formatar_cnpj(rend.cnpj), _brl(rend.valor), _brl(rend.irrf)])
+        w.writerow([
+            fichas[rend.ficha], rend.tipo, rend.ticker or "", _formatar_cnpj(rend.cnpj), _brl(rend.valor), _brl(rend.irrf),
+        ])
     w.writerow([])
     w.writerow(["RENDA VARIÁVEL (DARF 6015)"])
     w.writerow(["Mês", "Lucro operações comuns", "Lucro day trade", "Lucro FII", "Imposto", "IRRF", "DARF", "Pago"])
@@ -214,7 +222,9 @@ def para_csv(r: RelatorioDirpf) -> str:
         w.writerow([])
         w.writerow(["EXTERIOR"])
         w.writerow(["Vendas", "Lucro", "Dividendos", "Imposto pago no exterior", "Imposto estimado", "Prejuízo a compensar"])
-        w.writerow([_brl(e.vendas), _brl(e.lucro), _brl(e.dividendos), _brl(e.imposto_pago_exterior), _brl(e.imposto), _brl(e.prejuizo)])
+        w.writerow([
+            _brl(e.vendas), _brl(e.lucro), _brl(e.dividendos), _brl(e.imposto_pago_exterior), _brl(e.imposto), _brl(e.prejuizo),
+        ])
     for aviso in r.avisos:
         w.writerow([f"Aviso: {aviso}"])
     return saida.getvalue()

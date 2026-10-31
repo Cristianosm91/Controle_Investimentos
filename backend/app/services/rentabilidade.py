@@ -242,6 +242,11 @@ class Benchmark:
     igpm: Decimal | None
 
 
+def _variacao(atual: IndiceMensal | None, anterior: IndiceMensal | None, coluna: str) -> Decimal | None:
+    a, b = getattr(atual, coluna, None), getattr(anterior, coluna, None)
+    return a / b - 1 if a and b else None
+
+
 def benchmarks_mensais(indices: Iterable[IndiceMensal], datas: Sequence[date]) -> list[Benchmark]:
     """Variação mensal de cada índice nas datas pedidas (IBOV/IFIX a partir do nível de fechamento)."""
     por_mes = {fim_do_mes(i.competencia): i for i in indices}
@@ -249,14 +254,9 @@ def benchmarks_mensais(indices: Iterable[IndiceMensal], datas: Sequence[date]) -
     for fim in datas:
         atual = por_mes.get(fim)
         anterior = por_mes.get(fim_do_mes(fim.replace(day=1) - timedelta(days=1)))
-
-        def nivel(coluna: str) -> Decimal | None:
-            a, b = getattr(atual, coluna, None), getattr(anterior, coluna, None)
-            return a / b - 1 if a and b else None
-
         resultado.append(
             Benchmark(
-                fim, nivel("ibov"), nivel("ifix"),
+                fim, _variacao(atual, anterior, "ibov"), _variacao(atual, anterior, "ifix"),
                 *(getattr(atual, c, None) for c in ("cdi", "ipca", "selic", "igpm")),
             )
         )

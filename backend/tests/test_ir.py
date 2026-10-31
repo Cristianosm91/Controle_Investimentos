@@ -94,11 +94,23 @@ def test_irrf_abate_imposto_e_pagamento_reduz_saldo():
     assert meses[JAN].darf == D("19.50") and meses[JAN].saldo == 0
 
 
-def test_prejuizo_inicial_e_limite_com_daytrade():
+def test_prejuizo_inicial_e_limite_com_outras_categorias():
     fatos = {(JAN, "ACAO"): Fato(vendas=D(15000), lucro=D(1000)), (JAN, "DAYTRADE"): Fato(vendas=D(10000), lucro=D(0))}
     assert _apurar(fatos)[JAN].imposto == 0
-    m = _apurar(fatos, daytrade_no_limite=True, prejuizo_inicial={"COMUM": D(400)})[JAN]
+    m = _apurar(fatos, somar_no_limite={"DAYTRADE"}, prejuizo_inicial={"COMUM": D(400)})[JAN]
     assert _cat(m, "ACAO").base == 600 and m.imposto == D("90.00")
+    opcoes = {(JAN, "ACAO"): Fato(vendas=D(15000), lucro=D(1000)), (JAN, "OPCAO"): Fato(vendas=D(6000), lucro=D(0))}
+    assert _apurar(opcoes, somar_no_limite={"OPCAO"})[JAN].imposto == D("150.00")
+    assert _apurar(opcoes, somar_no_limite={"BDR", "ETF"})[JAN].imposto == 0
+
+
+def test_subscricao_de_fii_isenta_ate_setembro_de_2021():
+    def ops(dia):
+        return [ir.OperacaoIR(Movimento(1, 1, dia, "VENDA_SUBSCRICAO", D(-10), D(5)), "XPLG12", "FII", "BRL")]
+
+    assert fatos_por_mes(ops(date(2021, 9, 28)))[0][(date(2021, 9, 1), "FII")].lucro == 50
+    assert fatos_por_mes(ops(date(2021, 9, 28)), subscricao_fii_isenta=True)[0] == {}
+    assert (date(2021, 10, 1), "FII") in fatos_por_mes(ops(date(2021, 10, 1)), subscricao_fii_isenta=True)[0]
 
 
 def test_regra_vigente_escolhe_periodo():
@@ -106,7 +118,8 @@ def test_regra_vigente_escolhe_periodo():
     assert regra_vigente(regras, "FII", date(2025, 6, 1)).aliquota == D("0.2")
     assert regra_vigente(regras, "FII", date(2026, 6, 1)).aliquota == D("0.1")
     assert regra_vigente(regras, "ACAO", date(2026, 6, 1)) is None
-    meses = apurar_mensal({(date(2026, 1, 1), "FII"): Fato(vendas=D(1000), lucro=D(1000))}, regras, date(2026, 1, 1), date(2026, 1, 1))
+    fatos = {(date(2026, 1, 1), "FII"): Fato(vendas=D(1000), lucro=D(1000))}
+    meses = apurar_mensal(fatos, regras, date(2026, 1, 1), date(2026, 1, 1))
     assert meses[0].imposto == D("100.00")
 
 
@@ -118,8 +131,9 @@ def test_exterior_gcap_ate_2023_e_anual_desde_2024():
         (date(2024, 9, 1), "EXTERIOR"): Fato(vendas=D(5000), lucro=D(1500)),
         (date(2025, 1, 1), "EXTERIOR"): Fato(vendas=D(5000), lucro=D(-300)),
     }
-    anos = {a.ano: a for a in apurar_exterior(fatos, REGRAS, [2023, 2024, 2025], {2024: (D(100), D(20))})}
+    anos = {a.ano: a for a in apurar_exterior(fatos, REGRAS, [2023, 2024, 2025], {2023: (D(50), D(15)), 2024: (D(100), D(20))})}
     assert anos[2023].imposto == D("150.00") and anos[2023].regimes == ["MENSAL"]
+    assert anos[2023].dividendos == 50  # informativo (carnê-leão), fora do imposto estimado
     # 2024: lucro líquido 1.000 + dividendos 100 → 165, menos 15 de crédito (limitado ao IR dos dividendos).
     assert anos[2024].base == 1100 and anos[2024].imposto == D("150.00")
     assert anos[2025].imposto == 0 and anos[2025].prejuizo == 300
@@ -161,6 +175,8 @@ def base(cliente):
                                          "evento": "JSCP", "valor": 100, "irrf": 15})
     cliente.post("/api/proventos", json={"investidor_id": inv, "ativo_id": hglg, "data_pagamento": "2025-02-15",
                                          "evento": "RENDIMENTO", "valor": 8})
+    cliente.post("/api/proventos", json={"investidor_id": inv, "ativo_id": petr["id"], "data_pagamento": "2025-04-15",
+                                         "evento": "ALUGUEL", "valor": 20, "irrf": 3, "taxas": 5})
     return {"inv": inv, "petr": petr, "hglg": hglg}
 
 
@@ -219,9 +235,10 @@ def test_api_dirpf_e_cnpj_preservado(cliente, base):
     assert set(bens) == {"ITSA4"}  # PETR4 e HGLG11 compradas e vendidas no ano não entram
     assert bens["ITSA4"]["custo_atual"] == 1000 and "Custo médio R$ 10,00" in bens["ITSA4"]["discriminacao"]
     assert any("ITSA4" in a for a in r["avisos"])  # sem CNPJ
-    tipos = {(x["ficha"], x["ticker"]): x for x in r["rendimentos"]}
-    assert tipos[("EXCLUSIVO", "PETR4")]["valor"] == 85
-    assert tipos[("ISENTO", "HGLG11")]["valor"] == 8
+    tipos = {(x["ficha"], x["ticker"], x["tipo"][:5]): x for x in r["rendimentos"]}
+    assert tipos[("EXCLUSIVO", "PETR4", "Juros")]["valor"] == 85
+    assert tipos[("EXCLUSIVO", "PETR4", "Alugu")]["valor"] == 17 and tipos[("EXCLUSIVO", "PETR4", "Alugu")]["irrf"] == 3
+    assert tipos[("ISENTO", "HGLG11", "Rendi")]["valor"] == 8
     assert r["prejuizo_final"]["COMUM"] == 0 and len(r["meses"]) == 12
 
     csv = cliente.get(f"/api/ir/dirpf.csv?investidor={base['inv']}&ano=2025")

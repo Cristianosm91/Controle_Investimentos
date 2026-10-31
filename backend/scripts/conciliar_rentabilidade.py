@@ -7,7 +7,6 @@ Uso (dentro de backend/):
 import argparse
 import sys
 from datetime import date, datetime
-from decimal import Decimal
 
 import openpyxl
 from sqlalchemy import select
@@ -71,7 +70,10 @@ def main(argv: list[str] | None = None) -> int:
             )
     ultimo = next((m for m in reversed(serie) if m.data in esperado), None)
     if ultimo:
-        print(f"\nTWR acumulado em {ultimo.data:%m/%Y}: planilha {esperado[ultimo.data]['twr_acc']*100:.2f}% | app {float(ultimo.twr_acumulado)*100:.2f}%")
+        print(
+            f"\nTWR acumulado em {ultimo.data:%m/%Y}: planilha {esperado[ultimo.data]['twr_acc'] * 100:.2f}%"
+            f" | app {float(ultimo.twr_acumulado) * 100:.2f}%"
+        )
     print(f"Meses comparados: {sum(m.data in esperado for m in serie)} · divergentes: {divergentes}")
     return 0
 

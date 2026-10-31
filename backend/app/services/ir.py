@@ -120,8 +120,13 @@ class Fato:
 
 Fatos = dict[tuple[date, str], Fato]
 
+# Fim do período em que a venda de direito de subscrição de FII pode ser tratada como isenta (parâmetro).
+FIM_SUBSCRICAO_FII_ISENTA = date(2021, 9, 28)
 
-def fatos_por_mes(operacoes: Iterable[OperacaoIR], bdr_como_acao: bool = False) -> tuple[Fatos, set[str]]:
+
+def fatos_por_mes(
+    operacoes: Iterable[OperacaoIR], bdr_como_acao: bool = False, subscricao_fii_isenta: bool = False
+) -> tuple[Fatos, set[str]]:
     """Agrupa vendas, lucro realizado e IRRF por (mês, categoria). Devolve também os tickers vendidos fora da apuração."""
     carteira = Carteira()
     fatos: Fatos = defaultdict(Fato)
@@ -136,6 +141,11 @@ def fatos_por_mes(operacoes: Iterable[OperacaoIR], bdr_como_acao: bool = False) 
         if categoria is None:
             if venda:
                 ignorados.add(op.ticker)
+            continue
+        if (
+            subscricao_fii_isenta and categoria == "FII" and m.evento == "VENDA_SUBSCRICAO"
+            and m.data <= FIM_SUBSCRICAO_FII_ISENTA
+        ):
             continue
         f = fatos[(mes(m.data), categoria)]
         f.irrf += op.irrf * m.cambio
@@ -197,9 +207,11 @@ def apurar_mensal(
     fim: date,
     prejuizo_inicial: Mapping[str, Decimal] | None = None,
     pagos: Mapping[date, Decimal] | None = None,
-    daytrade_no_limite: bool = False,
+    somar_no_limite: Iterable[str] = (),
 ) -> list[MesIR]:
+    """`somar_no_limite`: categorias cujas vendas contam no limite de isenção das ações (ex.: DAYTRADE, OPCAO)."""
     regras = list(regras)
+    somar_no_limite = set(somar_no_limite) - {"ACAO"}
     prejuizo = {g: Decimal((prejuizo_inicial or {}).get(g, ZERO)) for g in GRUPOS_MENSAIS}
     pagos = pagos or {}
     irrf_saldo = transportado = ZERO
@@ -209,7 +221,7 @@ def apurar_mensal(
         if comp.month == 1:
             irrf_saldo = ZERO  # saldo de IRRF não compensado no ano vai para a declaração anual
         doc = {c: fatos.get((comp, c), Fato()) for c in CATEGORIAS_MENSAIS}
-        vendas_acoes = doc["ACAO"].vendas + (doc["DAYTRADE"].vendas if daytrade_no_limite else ZERO)
+        vendas_acoes = doc["ACAO"].vendas + sum((doc[c].vendas for c in somar_no_limite if c in doc), ZERO)
 
         tributavel, isento, regra_cat = {}, {}, {}
         for c in CATEGORIAS_MENSAIS:
@@ -274,7 +286,8 @@ def apurar_exterior(
     proventos: Mapping[int, tuple[Decimal, Decimal]] | None = None,
     prejuizo_inicial: Decimal = ZERO,
 ) -> list[AnoExterior]:
-    """Até 2023: ganho de capital mensal (isenção por vendas no mês, sem compensação).
+    """Até 2023: ganho de capital mensal (isenção por vendas no mês, sem compensação); dividendos só informativos
+    (carnê-leão mensal pela tabela progressiva, fora do cálculo).
     Desde 2024 (Lei 14.754/2023): lucros e dividendos somados no ano, com compensação de prejuízo
     e dedução do imposto pago no exterior (limitada ao imposto brasileiro sobre os dividendos).
     """
@@ -284,6 +297,7 @@ def apurar_exterior(
     resultado = []
     for ano in sorted(set(anos)):
         a = AnoExterior(ano)
+        a.dividendos, a.imposto_pago_exterior = proventos.get(ano, (ZERO, ZERO))
         anual = ZERO
         regra_anual: Regra | None = None
         for m in range(1, 13):
@@ -304,7 +318,6 @@ def apurar_exterior(
                 a.imposto += centavos(f.lucro * regra.aliquota)
 
         if regra_anual is not None:
-            a.dividendos, a.imposto_pago_exterior = proventos.get(ano, (ZERO, ZERO))
             liquido = anual - prejuizo
             ganho = max(liquido, ZERO)
             prejuizo = max(-liquido, ZERO)
@@ -381,7 +394,15 @@ class ApuracaoIR:
 def apurar(sessao: Session, investidor_id: int, hoje: date | None = None) -> ApuracaoIR:
     p = param.carregar(sessao)
     regras = carregar_regras(sessao)
-    fatos, ignorados = fatos_por_mes(carregar_operacoes(sessao, investidor_id), p.ir_bdr_como_acao)
+    fatos, ignorados = fatos_por_mes(
+        carregar_operacoes(sessao, investidor_id), p.ir_bdr_como_acao, p.ir_subscricao_fii_isenta
+    )
+    somar_no_limite = {
+        c for c, ativo in (
+            ("DAYTRADE", p.ir_daytrade_no_limite), ("OPCAO", p.ir_opcoes_no_limite),
+            ("BDR", p.ir_outras_classes_no_limite), ("ETF", p.ir_outras_classes_no_limite),
+        ) if ativo
+    }
     prejuizos = carregar_prejuizos(sessao, investidor_id)
     proventos_ext = _proventos_exterior(sessao, investidor_id)
     fim = mes(hoje or date.today())
@@ -393,7 +414,7 @@ def apurar(sessao: Session, investidor_id: int, hoje: date | None = None) -> Apu
         inicio = date(min(meses_bolsa).year, 1, 1) if meses_bolsa else fim
     meses = apurar_mensal(
         fatos, regras, inicio, max(fim, *meses_bolsa) if meses_bolsa else fim, prejuizos,
-        carregar_pagos(sessao, investidor_id), p.ir_daytrade_no_limite,
+        carregar_pagos(sessao, investidor_id), somar_no_limite,
     )
 
     anos_ext = {comp.year for comp, cat in fatos if cat == "EXTERIOR"} | set(proventos_ext)

@@ -61,6 +61,26 @@ function ParametrosIR() {
         />
         Somar vendas de day trade ao limite de R$ 20 mil
       </label>
+      <label className="check">
+        <input type="checkbox" checked={form.ir_opcoes_no_limite} onChange={(e) => setForm({ ...form, ir_opcoes_no_limite: e.target.checked })} />
+        Somar vendas de opções ao limite de R$ 20 mil
+      </label>
+      <label className="check">
+        <input
+          type="checkbox"
+          checked={form.ir_outras_classes_no_limite}
+          onChange={(e) => setForm({ ...form, ir_outras_classes_no_limite: e.target.checked })}
+        />
+        Somar vendas de BDR e ETF ao limite de R$ 20 mil
+      </label>
+      <label className="check">
+        <input
+          type="checkbox"
+          checked={form.ir_subscricao_fii_isenta}
+          onChange={(e) => setForm({ ...form, ir_subscricao_fii_isenta: e.target.checked })}
+        />
+        Venda de direito de subscrição de FII até 28/09/2021 como isenta (padrão: 20% como FII)
+      </label>
       <div className="acoes largura-total">
         <button type="submit" disabled={salvar.isPending}>
           Salvar

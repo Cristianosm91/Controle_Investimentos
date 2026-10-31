@@ -33,7 +33,9 @@ def _calcular(sessao: Session, investidor_ids: Sequence[int] | None, ate: date):
 
 def _janela(serie: list[r.Mes], bench: list[r.Benchmark], inicio: date | None, fim: date | None) -> list[LinhaMensal]:
     """Recorta a série e recalcula os acumulados a partir do início da janela."""
-    pares = [(m, b) for m, b in zip(serie, bench) if (not inicio or m.data >= inicio) and (not fim or m.data <= fim)]
+    pares = [
+        (m, b) for m, b in zip(serie, bench, strict=True) if (not inicio or m.data >= inicio) and (not fim or m.data <= fim)
+    ]
     twr_acc = r.acumular(m.twr for m, _ in pares)
     acumulados = {nome: r.acumular(getattr(b, nome) for _, b in pares) for nome in _BENCHMARKS}
     return [

@@ -219,7 +219,7 @@ Abra o `.env` e apague a linha `CONTROLEINV_DATABASE_URL` (ou coloque `#` no in�
 
 ## Importando a planilha
 
-O importador lê a planilha de controle (`.xlsx` exportado do Google Sheets, layout com as abas `op.normal`, `op.daytrade`, `proventos`, `caixa`, `ativos.`, `index.` e `dados.`):
+O importador lê a planilha de controle (`.xlsx` exportado do Google Sheets, layout com as abas `op.normal`, `op.daytrade`, `proventos`, `caixa`, `ativos.`, `index.`, `dados.`, `Página117` (aluguel/BTC), `darfs.` e `config.parâmetros`):
 
 ```powershell
 cd backend
@@ -232,6 +232,8 @@ cd backend
 ```
 
 - **Idempotente:** cada linha recebe um hash; reimportar não duplica lançamentos.
+- **Aluguel (BTC):** crédito da remuneração, IRRF e taxa de intermediação do extrato viram um provento "Aluguel de ações" por data e ativo.
+- **IR:** DARFs pagos (competência = mês anterior ao pagamento), regras de DARF e prejuízo transportado de `config.parâmetros` — parâmetros já ajustados no app não são sobrescritos.
 - **Conciliação:** ao final, compara quantidade e preço médio de cada ativo com a aba `dados.` e lista divergências.
 - **Multi-investidor:** rode uma vez por planilha/investidor usando `--investidor`.
 
@@ -296,6 +298,7 @@ Compara mês a mês as vendas e o lucro por categoria e o DARF com a aba `apura�
 │       └── pages/          # Resumo, Portfólio, Rentabilidade, Operações, Proventos, Caixa, Alocação, Imposto de Renda, Configurações
 ├── iniciar.bat             # Execução local
 ├── dev.bat                 # Modo desenvolvimento
+├── lint.bat                # Verificações antes do commit (ruff, pytest, tsc)
 └── PLANO_DESENVOLVIMENTO.md
 ```
 
@@ -338,12 +341,12 @@ Estimativa por CPF; confira no e-CAC/GCAP antes de recolher. Alíquotas e isenç
 
 | Regra | Como o app aplica |
 |---|---|
-| Categorias | Ações 15% (isentas com vendas de ações ≤ R$ 20 mil no mês), BDR, ETF e opções 15%, day trade 20%, FII/Fiagro 20%. BDR pode seguir a regra de ações (parâmetro). |
+| Categorias | Ações 15% (isentas com vendas de ações ≤ R$ 20 mil no mês), BDR, ETF e opções 15%, day trade 20%, FII/Fiagro 20%. Parâmetros: BDR como ação; somar ao limite de R$ 20 mil as vendas de day trade, opções e/ou BDR e ETF; venda de direito de subscrição de FII até 28/09/2021 como isenta. |
 | Prejuízo | Compensa só dentro do grupo: operações comuns (ações, BDR, ETF, opções), day trade, FII. Prejuízo de mês isento continua compensável. |
 | IRRF | 0,005% e 1% (day trade), conforme lançado nas operações, abatem o imposto do mês; o saldo passa aos meses seguintes até dezembro. |
 | DARF | Código 6015; valor abaixo de R$ 10 acumula para o mês seguinte; DARFs pagos abatem o mês de apuração. |
-| Exterior | Até 2023: ganho de capital mensal (isento com vendas ≤ R$ 35 mil no mês). Desde 2024 (Lei 14.754/2023): lucros e dividendos no ano a 15%, com compensação de prejuízo e crédito do imposto pago no exterior limitado ao imposto sobre os dividendos. |
-| DIRPF | Bens e direitos pelo custo em 31/12 dos dois anos, dividendos (código 09), rendimentos de FII, JCP líquido, lucro isento de ações, prejuízo e IRRF a transportar. O grupo/código dos bens deve ser escolhido no programa da Receita. |
+| Exterior | Até 2023: ganho de capital mensal (isento com vendas ≤ R$ 35 mil no mês); dividendos só informativos (carnê-leão). Desde 2024 (Lei 14.754/2023): lucros e dividendos no ano a 15%, com compensação de prejuízo e crédito do imposto pago no exterior limitado ao imposto sobre os dividendos. |
+| DIRPF | Bens e direitos pelo custo em 31/12 dos dois anos, dividendos (código 09), rendimentos de FII, JCP e aluguel de ações (BTC) líquidos, lucro isento de ações, prejuízo e IRRF a transportar. O grupo/código dos bens deve ser escolhido no programa da Receita. |
 
 Fora da apuração (avisado na tela): renda fixa, caixa, cripto (Fase 5) e classes sem regra.
 
@@ -390,6 +393,8 @@ Principais recursos:
 cd backend
 ..\.venv\Scripts\python.exe -m pytest -q
 ```
+
+Antes de commitar, rode `lint.bat` na raiz: lint do backend (ruff, regras em `backend/ruff.toml`), testes e checagem de tipos do frontend (`npm run lint`).
 
 Os testes cobrem preço médio, venda, eventos societários, câmbio, day trade e consolidação entre investidores (com casos derivados de valores reais da planilha), além da leitura do COTAHIST, da escolha da PTAX, dos índices, do TWR (linhas reais da aba `dashboard.`), do XIRR, da alocação/simulador, da renda fixa automática, da apuração de IR (isenção, compensação por grupo, IRRF, DARF mínimo, vigência das regras, exterior) e das APIs de lançamentos, caixa, configurações, rentabilidade e IR (banco em memória).
 

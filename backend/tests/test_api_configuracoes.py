@@ -104,16 +104,16 @@ def test_parametros_e_saldo_de_caixa(cliente, base):
     assert cliente.get("/api/parametros").json() == {
         "caixa_data_inicio": None, "caixa_no_portfolio": False,
         "ir_ano_inicio": None, "ir_bdr_como_acao": False, "ir_daytrade_no_limite": False,
+        "ir_opcoes_no_limite": False, "ir_outras_classes_no_limite": False, "ir_subscricao_fii_isenta": False,
     }
     cliente.post("/api/caixa", json={"investidor_id": base["inv"], "corretora_id": base["corretora"], "data": "2026-01-02",
                                      "evento": "APORTE", "valor": 10000})
     _compra(cliente, base, base["petr"], data="2025-12-01")  # antes do início: ignorada
     _compra(cliente, base, base["petr"], data="2026-01-05")
-    cliente.post("/api/operacoes", json={"investidor_id": base["inv"], "ativo_id": base["petr"], "corretora_id": base["corretora"],
-                                         "data": "2026-02-05", "evento": "V", "quantidade": -50, "preco": 40, "taxas": 1,
+    ref = {"investidor_id": base["inv"], "ativo_id": base["petr"], "corretora_id": base["corretora"]}
+    cliente.post("/api/operacoes", json={**ref, "data": "2026-02-05", "evento": "V", "quantidade": -50, "preco": 40, "taxas": 1,
                                          "irrf": 0.1})
-    cliente.post("/api/proventos", json={"investidor_id": base["inv"], "ativo_id": base["petr"], "corretora_id": base["corretora"],
-                                         "data_pagamento": "2026-03-01", "evento": "JSCP", "valor": 100, "irrf": 15})
+    cliente.post("/api/proventos", json={**ref, "data_pagamento": "2026-03-01", "evento": "JSCP", "valor": 100, "irrf": 15})
 
     so_mov = cliente.get("/api/caixa/saldos").json()
     assert so_mov["integrado_desde"] is None and so_mov["total_brl"] == 10000

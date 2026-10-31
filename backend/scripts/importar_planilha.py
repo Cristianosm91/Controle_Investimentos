@@ -8,10 +8,11 @@ Uso (dentro de backend/):
 
 import argparse
 import hashlib
+import re
 import sys
 import unicodedata
 from collections import Counter
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
@@ -20,7 +21,18 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import SessionLocal
-from app.models import Ativo, Corretora, IndiceMensal, Investidor, MovCaixa, Operacao, Provento
+from app.models import (
+    Ativo,
+    Corretora,
+    DarfPago,
+    IndiceMensal,
+    Investidor,
+    MovCaixa,
+    Operacao,
+    Parametro,
+    PrejuizoInicial,
+    Provento,
+)
 from app.services.carteira import carregar_posicoes
 
 ORIGEM = "planilha"
@@ -48,6 +60,26 @@ MAPA_EVENTO_PROVENTO = {
 
 CORRETORA_INDEFINIDA = {"", "INFORMAR", "INDEFINIDO"}
 
+# config.parâmetros → parâmetros de IR do app (rótulo sem acento, em maiúsculas → chave).
+PARAMETROS_DARF = {
+    "SOMAR VENDAS DE DAYRADE NO LIMITE": "ir_daytrade_no_limite",
+    "SOMAR VENDAS DE OUTRAS CLASSES NO LIMITE": "ir_outras_classes_no_limite",
+    "SOMAR VENDAS DE OPCOES NO LIMITE": "ir_opcoes_no_limite",
+    "VENDA DE SUBSCRICAO DE FII COMO ISENTO": "ir_subscricao_fii_isenta",
+    "CONSIDERAR BDR COMO ACAO": "ir_bdr_como_acao",
+    "ANO DE INICIO DOS CALCULOS DARF": "ir_ano_inicio",
+}
+
+# Colunas do quadro "Transportar o prejuízo" (config.parâmetros) → grupo de compensação.
+PREJUIZO_COLUNAS = {7: "COMUM", 8: "DAYTRADE", 9: "FII"}
+
+# Lançamentos de aluguel (BTC) no extrato da corretora (aba Página117).
+_BTC = (
+    ("CREDITO REF. TAXA DE REMUNERACAO BTC", "valor"),
+    ("DEBITO CBLC IRRF S/ RENDIMENTO DE BTC", "irrf"),
+    ("TAXA DE INTERMEDIACAO DOADOR", "taxas"),
+)
+
 
 # ---------- conversões ----------
 
@@ -74,7 +106,7 @@ def decimal(valor) -> Decimal:
     try:
         return Decimal(s)
     except InvalidOperation:
-        raise ValueError(f"Valor numérico inválido: {valor!r}")
+        raise ValueError(f"Valor numérico inválido: {valor!r}") from None
 
 
 def data(valor) -> date | None:
@@ -97,8 +129,7 @@ def linhas(wb, aba: str, primeira_linha: int):
     if aba not in wb.sheetnames:
         print(f"  aba '{aba}' não encontrada — ignorada")
         return
-    for n, linha in enumerate(wb[aba].iter_rows(min_row=primeira_linha, values_only=True), start=primeira_linha):
-        yield n, linha
+    yield from enumerate(wb[aba].iter_rows(min_row=primeira_linha, values_only=True), start=primeira_linha)
 
 
 def col(linha, i):
@@ -265,6 +296,107 @@ class Importador:
             self.sessao.merge(obj)
             self.estatisticas["índices mensais"] += 1
 
+    def _ativo_por_raiz(self, raiz: str, ticker: str | None) -> Ativo | None:
+        """O extrato do BTC traz só a raiz (MGLU); a taxa traz o ticker completo (MGLU3)."""
+        if ticker and ticker in self.ativos:
+            return self.ativos[ticker]
+        candidatos = sorted(
+            (a for t, a in self.ativos.items() if t.startswith(raiz) and t[len(raiz):].isdigit() and a.moeda == "BRL"),
+            key=lambda a: (sem_acento(a.classe) != "ACAO", a.ticker),
+        )
+        if len(candidatos) > 1:
+            lista = ", ".join(a.ticker for a in candidatos)
+            self.avisos.append(f"aluguel {raiz}: vários tickers ({lista}) — usado {candidatos[0].ticker}")
+        return candidatos[0] if candidatos else None
+
+    def importar_aluguel(self, wb) -> None:
+        """Aba Página117 (extrato da corretora): remuneração, IRRF e taxa do BTC → provento ALUGUEL por data e ativo."""
+        aba = next((n for n in wb.sheetnames if sem_acento(n).startswith("PAGINA117")), None)
+        if aba is None:
+            return
+        grupos: dict[tuple[date, str], dict] = {}
+        for _, l in linhas(wb, aba, 2):
+            dia, historico, ticker = data(col(l, 1)), texto(col(l, 2)), texto(col(l, 3))
+            if not (dia and historico and ticker):
+                continue
+            h = sem_acento(historico)
+            campo = next((c for prefixo, c in _BTC if h.startswith(prefixo)), None)
+            if campo is None:
+                continue  # TEDs, multas, dividendos: já lançados em outras abas
+            ticker = ticker.upper()
+            zero = Decimal(0)
+            g = grupos.setdefault((dia, ticker[:4]), {"valor": zero, "irrf": zero, "taxas": zero, "ticker": None})
+            g[campo] += abs(decimal(col(l, 4)))
+            if len(ticker) > 4:
+                g["ticker"] = ticker
+
+        for (dia, raiz), g in sorted(grupos.items()):
+            ativo = self._ativo_por_raiz(raiz, g["ticker"])
+            if ativo is None:
+                self.avisos.append(f"aluguel {raiz} em {dia:%d/%m/%Y}: ativo não cadastrado — ignorado")
+                continue
+            hash_ = self._hash(aba, dia, raiz, g["valor"], g["irrf"], g["taxas"])
+            if not self._novo(Provento, hash_):
+                continue
+            self.sessao.add(Provento(
+                investidor=self.investidor, ativo=ativo, data_pagamento=dia, evento="ALUGUEL", valor=g["valor"],
+                irrf=g["irrf"], taxas=g["taxas"], moeda="BRL", cambio=Decimal(1), origem=ORIGEM, hash_origem=hash_,
+            ))
+            self.estatisticas["aluguéis (BTC) importados"] += 1
+
+    def _do_investidor(self, cpf) -> bool:
+        cpf = re.sub(r"\D", "", texto(cpf) or "")
+        return not cpf or cpf == (self.investidor.cpf or "")
+
+    def importar_darfs(self, wb) -> None:
+        """Aba darfs.: pagamento sem competência; assume o mês anterior ao pagamento (vencimento usual)."""
+        existentes = {
+            (d.data_pagamento, d.valor)
+            for d in self.sessao.scalars(select(DarfPago).where(DarfPago.investidor_id == self.investidor.id))
+        }
+        for _, l in linhas(wb, "darfs.", 4):
+            dia, valor = data(col(l, 1)), col(l, 2)
+            if not dia or valor in (None, "") or not self._do_investidor(col(l, 0)):
+                continue
+            valor = decimal(valor)
+            if (dia, valor) in existentes:
+                self.estatisticas["darf_pago já existentes"] += 1
+                continue
+            competencia = (dia.replace(day=1) - timedelta(days=1)).replace(day=1)
+            self.sessao.add(DarfPago(investidor_id=self.investidor.id, competencia=competencia, data_pagamento=dia, valor=valor))
+            existentes.add((dia, valor))
+            self.estatisticas["DARFs pagos importados"] += 1
+
+    def importar_parametros_ir(self, wb) -> None:
+        """config.parâmetros: regras de DARF e prejuízo transportado. Não sobrescreve o que já foi definido no app."""
+        aba = next((n for n in wb.sheetnames if sem_acento(n).startswith("CONFIG.PARAMETROS")), None)
+        if aba is None:
+            return
+        no_quadro_prejuizo = False
+        for _, l in linhas(wb, aba, 1):
+            rotulo = sem_acento(texto(col(l, 0)) or "")
+            chave = next((c for prefixo, c in PARAMETROS_DARF.items() if rotulo.startswith(prefixo)), None)
+            if chave and col(l, 4) is not None and self.sessao.get(Parametro, chave) is None:
+                v = col(l, 4)
+                valor = str(int(v)) if chave == "ir_ano_inicio" else ("1" if v is True else "0")
+                self.sessao.add(Parametro(chave=chave, valor=valor))
+                self.estatisticas["parâmetros de IR importados"] += 1
+
+            cpf = sem_acento(texto(col(l, 6)) or "")
+            if "TRANSPORTAR O PREJUIZO" in cpf:
+                no_quadro_prejuizo = True
+                continue
+            dono = cpf == "UNICO INVESTIDOR" or (cpf.isdigit() and self._do_investidor(cpf))
+            if not (no_quadro_prejuizo and dono):
+                continue
+            for i, grupo in PREJUIZO_COLUNAS.items():
+                valor = abs(decimal(col(l, i)))
+                if valor and self.sessao.get(PrejuizoInicial, (self.investidor.id, grupo)) is None:
+                    self.sessao.add(PrejuizoInicial(investidor_id=self.investidor.id, grupo=grupo, valor=valor))
+                    self.estatisticas["prejuízos iniciais importados"] += 1
+            if decimal(col(l, 10)):
+                self.avisos.append("config.parâmetros: 'darf saldo' transportado não tem equivalente — lance como DARF a pagar")
+
 
 # ---------- conciliação ----------
 
@@ -325,6 +457,9 @@ def main(argv: list[str] | None = None) -> int:
         imp.importar_proventos(wb)
         imp.importar_caixa(wb)
         imp.importar_indices(wb)
+        imp.importar_aluguel(wb)
+        imp.importar_darfs(wb)
+        imp.importar_parametros_ir(wb)
         sessao.flush()
 
         print("\nResumo:")

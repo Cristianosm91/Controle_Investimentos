@@ -1,0 +1,12 @@
+line-length = 130
+target-version = "py312"
+extend-exclude = ["alembic/versions"]
+
+[lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+# E741: `l` é a convenção do projeto para "linha"; UP046: genéricos do Pydantic seguem a sintaxe Generic[T].
+ignore = ["E741", "UP046"]
+
+[lint.per-file-ignores]
+# conftest define variáveis de ambiente antes de importar o app.
+"tests/conftest.py" = ["E402"]

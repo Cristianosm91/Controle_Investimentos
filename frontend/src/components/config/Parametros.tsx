@@ -10,6 +10,9 @@ const PADRAO: TParametros = {
   ir_ano_inicio: null,
   ir_bdr_como_acao: false,
   ir_daytrade_no_limite: false,
+  ir_opcoes_no_limite: false,
+  ir_outras_classes_no_limite: false,
+  ir_subscricao_fii_isenta: false,
 };
 
 export function Parametros() {

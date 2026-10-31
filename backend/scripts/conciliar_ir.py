@@ -92,7 +92,10 @@ def main(argv: list[str] | None = None) -> int:
         if difs:
             print(f"{m.competencia:%Y-%m}  " + " · ".join(difs) + "   (planilha|app)")
 
-    print(f"\nMeses comparados: {comparados} · lucro/vendas divergentes: {lucros_divergentes} · DARF divergentes: {darf_divergentes}")
+    print(
+        f"\nMeses comparados: {comparados} · lucro/vendas divergentes: {lucros_divergentes}"
+        f" · DARF divergentes: {darf_divergentes}"
+    )
     if apuracao.nao_apurados:
         print("Fora da apuração de renda variável:", ", ".join(apuracao.nao_apurados))
     return 0

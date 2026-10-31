@@ -243,7 +243,7 @@ Requisitos: cache local, retry com backoff, timeout, log de falhas, nunca bloque
 ## 8. Roadmap por fases
 
 ### Fase 0 — Fundação ✅
-- [x] Estrutura `backend/` e `frontend/`, `.gitignore`, `.env.example`, `iniciar.bat` e `dev.bat` (lint/pre-commit pendentes)
+- [x] Estrutura `backend/` e `frontend/`, `.gitignore`, `.env.example`, `iniciar.bat`, `dev.bat` e `lint.bat` (ruff + pytest + tsc). Hook pre-commit não versionado: o arquivo `.pre-commit-config.yaml` é bloqueado pela política de conteúdo da organização
 - [x] Modelagem SQLAlchemy + Alembic (tabelas do §4, já com `investidor`, `cambio` e `cotacao_moeda`)
 - [x] Script de importação da planilha (§7) + relatório de conciliação — 51/52 posições idênticas; INTR difere por inconsistência da planilha na troca INBR31→INTR (o app preserva o custo total)
 - [x] Layout base React: menu lateral, seletor global de investidor, rota de Configurações
@@ -284,7 +284,9 @@ Requisitos: cache local, retry com backoff, timeout, log de falhas, nunca bloque
 - [x] **P10 IR**: apuração mensal com cards de DARF/prejuízo, registro de DARFs pagos (abate o mês), exterior por ano (lucros + dividendos com crédito do imposto pago lá fora)
 - [x] Relatório DIRPF (bens e direitos a custo em 31/12 dos dois anos, dividendos — código 09, rendimentos de FII, JCP líquido, lucro isento, prejuízo/IRRF a transportar) com exportação CSV e impressão/PDF pelo navegador. Grupo/código dos bens **não** foi confirmado em fonte oficial publicada: o relatório traz o tipo e a discriminação, e o código é escolhido no programa da Receita. Novo campo `cnpj` no ativo (editável no relatório)
 - [x] Golden tests (`scripts/conciliar_ir.py`) contra `apuração IR` (2017–2026): 94 meses, lucro/vendas por categoria idênticos em 93; DARF igual em 92. Divergências explicadas: **2020-06** (R$ 73,13 × 72,99) — o app transporta o saldo de IRRF dos meses anteriores (regra da RFB); **2026-01** (R$ 37,54 × 0) — a planilha mantém prejuízo separado por classe e tributa o lucro de BDR, o app compensa com o prejuízo de ações (mesmo grupo de operações comuns); **2026-08** — venda posterior à data da planilha
-- Fora do escopo desta fase: cripto (Fase 5, P13), regras específicas de venda de subscrição de FII até 09/2021, opções/outras classes no limite de R$ 20 mil, carnê-leão de dividendos do exterior antes de 2024
+- [x] Opções da aba `config.parâmetros`: somar vendas de day trade, opções e outras classes (BDR, ETF) ao limite de R$ 20 mil; venda de direito de subscrição de FII até 28/09/2021 como isenta; dividendos do exterior antes de 2024 exibidos como informação (carnê-leão)
+- [x] Importador completa o §7: `Página117` → proventos de aluguel/BTC (120 lançamentos; bruto, taxa e IRRF idênticos ao quadro da aba), `darfs.` → DARFs pagos (competência = mês anterior ao pagamento), `config.parâmetros` → parâmetros de IR e prejuízo transportado (sem sobrescrever o que já foi ajustado no app). BTC entra na ficha de tributação exclusiva da DIRPF
+- Fora do escopo desta fase: cripto (Fase 5, P13)
 
 ### Fase 5 — Análise
 - [ ] Job de fundamentos (ações e FII)
@@ -311,8 +313,8 @@ Requisitos: cache local, retry com backoff, timeout, log de falhas, nunca bloque
 | D3 | Usuários | ✅ Decidido | Vários investidores (§4.1), sem login |
 | D4 | Fonte de cotações | ✅ Decidido | Gratuitas: Yahoo → Google Sheets ponte (GOOGLEFINANCE) + B3 COTAHIST; cripto CoinGecko → Kraken; brapi descartada (§6) |
 | D5 | Página Cripto | ✅ Decidido | Página própria (P13) |
-| D6 | BTC (Página117) | Pendente | Sugestão: tipo de provento + filtro |
-| D7 | Planilha em paralelo | Pendente | Sugestão: reimportação idempotente até estabilizar |
+| D6 | BTC (Página117) | ✅ Decidido | Provento do tipo "Aluguel de ações (BTC)", importado do extrato |
+| D7 | Planilha em paralelo | ✅ Decidido | Reimportação idempotente (hash por linha) até estabilizar |
 
 ---
 

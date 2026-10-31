@@ -16,7 +16,7 @@ def filtro_investidores(
     try:
         return [int(i) for i in investidores.split(",") if i.strip()]
     except ValueError:
-        raise HTTPException(422, "Parâmetro 'investidores' deve conter IDs numéricos separados por vírgula")
+        raise HTTPException(422, "Parâmetro 'investidores' deve conter IDs numéricos separados por vírgula") from None
 
 
 InvestidoresDep = Annotated[list[int] | None, Depends(filtro_investidores)]

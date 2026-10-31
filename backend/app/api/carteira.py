@@ -82,7 +82,7 @@ def atualizar():
     try:
         r = jobs.executar("cotacoes")
     except jobs.TarefaOcupada as erro:
-        raise HTTPException(409, str(erro))
+        raise HTTPException(409, str(erro)) from erro
     return AtualizacaoCotacoesOut(atualizados=r.atualizados, sem_cotacao=r.sem_cotacao)
 
 

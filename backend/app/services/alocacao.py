@@ -162,7 +162,9 @@ def calcular_alocacao(
         )
         alvo = base * b.peso_alvo
         grupos_book.append(
-            GrupoAlocacao(b.nome, b.estrategia, b.peso_alvo, valor / total_atual if total_atual else ZERO, valor, alvo, alvo - valor)
+            GrupoAlocacao(
+                b.nome, b.estrategia, b.peso_alvo, valor / total_atual if total_atual else ZERO, valor, alvo, alvo - valor
+            )
         )
     grupos_estr: dict[str, GrupoAlocacao] = {}
     for g in grupos_book:

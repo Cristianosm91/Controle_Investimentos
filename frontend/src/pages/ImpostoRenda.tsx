@@ -325,7 +325,8 @@ function Exterior({ investidor }: { investidor: number }) {
   return (
     <>
       <p className="sutil">
-        Até 2023: ganho de capital mensal (GCAP), isento com vendas no mês até R$ 35 mil, sem compensação de prejuízo. Desde 2024 (Lei
+        Até 2023: ganho de capital mensal (GCAP), isento com vendas no mês até R$ 35 mil, sem compensação de prejuízo; dividendos
+        aparecem só como informação (carnê-leão mensal pela tabela progressiva, calculado no programa da Receita). Desde 2024 (Lei
         14.754/2023): lucros e dividendos somados no ano, alíquota de 15% na DIRPF, com compensação de prejuízo e dedução do imposto pago no
         exterior (limitada ao imposto brasileiro sobre os dividendos). Valores em reais pela PTAX de cada data.
       </p>
