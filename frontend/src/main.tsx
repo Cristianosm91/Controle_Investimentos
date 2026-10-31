@@ -5,6 +5,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Layout, PAGINAS } from "./components/Layout";
 import { ProvedorInvestidor } from "./InvestidorContext";
 import { Alocacao } from "./pages/Alocacao";
+import { Aluguel } from "./pages/Aluguel";
 import { Caixa } from "./pages/Caixa";
 import { Configuracoes } from "./pages/Configuracoes";
 import { Cripto } from "./pages/Cripto";
@@ -30,6 +31,7 @@ const prontas: Record<string, JSX.Element> = {
   "/dashboard": <Rentabilidade />,
   "/operacoes": <Operacoes />,
   "/proventos": <Proventos />,
+  "/aluguel": <Aluguel />,
   "/caixa": <Caixa />,
   "/alocacao": <Alocacao />,
   "/radar": <Radar />,

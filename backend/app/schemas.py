@@ -668,6 +668,48 @@ class ResultadoExtratoOut(BaseModel):
     corretoras_criadas: list[str]
 
 
+class TotaisAluguelOut(BaseModel):
+    bruto: Num
+    taxas: Num
+    irrf: Num
+    liquido: Num
+
+
+class AluguelAtivoOut(TotaisAluguelOut):
+    ticker: str
+    lancamentos: int
+    ultimo: date
+
+
+class AluguelMesOut(TotaisAluguelOut):
+    mes: str
+
+
+class ResumoAluguelOut(BaseModel):
+    anos: list[int]
+    totais: TotaisAluguelOut
+    lancamentos: int
+    por_ativo: list[AluguelAtivoOut]
+    por_mes: list[AluguelMesOut]
+
+
+class ItemAluguelOut(BaseModel):
+    data: date
+    ticker: str | None
+    raiz: str
+    valor: Num
+    taxas: Num
+    irrf: Num
+    linhas: list[int]
+    status: Literal["novo", "duplicado", "verificar", "sem_ativo"]
+    motivo: str | None
+    hash: str
+
+
+class ResultadoAluguelOut(BaseModel):
+    gravados: int
+
+
 class FonteFundamentosOut(BaseModel):
     id: str
     nome: str
