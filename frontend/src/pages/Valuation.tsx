@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { api, query } from "../api";
 import { classeSinal, data, moeda, numero, percentual } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
@@ -59,21 +60,50 @@ function criarPremissas(formulario: Formulario): PremissasValuation {
 export function Valuation() {
   const { filtro } = useInvestidor();
   const cliente = useQueryClient();
-  const [ativoId, setAtivoId] = useState("");
+  const [params, setParams] = useSearchParams();
+  const ativoId = params.get("ativo") ?? "";
+  const [ticker, setTicker] = useState("");
+  const [classeNova, setClasseNova] = useState<"AÇÃO" | "FII" | "FIAGRO">("AÇÃO");
+  const [avisos, setAvisos] = useState<string[]>([]);
   const [formulario, setFormulario] = useState<Formulario>(formularioVazio);
   const ativos = useQuery({ queryKey: ["ativos"], queryFn: () => api.get<Ativo[]>("/ativos") });
 
+  const selecionar = (id: number | string) => setParams({ ativo: String(id) }, { replace: true });
+
   useEffect(() => {
-    if (ativos.data?.length && !ativos.data.some((ativo) => String(ativo.id) === ativoId)) {
-      setAtivoId(String(ativos.data[0].id));
-    }
-  }, [ativoId, ativos.data]);
+    if (ativos.isFetching || !ativos.data?.length) return;
+    if (!ativos.data.some((ativo) => String(ativo.id) === ativoId)) selecionar(ativos.data[0].id);
+  }, [ativoId, ativos.data, ativos.isFetching]);
+
+  const ativoAtual = ativos.data?.find((ativo) => String(ativo.id) === ativoId);
+  const tickerAtual = ativoAtual?.ticker;
+  useEffect(() => {
+    if (tickerAtual) setTicker(tickerAtual);
+  }, [ativoId, tickerAtual]);
+
+  const preparar = useMutation({
+    mutationFn: (dados: { ticker: string; classe: string }) =>
+      api.post<{ ativo_id: number; ticker: string; criado: boolean; avisos: string[] }>("/valuation/ativo", dados),
+    onSuccess: async (resultado) => {
+      setAvisos(resultado.avisos);
+      if (resultado.criado) await cliente.invalidateQueries({ queryKey: ["ativos"] });
+      cliente.invalidateQueries({ queryKey: ["valuation", String(resultado.ativo_id)] });
+      selecionar(resultado.ativo_id);
+    },
+  });
+
+  const buscarTicker = () => {
+    const alvo = ticker.trim().toUpperCase();
+    if (!alvo) return;
+    setAvisos([]);
+    preparar.mutate({ ticker: alvo, classe: classeNova });
+  };
 
   const valuation = useQuery({
     queryKey: ["valuation", ativoId, filtro],
     queryFn: () =>
       api.get<ValuationTipo>(`/valuation/${Number(ativoId)}${query({ investidores: filtro })}`),
-    enabled: Boolean(ativoId),
+    enabled: Boolean(ativoAtual),
   });
 
   useEffect(() => {
@@ -83,10 +113,12 @@ export function Valuation() {
   const salvar = useMutation({
     mutationFn: ({ id, premissas }: { id: number; premissas: PremissasValuation }) =>
       api.put<ValuationTipo>(`/valuation/${id}/premissas${query({ investidores: filtro })}`, premissas),
-    onSuccess: (resultado, variaveis) =>
-      cliente.setQueryData(["valuation", String(variaveis.id), filtro], resultado),
+    onSuccess: (resultado, variaveis) => {
+      cliente.setQueryData(["valuation", String(variaveis.id), filtro], resultado);
+      cliente.invalidateQueries({ queryKey: ["valuation-historico"] });
+    },
   });
-  const erro = ativos.error ?? valuation.error ?? salvar.error;
+  const erro = ativos.error ?? preparar.error ?? valuation.error ?? salvar.error;
   const detalhe = valuation.data;
   const mensagemErro = erro instanceof Error ? erro.message : erro ? String(erro) : null;
 
@@ -95,37 +127,69 @@ export function Valuation() {
       <div className="titulo-linha">
         <h1>Valuation</h1>
         <span className="sutil">Modelos indicativos por ativo; não constituem recomendação de investimento</span>
+        <Link to="/valuations-salvos" className="link">
+          Ver valuations salvos →
+        </Link>
       </div>
 
       {mensagemErro && <div className="erro">{mensagemErro}</div>}
+      {avisos.map((aviso) => (
+        <div key={aviso} className="aviso">
+          {aviso}
+        </div>
+      ))}
 
-      <div className="painel valuation-selecao">
+      <form
+        className="painel valuation-selecao"
+        onSubmit={(evento) => {
+          evento.preventDefault();
+          buscarTicker();
+        }}
+      >
         <label>
           Ativo
-          <select
-            value={ativoId}
-            onChange={(evento) => setAtivoId(evento.target.value)}
-            disabled={ativos.isLoading || !ativos.data?.length}
-          >
-            {!ativos.data?.length && <option value="">Nenhum ativo cadastrado</option>}
+          <input
+            list="valuation-ativos"
+            value={ticker}
+            onChange={(evento) => setTicker(evento.target.value.toUpperCase())}
+            placeholder="Digite um ticker, ex.: PETR4"
+            maxLength={16}
+            pattern="[A-Za-z0-9]{4,16}"
+            title="Use de 4 a 16 letras ou números"
+            required
+          />
+          <datalist id="valuation-ativos">
             {ativos.data?.map((ativo) => (
-              <option key={ativo.id} value={ativo.id}>
-                {ativo.ticker} — {ativo.nome ?? ativo.classe}
+              <option key={ativo.id} value={ativo.ticker}>
+                {ativo.nome ?? ativo.classe}
               </option>
             ))}
+          </datalist>
+        </label>
+        <label className="valuation-classe">
+          Classe (se novo)
+          <select value={classeNova} onChange={(evento) => setClasseNova(evento.target.value as typeof classeNova)}>
+            <option value="AÇÃO">Ação</option>
+            <option value="FII">FII</option>
+            <option value="FIAGRO">Fiagro</option>
           </select>
         </label>
+        <button className="valuation-salvar" disabled={preparar.isPending}>
+          {preparar.isPending ? "BUSCANDO…" : "CALCULAR"}
+        </button>
         {detalhe && (
-          <div className="sutil">
-            Cotação {detalhe.cotacao_fonte ?? "sem fonte"}, de {data(detalhe.cotacao_data)} · Fundamentos{" "}
-            {detalhe.fundamento_fonte ?? "indisponíveis"}, de {data(detalhe.fundamento_data)}
+          <div className="sutil valuation-fontes">
+            {detalhe.ticker}
+            {detalhe.nome ? ` — ${detalhe.nome}` : ""} · Cotação {detalhe.cotacao_fonte ?? "sem fonte"}, de{" "}
+            {data(detalhe.cotacao_data)} · Fundamentos {detalhe.fundamento_fonte ?? "indisponíveis"}, de{" "}
+            {data(detalhe.fundamento_data)}
             {detalhe.premissas_salvas_em && <> · Premissas salvas em {data(detalhe.premissas_salvas_em)}</>}
           </div>
         )}
-      </div>
+      </form>
 
-      {ativos.isLoading || (ativoId && valuation.isLoading) ? <p>Carregando valuation…</p> : null}
-      {!ativos.isLoading && !ativos.data?.length && <p>Cadastre um ativo para iniciar a análise.</p>}
+      {ativos.isLoading || (ativoAtual && valuation.isLoading) ? <p>Carregando valuation…</p> : null}
+      {!ativos.isLoading && !ativos.data?.length && <p>Digite um ticker para iniciar a análise.</p>}
 
       {detalhe && (
         <>
@@ -164,7 +228,8 @@ export function Valuation() {
               <p className="sutil">
                 LPA, VPA e dividendo anual são estimados pela cotação e pelos múltiplos/DY publicados; ROE vem do
                 fundamento mais recente. Revise esses valores e informe Ke, múltiplos-alvo e projeções de FCFE quando
-                disponíveis. As premissas ficam salvas por ativo.
+                disponíveis. As premissas ficam salvas por ativo e cada cálculo salvo entra no histórico de valuations
+                (último e dois anteriores).
               </p>
               <div className="valuation-campos">
                 {CAMPOS.map(({ chave, rotulo, unidade, passo }) => (
@@ -183,7 +248,7 @@ export function Valuation() {
                 ))}
               </div>
               <button className="valuation-salvar" disabled={salvar.isPending}>
-                {salvar.isPending ? "SALVANDO…" : "SALVAR PREMISSAS"}
+                {salvar.isPending ? "SALVANDO…" : "CALCULAR E SALVAR"}
               </button>
             </form>
 

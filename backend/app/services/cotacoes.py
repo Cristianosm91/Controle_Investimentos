@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..models import Ativo, AtivoRadar, Cotacao, CotacaoMoeda
+from ..models import Ativo, AtivoRadar, Cotacao, CotacaoMoeda, ValuationHistorico
 from ..providers.base import AtivoRef, ProvedorCotacao
 from ..providers.bcb import ProvedorBcb
 from ..providers.yahoo import ProvedorYahoo
@@ -27,11 +27,12 @@ class ResultadoAtualizacao:
 def ativos_monitorados(sessao: Session) -> list[Ativo]:
     ids = {p.ativo_id for p in carregar_posicoes(sessao, None).values() if p.aberta}
     acompanhados = select(AtivoRadar.ativo_id)
+    com_valuation = select(ValuationHistorico.ativo_id)
     return list(
         sessao.scalars(
             select(Ativo).where(
                 Ativo.cotacao_automatica,
-                Ativo.id.in_(ids) | Ativo.id.in_(acompanhados),
+                Ativo.id.in_(ids) | Ativo.id.in_(acompanhados) | Ativo.id.in_(com_valuation),
             )
         )
     )

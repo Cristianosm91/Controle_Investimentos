@@ -13,9 +13,28 @@
 }
 
 .valuation-selecao select,
+.valuation-selecao input,
 .valuation-campos input {
   min-height: 2.4rem;
   width: 100%;
+}
+
+.valuation-selecao .valuation-classe {
+  flex: 0 1 160px;
+}
+
+.valuation-fontes {
+  flex-basis: 100%;
+}
+
+.valuation-historico th,
+.valuation-historico td {
+  white-space: nowrap;
+  vertical-align: top;
+}
+
+.valuation-historico .valuation-anterior {
+  color: var(--sutil);
 }
 
 .valuation-resumo {
@@ -90,6 +109,10 @@
 .valuation button {
   border-radius: 0;
   text-transform: uppercase;
+}
+
+.valuation button.link {
+  text-transform: none;
 }
 
 .valuation .valuation-salvar {

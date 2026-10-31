@@ -1,6 +1,7 @@
 """Atualização periódica dos snapshots de indicadores publicados para ativos B3."""
 
 import logging
+from collections.abc import Collection
 from dataclasses import dataclass, field
 from datetime import date
 
@@ -91,14 +92,17 @@ def _gravar(
     return len(valores)
 
 
-def atualizar(sessao: Session, cliente: httpx.Client | None = None, hoje: date | None = None) -> ResultadoFundamentos:
+def atualizar(
+    sessao: Session,
+    cliente: httpx.Client | None = None,
+    hoje: date | None = None,
+    ativo_ids: Collection[int] | None = None,
+) -> ResultadoFundamentos:
     """Atualiza snapshots uma vez por dia, consultando somente as tabelas públicas necessárias."""
-    ativos = {
-        ativo.ticker: ativo
-        for ativo in sessao.scalars(
-            select(Ativo).where(Ativo.cotacao_automatica.is_(True), Ativo.mercado == "BVMF")
-        )
-    }
+    consulta = select(Ativo).where(Ativo.cotacao_automatica.is_(True), Ativo.mercado == "BVMF")
+    if ativo_ids is not None:
+        consulta = consulta.where(Ativo.id.in_(ativo_ids))
+    ativos = {ativo.ticker: ativo for ativo in sessao.scalars(consulta)}
     resultado = ResultadoFundamentos()
     if not ativos:
         return resultado

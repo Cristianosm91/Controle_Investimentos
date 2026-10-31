@@ -22,6 +22,7 @@ export const PAGINAS = [
   { caminho: "/status", rotulo: "Status do ativo", icone: "🔎" },
   { caminho: "/ir", rotulo: "Imposto de Renda", icone: "🧾" },
   { caminho: "/valuation", rotulo: "Valuation", icone: "🧮" },
+  { caminho: "/valuations-salvos", rotulo: "Valuations salvos", icone: "🗂️" },
 ] as const;
 
 export function Layout() {

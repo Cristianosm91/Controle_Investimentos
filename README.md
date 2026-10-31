@@ -171,7 +171,7 @@ Em **🧾 Imposto de Renda**, escolha o CPF e o ano: a tela mostra a apuração 
 | Menu | Rota | Resumo |
 |---|---|---|
 | 🏠 Resumo | `/` | Patrimônio, lucros, TIR, proventos/YoC 12m, TWR e retorno real × referências, maiores altas e baixas do dia |
-| 💼 Portfólio | `/portfolio` | Posições, agrupamentos com subtotais e gráficos de exposição (inclusive moeda e corretora) |
+| 💼 Portfólio | `/portfolio` | Posições, agrupamentos com subtotais, gráficos de exposição (inclusive moeda e corretora), filtro de classes e colunas de valuation |
 | 📈 Rentabilidade | `/dashboard` | TWR acumulado e real, evolução patrimonial, resultado mensal e mapa de calor |
 | 💰 Proventos | `/proventos` | Lançamentos, matrizes ano × mês e ativo × mês, agenda e projeção de 12 meses |
 | 🤝 Aluguel (BTC) | `/aluguel` | Remuneração por ativo e mês; importação do extrato |
@@ -184,7 +184,8 @@ Em **🧾 Imposto de Renda**, escolha o CPF e o ano: a tela mostra a apuração 
 | 🪙 Cripto | `/cripto` | Catálogo CoinGecko, preços, histórico e monitor de vendas |
 | 🔎 Status do ativo | `/status` | Drill-down por ativo, carteira ou book |
 | 🧾 Imposto de Renda | `/ir` | Apuração mensal, DARFs, exterior e DIRPF |
-| 🧮 Valuation | `/valuation` | Sete modelos de preço justo com premissas editáveis |
+| 🧮 Valuation | `/valuation` | Sete modelos de preço justo com premissas editáveis; aceita qualquer ticker digitado |
+| 🗂️ Valuations salvos | `/valuations-salvos` | Último preço justo de cada ativo calculado e os dois cálculos anteriores |
 | ⚙️ Configurações | `/configuracoes` | Investidores, estratégias, carteiras, ativos, parâmetros, IR, qualidade dos dados, importações, atualizações e backup |
 
 ---
@@ -196,7 +197,7 @@ Em **🧾 Imposto de Renda**, escolha o CPF e o ano: a tela mostra a apuração 
 | **Multi-investidor** | Cadastro de investidores (com CPF mascarado) e grupos (ex.: Família). Seletor global filtra todas as páginas: um investidor, um grupo ou todos consolidados. |
 | **Resumo** | Patrimônio, lucro aberto/total, TIR, proventos e YoC dos últimos 12 meses, rentabilidade (TWR) no mês/ano/12 meses/desde o início comparada a IBOV, IFIX, CDI e IPCA, retorno real (descontado o IPCA), maiores altas e baixas do dia. |
 | **Rentabilidade** | TWR acumulado × referências, retorno real no período e série "Carteira real", evolução patrimonial (mercado × investido), resultado mensal e mapa de calor ano × mês, com seletor de período. |
-| **Portfólio** | Posições abertas com quantidade, preço médio, cotação, valor investido/mercado, lucro do dia, lucro aberto, proventos e peso. Tabela ordenável, agrupamento por estratégia, book, carteira, classe, setor ou moeda com subtotais, gráficos de exposição (book, classe, setor, moeda, ativo e corretora), visão consolidada ou separada por investidor e, opcionalmente, saldo em caixa somado ao patrimônio. |
+| **Portfólio** | Posições abertas com quantidade, preço médio, cotação, valor investido/mercado, lucro do dia, lucro aberto, proventos e peso. Tabela ordenável, agrupamento por estratégia, book, carteira, classe, setor ou moeda com subtotais, gráficos de exposição (book, classe, setor, moeda, ativo e corretora), visão consolidada ou separada por investidor e, opcionalmente, saldo em caixa somado ao patrimônio. Filtro de classes (só uma, algumas ou todas exceto uma) e colunas opcionais com o preço justo do último valuation salvo (mediana, um modelo ou todos), com detalhe por ativo ao clicar. |
 | **Operações** | Lançamento, edição e exclusão pela interface; histórico com filtros por ticker e período; compra, venda, day trade e eventos societários. Câmbio preenchido automaticamente pela PTAX; em ativos personalizados, o preço vem da cota da data. |
 | **Proventos** | Lançamento, edição e exclusão de dividendos, JCP, rendimentos, bonificações e amortizações, com IRRF e conversão cambial. Matriz mensal ano × mês e ativo × mês. **Agenda e projeção**: pagamentos lançados a receber e projeção dos próximos 12 meses (valor por cota na data-com × quantidade atual), com YoC projetado por ativo. |
 | **Renda fixa** | Para ativos personalizados: valor bruto, IOF e IR regressivo por aplicação (resgates PEPS), valor líquido hoje, próximos vencimentos e líquido projetado no vencimento; marcação de isentos (LCI, LCA, CRI, CRA, poupança). |
@@ -620,7 +621,9 @@ Principais recursos:
 | `GET` · `POST` | `/api/lotes` · `/api/lotes/{id}/desfazer` | Lotes de importação e desfazer |
 | `GET` | `/api/fundamentos` | Fundamentos (Fundamentus) |
 | `GET` | `/api/status` | Status do ativo, carteira ou book |
-| `GET` · `PUT` | `/api/valuation/{ativo_id}` · `/api/valuation/{ativo_id}/premissas` | Valuation e premissas salvas |
+| `GET` · `PUT` | `/api/valuation/{ativo_id}` · `/api/valuation/{ativo_id}/premissas` | Valuation e premissas salvas (cada gravação entra no histórico) |
+| `POST` | `/api/valuation/ativo` | Localiza ou cadastra o ticker digitado e busca cotação/fundamentos |
+| `GET` · `DELETE` | `/api/valuation/historico` · `/api/valuation/{ativo_id}/historico` | Últimos 3 cálculos por ativo / remover histórico |
 | `GET` · `POST` | `/api/cripto` · `/api/cripto/catalogo` · `/api/cripto/monitor` · `/api/cripto/atualizar` | Painel, catálogo, monitor e atualização de cripto |
 | `GET` | `/api/ir/apuracao?investidor=1&ano=` | Apuração mensal de IR (DARF 6015) e exterior |
 | `GET/POST/PUT/DELETE` | `/api/ir/darfs` · `/api/ir/regras` | DARFs pagos; regras fiscais com vigência |
