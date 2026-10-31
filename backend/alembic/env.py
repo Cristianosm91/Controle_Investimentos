@@ -36,9 +36,18 @@ def run_migrations_offline() -> None:
 def run_migrations_online() -> None:
     connectable = criar_engine(_url())
     with connectable.connect() as connection:
+        if connection.dialect.name == "sqlite":
+            # batch_alter_table recria tabelas (copia, apaga, renomeia): com FK ligada, apagar uma tabela
+            # referenciada (ex.: ativo) falha. Procedimento recomendado pelo SQLite; conferido no fim.
+            connection.exec_driver_sql("PRAGMA foreign_keys=OFF")
+            connection.commit()
         context.configure(connection=connection, target_metadata=target_metadata, render_as_batch=True)
         with context.begin_transaction():
             context.run_migrations()
+            if connection.dialect.name == "sqlite":
+                violacoes = connection.exec_driver_sql("PRAGMA foreign_key_check").fetchall()
+                if violacoes:
+                    raise RuntimeError(f"Migração deixou chaves estrangeiras inválidas: {violacoes[:5]}")
 
 
 if context.is_offline_mode():
