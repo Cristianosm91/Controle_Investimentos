@@ -612,6 +612,32 @@ class RestauracaoOut(BaseModel):
     copia_anterior: str
 
 
+class CelulaNumero(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    n: float = Field(allow_inf_nan=False)
+    f: Literal["moeda", "percentual", "numero"] = "numero"
+    moeda: Literal["R$", "US$", "€"] | None = None
+
+
+class CelulaData(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    d: date
+
+
+CelulaExportacao = CelulaNumero | CelulaData | Annotated[str, Field(max_length=2000)] | None
+
+
+class AbaExportacao(BaseModel):
+    titulo: str = Field(min_length=1, max_length=120)
+    colunas: list[Annotated[str, Field(max_length=200)]] = Field(max_length=200)
+    linhas: list[list[CelulaExportacao]] = Field(max_length=100_000)
+
+
+class ExportacaoIn(BaseModel):
+    nome: str = Field(min_length=1, max_length=60, pattern=r"^[\w\- ]+$")
+    abas: list[AbaExportacao] = Field(min_length=1, max_length=30)
+
+
 class FonteFundamentosOut(BaseModel):
     id: str
     nome: str

@@ -1,4 +1,6 @@
+import { useRef } from "react";
 import { NavLink, Outlet } from "react-router-dom";
+import { BotoesExportar, ProvedorExportacao } from "./Exportacao";
 import { SeletorInvestidor } from "./SeletorInvestidor";
 
 export const PAGINAS = [
@@ -17,6 +19,15 @@ export const PAGINAS = [
 ] as const;
 
 export function Layout() {
+  return (
+    <ProvedorExportacao>
+      <Estrutura />
+    </ProvedorExportacao>
+  );
+}
+
+function Estrutura() {
+  const conteudo = useRef<HTMLElement>(null);
   return (
     <div className="app">
       <aside className="menu">
@@ -37,9 +48,10 @@ export function Layout() {
       </aside>
       <div className="principal">
         <header className="topo">
+          <BotoesExportar alvo={conteudo} />
           <SeletorInvestidor />
         </header>
-        <main className="conteudo">
+        <main className="conteudo" ref={conteudo}>
           <Outlet />
         </main>
       </div>
