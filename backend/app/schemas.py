@@ -526,6 +526,45 @@ class TarefaOut(BaseModel):
     proxima: datetime | None
 
 
+class FonteFundamentosOut(BaseModel):
+    id: str
+    nome: str
+    disponivel: bool
+    motivo: str | None
+
+
+class FundamentoOut(BaseModel):
+    ticker: str
+    classe: str
+    data_ref: date
+    fonte: str
+    preco_lucro: Num | None
+    preco_valor_patrimonial: Num | None
+    dividend_yield: Num | None
+    psr: Num | None
+    roe: Num | None
+    roic: Num | None
+    margem_bruta: Num | None
+    margem_ebit: Num | None
+    margem_liquida: Num | None
+    liquidez_corrente: Num | None
+    liquidez_media_2m: Num | None
+    patrimonio_liquido: Num | None
+    valor_mercado: Num | None
+    divida_liquida_patrimonio: Num | None
+    crescimento_receita_5a: Num | None
+    segmento_fii: str | None
+    fii_dividendos_meses_12m: int | None
+    fii_dividend_yield_2a: Num | None
+    fii_dividendos_meses_2a: int | None
+    fii_ffo_yield: Num | None
+    fii_liquidez: Num | None
+    fii_area_m2: Num | None
+    fii_preco_m2: Num | None
+    fii_numero_imoveis: int | None
+    fii_numero_unidades: int | None
+
+
 class Pagina(BaseModel, Generic[T]):
     total: int
     itens: list[T]
