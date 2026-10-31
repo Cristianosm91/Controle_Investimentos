@@ -2,12 +2,14 @@ from datetime import date, timedelta
 from decimal import Decimal as D
 
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 from app.db import Base
 from app.models import Ativo, Cotacao, Fundamento, Investidor, Operacao
+from app.providers import fundamentus
+from app.providers.base import CotacaoAtual
 from app.services import valuation
 from app.services.rentabilidade import fim_do_mes
 
@@ -166,3 +168,119 @@ def test_mediana_usa_apenas_modelos_calculaveis():
     assert valuation._mediana([D("10"), D("20"), D("30")]) == D("20")
     assert valuation._mediana([D("10"), D("20"), D("30"), D("40")]) == D("25")
     assert valuation._mediana([]) is None
+
+
+def test_historico_mantem_ultimo_calculo_e_os_dois_anteriores(cliente: TestClient):
+    ativo = cliente.post("/api/ativos", json={"ticker": "ABCD3", "classe": "AÇÃO"}).json()
+    outro = cliente.post("/api/ativos", json={"ticker": "EFGH3", "classe": "AÇÃO"}).json()
+    entrada = {campo: float(valor) if valor is not None else None for campo, valor in premissas_teste().items()}
+    assert cliente.get("/api/valuation/historico").json() == []
+
+    for bazin in (1, 2, 3, 4):
+        dados = {**entrada, "dividendo_anual": bazin * 0.6, "fcfe_1": None}
+        assert cliente.put(f"/api/valuation/{ativo['id']}/premissas", json=dados).status_code == 200
+    cliente.put(f"/api/valuation/{outro['id']}/premissas", json=entrada)
+    cliente.get(f"/api/valuation/{ativo['id']}")
+
+    lista = cliente.get("/api/valuation/historico").json()
+
+    assert {item["ticker"] for item in lista} == {"ABCD3", "EFGH3"}
+    abcd = next(item for item in lista if item["ticker"] == "ABCD3")
+    assert len(abcd["calculos"]) == 3
+    assert [c["modelos"]["bazin"] for c in abcd["calculos"]] == [40, 30, 20]
+    assert abcd["calculos"][0]["modelos"]["dcf_fcfe"] is None
+    assert abcd["calculos"][0]["modelos_disponiveis"] == 6
+    assert abcd["calculos"][0]["preco_mediano"] is not None
+    assert abcd["calculos"][0]["cotacao"] is None and abcd["upside_atual"] is None
+
+    assert cliente.delete(f"/api/valuation/{ativo['id']}/historico").status_code == 204
+    assert [item["ticker"] for item in cliente.get("/api/valuation/historico").json()] == ["EFGH3"]
+
+
+def test_historico_calcula_upside_na_data_e_atual():
+    engine = create_engine("sqlite://", poolclass=StaticPool)
+    Base.metadata.create_all(engine)
+    with Session(engine) as sessao:
+        ativo = Ativo(ticker="ABCD3", classe="AÇÃO", moeda="BRL")
+        sessao.add(ativo)
+        sessao.flush()
+        hoje = date.today()
+        sessao.add(Cotacao(ativo_id=ativo.id, data=hoje - timedelta(days=1), preco=D("10"), fonte="teste"))
+        sessao.flush()
+        premissas = {campo: None for campo in premissas_teste()}
+        valuation.salvar_premissas(sessao, ativo.id, {**premissas, "dividendo_anual": D("1.2")}, None)
+        sessao.add(Cotacao(ativo_id=ativo.id, data=hoje, preco=D("16"), fonte="teste"))
+        sessao.commit()
+
+        [item] = valuation.historico(sessao)
+
+        assert item["calculos"][0]["preco_mediano"] == D("20")
+        assert item["calculos"][0]["cotacao"] == D("10")
+        assert item["calculos"][0]["upside"] == D("1")
+        assert item["cotacao"] == D("16")
+        assert item["upside_atual"] == D("0.25")
+    engine.dispose()
+
+
+class _ProvedorFalso:
+    nome = "falso"
+
+    def __init__(self, precos: dict[str, D]):
+        self.precos = precos
+        self.consultados: list[str] = []
+
+    def cotacoes(self, ativos):
+        self.consultados += [a.ticker for a in ativos]
+        return {
+            a.ticker: CotacaoAtual(a.ticker, self.precos[a.ticker], None, date.today(), "falso")
+            for a in ativos
+            if a.ticker in self.precos
+        }
+
+    def cambios(self, moedas):
+        return {}
+
+
+def test_preparar_ativo_cadastra_ticker_digitado_e_busca_cotacao_e_fundamentos(monkeypatch):
+    engine = create_engine("sqlite://", poolclass=StaticPool)
+    Base.metadata.create_all(engine)
+    with Session(engine) as sessao:
+        sessao.add(Ativo(ticker="OUTR3", classe="AÇÃO", moeda="BRL", mercado="BVMF"))
+        sessao.commit()
+        monkeypatch.setattr(
+            fundamentus, "buscar_acoes",
+            lambda _cliente: {"NOVO3": {"preco_lucro": D("10")}, "OUTR3": {"preco_lucro": D("5")}},
+        )
+        provedor = _ProvedorFalso({"NOVO3": D("20")})
+
+        resultado = valuation.preparar_ativo(sessao, "NOVO3", "AÇÃO", [provedor], cliente_fundamentos=object())
+
+        assert resultado["criado"] is True and resultado["avisos"] == []
+        assert provedor.consultados == ["NOVO3"]
+        detalhe = valuation.consultar(sessao, resultado["ativo_id"], None)
+        assert detalhe["cotacao"] == D("20")
+        assert detalhe["premissas"]["lpa"] == D("2")
+        assert sessao.scalar(select(func.count()).select_from(Fundamento)) == 1
+
+        repeticao = valuation.preparar_ativo(sessao, "NOVO3", "AÇÃO", [provedor], cliente_fundamentos=object())
+        assert repeticao == {**resultado, "criado": False}
+        assert provedor.consultados == ["NOVO3"]
+    engine.dispose()
+
+
+def test_preparar_ativo_avisa_quando_fontes_nao_encontram_o_ticker(monkeypatch):
+    engine = create_engine("sqlite://", poolclass=StaticPool)
+    Base.metadata.create_all(engine)
+    with Session(engine) as sessao:
+        monkeypatch.setattr(fundamentus, "buscar_acoes", lambda _cliente: {})
+
+        resultado = valuation.preparar_ativo(sessao, "XPTO3", "AÇÃO", [_ProvedorFalso({})], object())
+
+        assert resultado["criado"] is True
+        assert len(resultado["avisos"]) == 2
+        assert sessao.get(Ativo, resultado["ativo_id"]).ticker == "XPTO3"
+    engine.dispose()
+
+
+def test_endpoint_preparar_ativo_valida_ticker(cliente: TestClient):
+    assert cliente.post("/api/valuation/ativo", json={"ticker": "a b"}).status_code == 422

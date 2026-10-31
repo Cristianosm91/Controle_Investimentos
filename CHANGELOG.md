@@ -7,6 +7,14 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 ## [Não lançado]
 
 ### Adicionado
+- Valuation: campo de ticker livre — qualquer ticker B3 digitado é cadastrado e já recebe cotação e fundamentos.
+- Valuations salvos: nova tela com o último preço justo de cada ativo calculado e os dois cálculos anteriores
+  (data, cotação no momento, diferença então e hoje, preço por modelo); "Calcular e salvar" registra o histórico.
+- Portfólio: botão "🧮 Valuation" em cada posição abre a calculadora já com o ativo selecionado.
+- Portfólio: seletor "Valuation" (oculto por padrão) mostra o preço justo salvo — mediana, um modelo ou todos —
+  com a diferença para a cotação; clicar no valor ou em "▾ Modelos" abre todos os modelos do ativo.
+- Portfólio: filtro de classes de ativo (exibir só uma ou algumas, ou excluir uma); cards, pesos e exposições
+  passam a considerar apenas as classes visíveis.
 - Portfólio: "Outros" nas exposições é clicável e mostra todos os itens ("Mostrar menos" recolhe).
 - Gráficos e barras de exposição: dica flutuante acima do cursor com o valor exato do ponto/barra.
 - Rentabilidade: aviso com botão "Carregar histórico de cotações" quando há meses sem cotação histórica.

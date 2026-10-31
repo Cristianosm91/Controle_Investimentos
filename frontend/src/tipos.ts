@@ -310,6 +310,27 @@ export interface Valuation {
   };
 }
 
+export interface CalculoValuation {
+  calculado_em: string;
+  cotacao: number | null;
+  preco_mediano: number | null;
+  upside: number | null;
+  modelos_disponiveis: number;
+  modelos: Record<ModeloValuation["id"], number | null>;
+}
+
+export interface HistoricoValuation {
+  ativo_id: number;
+  ticker: string;
+  nome: string | null;
+  classe: string;
+  moeda: string;
+  cotacao: number | null;
+  cotacao_data: string | null;
+  upside_atual: number | null;
+  calculos: CalculoValuation[];
+}
+
 export interface Corretora {
   id: number;
   nome: string;

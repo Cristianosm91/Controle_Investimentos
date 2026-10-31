@@ -292,6 +292,27 @@ class ValuationPremissa(Base):
     atualizado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
+class ValuationHistorico(Base):
+    """Resultado de cada cálculo de valuation salvo; mantém só os mais recentes por ativo."""
+
+    __tablename__ = "valuation_historico"
+    __table_args__ = (Index("ix_valuation_historico_ativo", "ativo_id", "calculado_em"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    ativo_id: Mapped[int] = mapped_column(ForeignKey("ativo.id", ondelete="CASCADE"))
+    calculado_em: Mapped[datetime] = mapped_column(DateTime)
+    cotacao: Mapped[Decimal | None] = mapped_column(Valor)
+    preco_mediano: Mapped[Decimal | None] = mapped_column(Valor)
+    modelos_disponiveis: Mapped[int] = mapped_column(default=0)
+    graham: Mapped[Decimal | None] = mapped_column(Valor)
+    bazin: Mapped[Decimal | None] = mapped_column(Valor)
+    dcf_fcfe: Mapped[Decimal | None] = mapped_column(Valor)
+    gordon: Mapped[Decimal | None] = mapped_column(Valor)
+    pl_historico: Mapped[Decimal | None] = mapped_column(Valor)
+    pl_setor: Mapped[Decimal | None] = mapped_column(Valor)
+    pvp_justificado: Mapped[Decimal | None] = mapped_column(Valor)
+
+
 class IndiceMensal(Base):
     __tablename__ = "indice_mensal"
 

@@ -941,6 +941,54 @@ class ValuationOut(BaseModel):
     rentabilidade: RentabilidadeValuationOut
 
 
+class ValuationAtivoIn(BaseModel):
+    ticker: str = Field(pattern=r"^[A-Z0-9]{4,16}$")
+    classe: Literal["AÇÃO", "FII", "FIAGRO"] = "AÇÃO"
+
+    @field_validator("ticker", mode="before")
+    @classmethod
+    def _ticker(cls, valor: str) -> str:
+        return valor.strip().upper()
+
+
+class ValuationAtivoOut(BaseModel):
+    ativo_id: int
+    ticker: str
+    criado: bool
+    avisos: list[str]
+
+
+class ModelosHistoricoValuationOut(BaseModel):
+    graham: Num | None
+    bazin: Num | None
+    dcf_fcfe: Num | None
+    gordon: Num | None
+    pl_historico: Num | None
+    pl_setor: Num | None
+    pvp_justificado: Num | None
+
+
+class CalculoValuationOut(BaseModel):
+    calculado_em: datetime
+    cotacao: Num | None
+    preco_mediano: Num | None
+    upside: Num | None
+    modelos_disponiveis: int
+    modelos: ModelosHistoricoValuationOut
+
+
+class HistoricoValuationOut(BaseModel):
+    ativo_id: int
+    ticker: str
+    nome: str | None
+    classe: str
+    moeda: str
+    cotacao: Num | None
+    cotacao_data: date | None
+    upside_atual: Num | None
+    calculos: list[CalculoValuationOut]
+
+
 class Pagina(BaseModel, Generic[T]):
     total: int
     itens: list[T]
