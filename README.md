@@ -44,12 +44,18 @@ O **InvestHub+** substitui planilhas de controle de investimentos (Google Sheets
 | **Portfólio** | Posições abertas com quantidade, preço médio, cotação, valor investido/mercado, lucro do dia, lucro aberto, proventos e peso. Tabela ordenável, agrupamento por estratégia, book, carteira, classe ou setor com subtotais, gráficos de exposição (book, classe, setor, ativo), visão consolidada ou separada por investidor e, opcionalmente, saldo em caixa somado ao patrimônio. |
 | **Operações** | Lançamento, edição e exclusão pela interface; histórico com filtros por ticker e período; compra, venda, day trade e eventos societários. Câmbio preenchido automaticamente pela PTAX; em ativos personalizados, o preço vem da cota da data. |
 | **Proventos** | Lançamento, edição e exclusão de dividendos, JCP, rendimentos, bonificações e amortizações, com IRRF e conversão cambial. Matriz mensal ano × mês e ativo × mês. |
+| **Aluguel (BTC)** | Remuneração bruta, taxa de intermediação, IRRF e líquido do aluguel de ações (doador) por ativo e por mês, com filtro de ano; lista e cadastro dos lançamentos; importação do extrato da conta da corretora (.xlsx/.csv) com prévia e detecção de duplicidade. |
 | **Caixa** | Aportes, saques, créditos e débitos por investidor e corretora, com saldo por corretora e moeda. A partir de uma data configurável, compras, vendas, amortizações e proventos líquidos movimentam o saldo automaticamente. |
 | **Alocação** | Peso-alvo (estratégia × book × peso do ativo na carteira) × atual por estratégia, book e ativo; simulador de aporte (só comprar ou rebalanceamento completo, respeitando o preço-teto) com valor e quantidade sugeridos. |
+| **Radar** | Watchlist de ativos da B3 (com ou sem posição): cotação, fundamentos (Fundamentus), variações de 1/7/14 dias, drawdown de 60 dias, faixa de 52 semanas, estimativa de Graham e YoC. |
+| **Status do ativo** | Drill-down por ativo, carteira ou book: investido, mercado, lucro aberto, proventos 12 meses, YoC, trades swing/day trade, distribuição do resultado e linha do tempo de operações e proventos. |
+| **Valuation** | Graham, Bazin, DCF (FCFE 5 anos), Gordon, P/L histórico e setorial e P/VP justificado, com premissas editáveis salvas por ativo; TIR/XIRR e TWR mensal do ativo. Não é recomendação de investimento. |
 | **Imposto de Renda** | Apuração mensal por CPF (ações, BDR, ETF, opções, day trade, FII) com isenção de R$ 20 mil, compensação de prejuízo por grupo, abatimento de IRRF e DARF 6015 com acúmulo abaixo de R$ 10; registro de DARFs pagos; exterior (GCAP até 2023, anual pela Lei 14.754/2023 desde 2024); relatório de apoio à DIRPF com exportação CSV e impressão/PDF. |
-| **Configurações** | Investidores, estratégias e books (com classe → book e exceções por ativo), carteiras (peso-alvo, preço-teto, ranking), ativos personalizados (renda fixa com rendimento por CDI/SELIC/IPCA/IGP-M/prefixado ou saldo manual), parâmetros, imposto de renda (regras fiscais com vigência, prejuízo inicial) e status das atualizações. |
+| **Configurações** | Investidores, estratégias e books (com classe → book e exceções por ativo), carteiras (peso-alvo, preço-teto, ranking), ativos personalizados (renda fixa com rendimento por CDI/SELIC/IPCA/IGP-M/prefixado ou saldo manual), parâmetros, imposto de renda (regras fiscais com vigência, prejuízo inicial), status das atualizações e backup. |
 | **Cotações** | Atualização automática no pregão (Yahoo Finance, B3 e EUA), fechamento oficial da B3 (COTAHIST) e câmbio pela PTAX do Banco Central. Histórico diário desde a primeira operação. Status das atualizações em Configurações. |
-| **Importação** | Importa a planilha de controle existente (`.xlsx`) de forma idempotente e concilia o resultado com os valores calculados pela própria planilha. |
+| **Importação** | Importa a planilha de controle existente (`.xlsx`) de forma idempotente e concilia o resultado com os valores calculados pela própria planilha. Importa os relatórios **Negociação** e **Movimentação** da Área do Investidor da B3 (botão *Importar extrato B3* em Operações e Proventos). |
+| **Exportação** | Botões **CSV** e **XLSX** no topo de todas as páginas: exportam as tabelas visíveis (uma aba por tabela no XLSX, com moeda, percentual, número e data tipados); listas paginadas saem completas, com o filtro atual. |
+| **Backup** | Backup automático diário (mantém os 10 mais recentes) e manual em `%LOCALAPPDATA%\InvestHub\backups`; download e restauração validada (cópia do banco atual antes de restaurar e migração automática de backups antigos). |
 | **Cripto** | Busca no catálogo CoinGecko, vínculo por identificador canônico, preços USD/BRL, variações 24h/7d/30d, capitalização, histórico e posições. CoinGecko principal; Kraken como fallback somente de preço para moedas com vínculo verificado. Monitor mensal de vendas/ganhos por investidor, sem calcular imposto ou DARF. |
 
 #### Cripto: fontes e limites
@@ -61,9 +67,18 @@ O **InvestHub+** substitui planilhas de controle de investimentos (Google Sheets
 - Valores monetários persistidos têm oito casas decimais; preços que arredondariam a zero não são gravados. Capitalização usa precisão ampliada.
 - O monitor soma vendas brutas de todas as criptos **por investidor**, incluindo taxas no cálculo dos ganhos/perdas e custo histórico anterior ao ano. O limite de R$ 35 mil é apenas referência: **não confirma isenção**, não classifica custódia/regime fiscal e não altera P10. A apuração existente de exterior permanece independente; consulte orientação fiscal.
 - Execute `python -m alembic upgrade head` antes de iniciar a versão com cripto.
+
+#### Extrato da B3: o que é importado
+
+- **Negociação** → compras e vendas (mercado à vista, fracionário — o sufixo `F` é removido — e opções). Compra e venda do mesmo ativo no dia com quantidades iguais é marcada como day trade; quantidades diferentes ficam como *Verificar*. Termo, futuro e exercício de opções não são importados.
+- **Movimentação** → dividendos, JCP (valor líquido creditado), rendimentos, amortizações (reduzem o custo) e desdobramentos. Liquidações, aluguel (BTC), Tesouro Direto e eventos que exigem dados ausentes no relatório (grupamento, bonificação, incorporação, subscrição, frações) aparecem como *Não importado*, com o motivo.
+- O relatório é de um CPF: escolha o investidor. A B3 não informa corretagem/emolumentos — as taxas entram zeradas.
+- Duplicidade: a soma diária por ativo e evento é comparada com o que já existe (planilha, digitação ou importação anterior); igual = *Já existe*, diferente = *Verificar* (importa só se marcado). Reimportar o mesmo arquivo não duplica.
+- Ativos e corretoras ausentes são cadastrados; a classe é deduzida do ticker/nome do produto — confira em Configurações.
+
 ### Em desenvolvimento
 
-Radar/watchlist, criptomoedas e valuation. Veja o [plano de desenvolvimento](PLANO_DESENVOLVIMENTO.md).
+Opcionais da Fase 6 (autenticação para uso em rede, relatório diário por e-mail, PWA). Veja o [plano de desenvolvimento](PLANO_DESENVOLVIMENTO.md).
 
 ---
 
