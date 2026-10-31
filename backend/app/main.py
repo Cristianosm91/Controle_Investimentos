@@ -31,7 +31,7 @@ from .api import (
     valuation,
 )
 from .config import RAIZ_PROJETO, settings
-from .seguranca import OrigemLocalMiddleware
+from .seguranca import CabecalhosSegurancaMiddleware, OrigemLocalMiddleware
 from .services import jobs
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -46,9 +46,10 @@ async def ciclo_de_vida(_app: FastAPI):
 
 
 app = FastAPI(title="InvestHub+", version=__version__, lifespan=ciclo_de_vida)
-# O último adicionado roda primeiro: Host é validado antes da origem.
+# O último adicionado roda primeiro: Host é validado antes da origem; os cabeçalhos valem para todas as respostas.
 app.add_middleware(OrigemLocalMiddleware, hosts_permitidos=settings.hosts_permitidos)
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.hosts_permitidos)
+app.add_middleware(CabecalhosSegurancaMiddleware)
 
 for modulo in (
     cadastros, ativos, lancamentos, carteira, atualizacoes, rentabilidade, configuracoes, alocacao, ir, fundamentos, radar,

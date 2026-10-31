@@ -1,16 +1,57 @@
-"""Proteção da API local contra páginas de outros sites abertas no navegador (CSRF e DNS rebinding).
+"""Proteção da API local contra páginas de outros sites abertas no navegador (CSRF, DNS rebinding e clickjacking).
 
 A API só escuta em 127.0.0.1, mas o navegador do usuário alcança esse endereço a partir de qualquer site.
 """
 
+import io
+import zipfile
 from urllib.parse import urlsplit
 
-from starlette.datastructures import Headers
+from starlette.datastructures import Headers, MutableHeaders
 from starlette.responses import JSONResponse
-from starlette.types import ASGIApp, Receive, Scope, Send
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 METODOS_SEGUROS = frozenset({"GET", "HEAD", "OPTIONS"})
 _SEC_FETCH_CONFIAVEIS = frozenset({"same-origin", "none"})
+
+# Teto do conteúdo expandido de planilhas enviadas e de linhas lidas (relatórios reais ficam muito abaixo).
+DESCOMPACTADO_MAXIMO = 200 * 1024 * 1024
+LINHAS_MAXIMAS = 100_000
+
+CABECALHOS_SEGURANCA = {
+    "X-Frame-Options": "DENY",
+    "Content-Security-Policy": "frame-ancestors 'none'; object-src 'none'; base-uri 'self'",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+    "Cross-Origin-Resource-Policy": "same-origin",
+}
+
+
+class CabecalhosSegurancaMiddleware:
+    """Impede que outros sites enquadrem a interface (clickjacking) ou embutam respostas da API."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        async def enviar(mensagem: Message) -> None:
+            if mensagem["type"] == "http.response.start":
+                cabecalhos = MutableHeaders(scope=mensagem)
+                for nome, valor in CABECALHOS_SEGURANCA.items():
+                    cabecalhos.setdefault(nome, valor)
+            await send(mensagem)
+
+        await self.app(scope, receive, enviar)
+
+
+def tamanho_descompactado_excedido(conteudo: bytes, limite: int = DESCOMPACTADO_MAXIMO) -> bool:
+    """True se o ZIP (ex.: .xlsx) expandiria além do limite — evita bombas de descompressão."""
+    with zipfile.ZipFile(io.BytesIO(conteudo)) as arquivo:
+        return sum(info.file_size for info in arquivo.infolist()) > limite
 
 
 class OrigemLocalMiddleware:

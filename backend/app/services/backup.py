@@ -179,12 +179,17 @@ def validar(arquivo: Path) -> str:
             raise BackupInvalido("O arquivo não é um banco SQLite.")
     try:
         with closing(sqlite3.connect(f"{arquivo.as_uri()}?mode=ro", uri=True)) as con:
+            # Arquivo não confiável: funções em views/triggers dele não podem rodar durante a validação.
+            con.execute("PRAGMA trusted_schema = OFF")
             integridade = con.execute("PRAGMA integrity_check").fetchone()[0]
             if integridade != "ok":
                 raise BackupInvalido(f"Banco corrompido: {integridade}")
             tabelas = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
             if not {"alembic_version", "investidor", "ativo", "operacao"} <= tabelas:
                 raise BackupInvalido("O arquivo não é um backup do InvestHub+.")
+            # O app não cria triggers nem views: num backup, só serviriam para alterar dados às escondidas.
+            if con.execute("SELECT 1 FROM sqlite_master WHERE type IN ('trigger', 'view') LIMIT 1").fetchone():
+                raise BackupInvalido("O backup contém triggers ou views que o InvestHub+ não cria.")
             linha = con.execute("SELECT version_num FROM alembic_version").fetchone()
     except sqlite3.DatabaseError as erro:
         raise BackupInvalido(f"Não foi possível ler o banco: {erro}") from erro

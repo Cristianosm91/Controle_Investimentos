@@ -36,8 +36,17 @@ def obter_ou_404(sessao: Session, modelo, id_: int):
     return obj
 
 
+def exigir_binario(request: Request) -> None:
+    """Uploads só como application/octet-stream: tipo fora da lista "simples" do CORS, o navegador não o envia
+    de outro site sem preflight (que a API recusa)."""
+    tipo = request.headers.get("content-type", "").split(";")[0].strip().lower()
+    if tipo != "application/octet-stream":
+        raise HTTPException(415, "Envie o arquivo como application/octet-stream")
+
+
 async def ler_corpo(request: Request, limite: int) -> bytes:
     """Lê o corpo bruto (upload de arquivo) recusando o que passar do limite antes de carregar tudo."""
+    exigir_binario(request)
     declarado = request.headers.get("content-length")
     mensagem = f"Arquivo maior que {limite // (1024 * 1024)} MB"
     if declarado and declarado.isdigit() and int(declarado) > limite:

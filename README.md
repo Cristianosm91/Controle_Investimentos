@@ -637,7 +637,11 @@ A lista completa, com esquemas de entrada e saída, está no Swagger (`/docs`).
 
 ## Testes e qualidade
 
+As ferramentas de teste e lint ficam em `backend/requirements-dev.txt` (o `iniciar.bat` instala só as dependências
+da aplicação). Todas as versões são fixadas; para atualizar uma, altere o arquivo, reinstale e rode `lint.bat`.
+
 ```powershell
+.\.venv\Scripts\python.exe -m pip install -r backend\requirements-dev.txt
 cd backend
 ..\.venv\Scripts\python.exe -m pytest -q
 ```
@@ -731,6 +735,8 @@ Provavelmente há outra instância rodando. Feche-a com `Ctrl+C` no terminal del
 - As únicas chamadas externas são consultas públicas de cotação (tickers e moedas).
 - A API escuta apenas em `127.0.0.1`.
 - A API recusa requisições com cabeçalho `Host` desconhecido e gravações vindas de outros sites abertos no navegador (proteção contra CSRF e *DNS rebinding*).
+- Uploads só são aceitos como `application/octet-stream`, e as respostas proíbem que outros sites enquadrem a interface (`X-Frame-Options`/CSP `frame-ancestors`) ou embutam a API.
+- Planilhas enviadas são recusadas se expandirem além de 200 MB ou passarem de 100 mil linhas; backups com triggers ou views (que o app não cria) não são restaurados.
 - CPF é exibido sempre mascarado na interface.
 - Planilhas, banco de dados e arquivos `.env` estão no `.gitignore`.
 

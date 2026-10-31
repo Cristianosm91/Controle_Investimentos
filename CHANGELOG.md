@@ -34,6 +34,11 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 ### Corrigido
 - Segurança: a API recusa `Host` desconhecido (400) e gravações cuja origem é outro site (403), impedindo que
   páginas abertas no navegador desfaçam importações, restaurem backups ou leiam dados via *DNS rebinding*.
+- Segurança: uploads exigem `application/octet-stream` (415 caso contrário); respostas trazem `X-Frame-Options`,
+  CSP `frame-ancestors 'none'`, `nosniff`, `Referrer-Policy` e `Cross-Origin-Resource-Policy`; planilhas que
+  expandem além de 200 MB ou passam de 100 mil linhas são recusadas; backups com triggers ou views não são
+  restaurados.
+- Dependências Python fixadas nas versões testadas; `pytest` e `ruff` passam para `backend/requirements-dev.txt`.
 - "Carregar histórico de cotações" disparado duas vezes seguidas não roda mais duas cargas em paralelo.
 - Uploads de extrato/aluguel/backup não bloqueiam mais as demais requisições durante consultas ao banco ou gravação
   do arquivo.

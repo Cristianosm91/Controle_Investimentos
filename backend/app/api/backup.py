@@ -11,6 +11,7 @@ from ..config import settings
 from ..db import engine
 from ..schemas import BackupOut, BackupsOut, RestauracaoOut
 from ..services import backup, jobs
+from .deps import exigir_binario
 
 router = APIRouter(tags=["backup"])
 
@@ -83,6 +84,7 @@ def restaurar_backup(nome: str):
 @router.post("/backups/restaurar-arquivo", response_model=RestauracaoOut)
 async def restaurar_arquivo(request: Request):
     banco = _banco()
+    exigir_binario(request)
     declarado = request.headers.get("content-length")
     if declarado and declarado.isdigit() and int(declarado) > backup.TAMANHO_MAXIMO:
         raise HTTPException(413, "Arquivo maior que 200 MB")

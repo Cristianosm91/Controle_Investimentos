@@ -15,12 +15,14 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
+from itertools import islice
 
 from openpyxl import load_workbook
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..models import Ativo, Corretora, Investidor, LoteImportacao, Operacao, Provento
+from ..seguranca import LINHAS_MAXIMAS, tamanho_descompactado_excedido
 from . import lotes
 
 ORIGEM = "b3"
@@ -152,6 +154,12 @@ def _ler_planilha(conteudo: bytes) -> list[tuple]:
     if not zipfile.is_zipfile(io.BytesIO(conteudo)):
         raise ExtratoInvalido("O arquivo não é uma planilha .xlsx (exporte o relatório da B3 em Excel).")
     try:
+        excedido = tamanho_descompactado_excedido(conteudo)
+    except zipfile.BadZipFile as erro:
+        raise ExtratoInvalido("Planilha .xlsx corrompida") from erro
+    if excedido:
+        raise ExtratoInvalido("Planilha grande demais quando descompactada")
+    try:
         livro = load_workbook(io.BytesIO(conteudo), read_only=True, data_only=True)
     except Exception as erro:
         raise ExtratoInvalido(f"Não foi possível abrir a planilha: {erro}") from erro
@@ -159,9 +167,12 @@ def _ler_planilha(conteudo: bytes) -> list[tuple]:
         planilha = livro.worksheets[0]
         # A B3 grava a dimensão como "A1": sem isto o modo read_only lê só a primeira linha.
         planilha.reset_dimensions()
-        return [tuple(linha) for linha in planilha.iter_rows(values_only=True)]
+        linhas = [tuple(linha) for linha in islice(planilha.iter_rows(values_only=True), LINHAS_MAXIMAS + 1)]
     finally:
         livro.close()
+    if len(linhas) > LINHAS_MAXIMAS:
+        raise ExtratoInvalido(f"Planilha com mais de {LINHAS_MAXIMAS} linhas: divida o período do relatório")
+    return linhas
 
 
 def _mapear_cabecalho(linhas: list[tuple]) -> tuple[str, int, dict[str, int]]:

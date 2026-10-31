@@ -1,0 +1,4 @@
+# Ferramentas de desenvolvimento (testes e lint), alem das dependencias da aplicacao.
+-r requirements.txt
+pytest==9.2.0
+ruff==0.17.3
