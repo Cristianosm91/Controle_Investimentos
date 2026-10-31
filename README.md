@@ -144,6 +144,10 @@ dev.bat
 
 Sobe a API com *reload* em `:8000` e o Vite com *hot reload* em `http://127.0.0.1:5173` (proxy de `/api` para o backend).
 
+### Parar o backend
+
+No terminal em que a API está rodando, pressione `Ctrl+C`. Como alternativa, execute `parar.bat`: ele localiza processos que executam `uvicorn app.main:app`, independentemente da porta, e pede confirmação antes de encerrar cada processo. Se houver mais de um processo Uvicorn com esse mesmo alvo, confira o PID antes de confirmar. O terminal aberto pelo `dev.bat` pode continuar aberto depois que a API parar.
+
 ### Configuração
 
 Copie `.env.example` para `.env` se quiser alterar o padrão:
