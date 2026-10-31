@@ -1,4 +1,4 @@
-import { useState, type MouseEvent } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { mesAno } from "../formato";
 
 export interface SerieGrafico {
@@ -8,18 +8,62 @@ export interface SerieGrafico {
   tracejada?: boolean;
 }
 
-const LARGURA = 800;
+const LARGURA_INICIAL = 800;
 const MARGEM = { topo: 12, direita: 30, base: 26, esquerda: 70 };
 
-function escala(min: number, max: number) {
-  if (min === max) return { min: min - 1, max: max + 1 };
-  const folga = (max - min) * 0.06;
-  return { min: min - folga, max: max + folga };
+function useLarguraGrafico(ativo: boolean) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [largura, setLargura] = useState(LARGURA_INICIAL);
+
+  useEffect(() => {
+    if (!ativo) return;
+    const elemento = ref.current;
+    if (!elemento) return;
+
+    const atualizar = () => {
+      const novaLargura = Math.round(elemento.clientWidth);
+      if (novaLargura > 0) setLargura(novaLargura);
+    };
+
+    atualizar();
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", atualizar);
+      return () => window.removeEventListener("resize", atualizar);
+    }
+
+    const observador = new ResizeObserver(atualizar);
+    observador.observe(elemento);
+    return () => observador.disconnect();
+  }, [ativo]);
+
+  return { ref, largura };
 }
 
-function marcas(min: number, max: number, n = 5): number[] {
-  const passo = (max - min) / (n - 1);
-  return Array.from({ length: n }, (_, i) => min + passo * i);
+function passoRedondo(bruto: number): number {
+  const potencia = 10 ** Math.floor(Math.log10(bruto));
+  const fracao = bruto / potencia;
+  return (fracao >= Math.sqrt(50) ? 10 : fracao >= Math.sqrt(10) ? 5 : fracao >= Math.sqrt(2) ? 2 : 1) * potencia;
+}
+
+/** Eixo com marcas em valores redondos; não cruza o zero quando todos os dados estão do mesmo lado. */
+function escala(minDados: number, maxDados: number, alvoMarcas = 5) {
+  let min = minDados;
+  let max = maxDados;
+  if (min === max) {
+    const folga = Math.abs(min) * 0.1 || 1;
+    min = min >= 0 ? Math.max(0, min - folga) : min - folga;
+    max = max <= 0 ? Math.min(0, max + folga) : max + folga;
+  }
+  const passo = passoRedondo((max - min) / (alvoMarcas - 1));
+  const inicio = Math.floor(min / passo) * passo;
+  const fim = Math.ceil(max / passo) * passo;
+  const marcas: number[] = [];
+  const total = Math.round((fim - inicio) / passo);
+  for (let i = 0; i <= total; i++) {
+    const v = inicio + i * passo;
+    marcas.push(Math.abs(v) < passo / 1e6 ? 0 : v);
+  }
+  return { min: inicio, max: fim, marcas };
 }
 
 /** Índices dos rótulos do eixo X, no máximo ~8 para não sobrepor. */
@@ -39,13 +83,14 @@ interface PropsLinhas {
   zero?: boolean;
 }
 
-export function GraficoLinhas({ datas, series, formatar, altura = 260, zero = false }: PropsLinhas) {
+export function GraficoLinhas({ datas, series, formatar, altura = 210, zero = false }: PropsLinhas) {
   const [foco, setFoco] = useState<number | null>(null);
   const todos = series.flatMap((s) => s.valores.filter((v): v is number => v !== null));
+  const { ref, largura } = useLarguraGrafico(Boolean(datas.length && todos.length));
   if (!datas.length || !todos.length) return <p className="sutil">Sem dados para o período.</p>;
 
-  const { min, max } = escala(Math.min(...todos, ...(zero ? [0] : [])), Math.max(...todos, ...(zero ? [0] : [])));
-  const w = LARGURA - MARGEM.esquerda - MARGEM.direita;
+  const { min, max, marcas } = escala(Math.min(...todos, ...(zero ? [0] : [])), Math.max(...todos, ...(zero ? [0] : [])));
+  const w = largura - MARGEM.esquerda - MARGEM.direita;
   const h = altura - MARGEM.topo - MARGEM.base;
   const x = (i: number) => MARGEM.esquerda + (datas.length === 1 ? w / 2 : (i / (datas.length - 1)) * w);
   const y = (v: number) => MARGEM.topo + h - ((v - min) / (max - min)) * h;
@@ -66,24 +111,24 @@ export function GraficoLinhas({ datas, series, formatar, altura = 260, zero = fa
 
   const mover = (e: MouseEvent<SVGSVGElement>) => {
     const caixa = e.currentTarget.getBoundingClientRect();
-    const px = ((e.clientX - caixa.left) / caixa.width) * LARGURA;
+    const px = ((e.clientX - caixa.left) / caixa.width) * largura;
     const i = Math.round(((px - MARGEM.esquerda) / w) * (datas.length - 1));
     setFoco(Math.min(datas.length - 1, Math.max(0, i)));
   };
 
   return (
-    <div className="grafico">
-      <svg viewBox={`0 0 ${LARGURA} ${altura}`} onMouseMove={mover} onMouseLeave={() => setFoco(null)} role="img">
-        {marcas(min, max).map((v) => (
+    <div className="grafico" ref={ref}>
+      <svg viewBox={`0 0 ${largura} ${altura}`} onMouseMove={mover} onMouseLeave={() => setFoco(null)} role="img">
+        {marcas.map((v) => (
           <g key={v}>
-            <line x1={MARGEM.esquerda} x2={LARGURA - MARGEM.direita} y1={y(v)} y2={y(v)} className="grade" />
+            <line x1={MARGEM.esquerda} x2={largura - MARGEM.direita} y1={y(v)} y2={y(v)} className="grade" />
             <text x={MARGEM.esquerda - 6} y={y(v) + 4} textAnchor="end" className="eixo">
               {formatar(v)}
             </text>
           </g>
         ))}
         {zero && min < 0 && max > 0 && (
-          <line x1={MARGEM.esquerda} x2={LARGURA - MARGEM.direita} y1={y(0)} y2={y(0)} className="linha-zero" />
+          <line x1={MARGEM.esquerda} x2={largura - MARGEM.direita} y1={y(0)} y2={y(0)} className="linha-zero" />
         )}
         {rotulosX(datas.length).map((i) => (
           <text key={i} x={x(i)} y={altura - 6} textAnchor="middle" className="eixo">
@@ -96,8 +141,8 @@ export function GraficoLinhas({ datas, series, formatar, altura = 260, zero = fa
             d={caminho(s.valores)}
             fill="none"
             stroke={s.cor}
-            strokeWidth={2}
-            strokeDasharray={s.tracejada ? "5 4" : undefined}
+            strokeWidth={1.6}
+            strokeDasharray={s.tracejada ? "4 3" : undefined}
           />
         ))}
         {foco !== null && (
@@ -105,7 +150,7 @@ export function GraficoLinhas({ datas, series, formatar, altura = 260, zero = fa
             <line x1={x(foco)} x2={x(foco)} y1={MARGEM.topo} y2={MARGEM.topo + h} className="cursor" />
             {series.map((s) =>
               s.valores[foco] === null ? null : (
-                <circle key={s.nome} cx={x(foco)} cy={y(s.valores[foco]!)} r={3.5} fill={s.cor} />
+                <circle key={s.nome} cx={x(foco)} cy={y(s.valores[foco]!)} r={3} fill={s.cor} />
               ),
             )}
           </>
@@ -132,21 +177,22 @@ interface PropsBarras {
   altura?: number;
 }
 
-export function GraficoBarras({ datas, valores, formatar, cor = "var(--primaria)", altura = 200 }: PropsBarras) {
+export function GraficoBarras({ datas, valores, formatar, cor = "var(--primaria)", altura = 170 }: PropsBarras) {
   const [foco, setFoco] = useState<number | null>(null);
+  const { ref, largura: larguraTotal } = useLarguraGrafico(Boolean(valores.length));
   if (!valores.length) return <p className="sutil">Sem dados para o período.</p>;
-  const { min, max } = escala(Math.min(0, ...valores), Math.max(0, ...valores));
-  const w = LARGURA - MARGEM.esquerda - MARGEM.direita;
+  const { min, max, marcas } = escala(Math.min(0, ...valores), Math.max(0, ...valores), 4);
+  const w = larguraTotal - MARGEM.esquerda - MARGEM.direita;
   const h = altura - MARGEM.topo - MARGEM.base;
   const largura = w / valores.length;
   const y = (v: number) => MARGEM.topo + h - ((v - min) / (max - min)) * h;
 
   return (
-    <div className="grafico">
-      <svg viewBox={`0 0 ${LARGURA} ${altura}`} onMouseLeave={() => setFoco(null)} role="img">
-        {marcas(min, max, 4).map((v) => (
+    <div className="grafico" ref={ref}>
+      <svg viewBox={`0 0 ${larguraTotal} ${altura}`} onMouseLeave={() => setFoco(null)} role="img">
+        {marcas.map((v) => (
           <g key={v}>
-            <line x1={MARGEM.esquerda} x2={LARGURA - MARGEM.direita} y1={y(v)} y2={y(v)} className="grade" />
+            <line x1={MARGEM.esquerda} x2={larguraTotal - MARGEM.direita} y1={y(v)} y2={y(v)} className="grade" />
             <text x={MARGEM.esquerda - 6} y={y(v) + 4} textAnchor="end" className="eixo">
               {formatar(v)}
             </text>

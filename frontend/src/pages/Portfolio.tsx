@@ -32,7 +32,7 @@ function colunas(total: number, nomes: Map<number, string>, porInvestidor: boole
       render: (p) => (
         <div>
           <strong>{p.ticker}</strong>
-          <div className="sutil">{p.nome}</div>
+          <div className="sutil texto-limitado">{p.nome}</div>
         </div>
       ),
     },
@@ -111,7 +111,7 @@ function colunas(total: number, nomes: Map<number, string>, porInvestidor: boole
       valor: (p) => p.tir_aa,
       render: (p) => <Sinal valor={p.tir_aa}>{percentual(p.tir_aa)}</Sinal>,
     },
-    { chave: "subsetor", titulo: "Subsetor", valor: (p) => p.subsetor, render: (p) => <span className="sutil">{p.subsetor ?? "—"}</span> },
+    { chave: "subsetor", titulo: "Subsetor", valor: (p) => p.subsetor, render: (p) => <span className="sutil texto-limitado">{p.subsetor ?? "—"}</span> },
   ];
   if (porInvestidor) {
     lista.splice(1, 0, {

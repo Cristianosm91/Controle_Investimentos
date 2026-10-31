@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { api, query } from "../api";
 import type { Pagina } from "../tipos";
+import { CampoData } from "./CampoData";
 
 const POR_PAGINA = 100;
 
@@ -64,8 +65,8 @@ export function ListaPaginada<T>({
           {filtroTicker && (
             <input placeholder="Ticker" value={ticker} onChange={(e) => filtrar(() => setTicker(e.target.value.toUpperCase()))} />
           )}
-          <input type="date" value={inicio} onChange={(e) => filtrar(() => setInicio(e.target.value))} title="Data inicial" />
-          <input type="date" value={fim} onChange={(e) => filtrar(() => setFim(e.target.value))} title="Data final" />
+          <CampoData valor={inicio} aoMudar={(v) => filtrar(() => setInicio(v))} title="Data inicial" />
+          <CampoData valor={fim} aoMudar={(v) => filtrar(() => setFim(v))} title="Data final" />
           {cabecalho}
         </div>
       </div>

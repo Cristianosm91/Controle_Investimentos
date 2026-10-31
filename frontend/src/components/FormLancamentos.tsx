@@ -6,6 +6,7 @@ import { data as fmtData, moeda as fmtMoeda, numero } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
 import type { Ativo, Cota, MovCaixa, Operacao, Provento } from "../tipos";
 import { CampoAtivo, CampoCorretora, CampoEvento, CampoInvestidor, CamposMoedaCambio } from "./Campos";
+import { CampoData } from "./CampoData";
 import { Modal } from "./Modal";
 
 const hoje = () => new Date().toLocaleDateString("sv-SE"); // aaaa-mm-dd no fuso local
@@ -182,7 +183,7 @@ export function FormOperacao({ operacao, aoFechar }: { operacao?: Operacao; aoFe
       <CampoInvestidor valor={f.investidor_id} aoMudar={(v) => mudar({ investidor_id: v })} />
       <label>
         Data
-        <input required type="date" value={f.data} onChange={(e) => mudar({ data: e.target.value, cambioAuto: true })} />
+        <CampoData required valor={f.data} aoMudar={(v) => mudar({ data: v, cambioAuto: true })} />
       </label>
       <CampoAtivo
         ativoId={f.ativo_id}
@@ -322,16 +323,11 @@ export function FormProvento({ provento: p, aoFechar }: { provento?: Provento; a
       <CampoEvento tipo="eventos_provento" valor={f.evento} aoMudar={(v) => mudar({ evento: v })} />
       <label>
         Pagamento
-        <input
-          required
-          type="date"
-          value={f.data_pagamento}
-          onChange={(e) => mudar({ data_pagamento: e.target.value, cambioAuto: true })}
-        />
+        <CampoData required valor={f.data_pagamento} aoMudar={(v) => mudar({ data_pagamento: v, cambioAuto: true })} />
       </label>
       <label>
         Data com
-        <input type="date" value={f.data_com} onChange={(e) => mudar({ data_com: e.target.value })} />
+        <CampoData valor={f.data_com} aoMudar={(v) => mudar({ data_com: v })} />
       </label>
       <label>
         Valor bruto
@@ -414,7 +410,7 @@ export function FormCaixa({ mov, aoFechar }: { mov?: MovCaixa; aoFechar: () => v
       <CampoInvestidor valor={f.investidor_id} aoMudar={(v) => mudar({ investidor_id: v })} />
       <label>
         Data
-        <input required type="date" value={f.data} onChange={(e) => mudar({ data: e.target.value })} />
+        <CampoData required valor={f.data} aoMudar={(v) => mudar({ data: v })} />
       </label>
       <CampoEvento tipo="eventos_caixa" valor={f.evento} aoMudar={(v) => mudar({ evento: v })} />
       <label>

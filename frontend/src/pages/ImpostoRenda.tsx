@@ -3,6 +3,7 @@ import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { api, query } from "../api";
 import { Modal } from "../components/Modal";
+import { CampoData } from "../components/CampoData";
 import { SeletorInvestidorIR, useInvestidorIR } from "../components/SeletorInvestidorIR";
 import { invalidarDerivados, useAtivos, useDominio } from "../cadastros";
 import { classeSinal, data, mesAno, moeda, numero } from "../formato";
@@ -89,7 +90,7 @@ function FormDarf({
         </label>
         <label>
           Data do pagamento
-          <input type="date" required value={form.data_pagamento} onChange={(e) => setForm({ ...form, data_pagamento: e.target.value })} />
+          <CampoData required valor={form.data_pagamento} aoMudar={(v) => setForm({ ...form, data_pagamento: v })} />
         </label>
         <label>
           Valor pago (R$)
@@ -137,7 +138,7 @@ function Apuracao({ investidor }: { investidor: number }) {
       {r.nao_apurados.length > 0 && (
         <div className="aviso">Vendas fora da apuração de renda variável (renda fixa, cripto, outros): {r.nao_apurados.join(", ")}</div>
       )}
-      <div className="cards">
+      <div className="cards valores-alinhados">
         <div className="card">
           <span>DARF no ano</span>
           <strong>{moeda(soma(meses, (m) => m.darf))}</strong>

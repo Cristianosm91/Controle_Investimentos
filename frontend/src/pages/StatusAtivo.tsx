@@ -103,28 +103,28 @@ export function StatusAtivo() {
       {status.isLoading && <p>Carregando status…</p>}
       {status.data && (
         <>
-          <div className="status-resumo">
-            <div className="painel">
-              <span className="sutil">Investido</span>
+          <div className="cards">
+            <div className="card">
+              <span>Investido</span>
               <strong>{moeda(status.data.investido)}</strong>
             </div>
-            <div className="painel">
-              <span className="sutil">Valor de mercado</span>
+            <div className="card">
+              <span>Valor de mercado</span>
               <strong>{moeda(status.data.mercado)}</strong>
             </div>
-            <div className="painel">
-              <span className="sutil">Lucro aberto</span>
+            <div className="card">
+              <span>Lucro aberto</span>
               <strong>
                 <Sinal valor={status.data.lucro_aberto}>{moeda(status.data.lucro_aberto)}</Sinal>
               </strong>
             </div>
-            <div className="painel">
-              <span className="sutil">Proventos líquidos · últimos 12 meses</span>
+            <div className="card">
+              <span>Proventos líquidos · últimos 12 meses</span>
               <strong>{moeda(status.data.proventos_12m)}</strong>
-              <span className="sutil">YoC {percentual(status.data.yoc_12m)}</span>
+              <small className="sutil">YoC {percentual(status.data.yoc_12m)}</small>
             </div>
-            <div className="painel">
-              <span className="sutil">Lucro total calculado</span>
+            <div className="card">
+              <span>Lucro total calculado</span>
               <strong>
                 <Sinal valor={status.data.lucro_total}>{moeda(status.data.lucro_total)}</Sinal>
               </strong>
@@ -132,9 +132,9 @@ export function StatusAtivo() {
           </div>
 
           <div className="painel">
-            <h2>Distribuição do resultado</h2>
-            <div className="tabela-container">
-              <table className="tabela status-distribuicao">
+            <h3>Distribuição do resultado</h3>
+            <div className="tabela-container status-distribuicao">
+              <table className="tabela">
                 <thead>
                   <tr>
                     <th>Componente</th>
@@ -156,20 +156,20 @@ export function StatusAtivo() {
           </div>
 
           <div className="painel">
-            <div className="titulo-linha status-titulo-eventos">
-              <h2>Linha do tempo</h2>
+            <div className="titulo-linha">
+              <h3>Linha do tempo</h3>
               <span className="sutil">{numero(status.data.total_eventos, 0)} evento(s)</span>
             </div>
             {status.data.eventos.length ? (
               <>
                 <div className="tabela-container">
-                  <table className="tabela status-eventos">
+                  <table className="tabela">
                     <thead>
                       <tr>
                         <th>Data</th>
                         <th>Ativo</th>
                         <th>Evento</th>
-                        <th className="num">Investidor</th>
+                        <th>Investidor</th>
                         <th className="num">Quantidade</th>
                         <th className="num">Preço</th>
                         <th className="num">Fluxo líquido</th>
@@ -195,23 +195,18 @@ export function StatusAtivo() {
                     </tbody>
                   </table>
                 </div>
-                <div className="status-paginacao">
-                  <button
-                    className="secundario"
-                    disabled={deslocamento === 0}
-                    onClick={() => setDeslocamento(Math.max(0, deslocamento - LIMITE))}
-                  >
-                    ANTERIOR
+                <div className="paginacao">
+                  <button disabled={deslocamento === 0} onClick={() => setDeslocamento(Math.max(0, deslocamento - LIMITE))}>
+                    ‹ Anterior
                   </button>
-                  <span className="sutil">
+                  <span>
                     Página {paginaAtual} de {totalPaginas || 1}
                   </span>
                   <button
-                    className="secundario"
                     disabled={deslocamento + LIMITE >= status.data.total_eventos}
                     onClick={() => setDeslocamento(deslocamento + LIMITE)}
                   >
-                    PRÓXIMA
+                    Próxima ›
                   </button>
                 </div>
               </>
