@@ -23,7 +23,7 @@ def resumo_aluguel(
 
 @router.post("/aluguel/extrato/previa", response_model=list[ItemAluguelOut])
 async def previa_aluguel(request: Request, sessao: SessaoDep, investidor_id: InvestidorId):
-    obter_ou_404(sessao, Investidor, investidor_id)
+    await run_in_threadpool(obter_ou_404, sessao, Investidor, investidor_id)
     conteudo = await ler_corpo(request, aluguel.TAMANHO_MAXIMO)
     try:
         itens = await run_in_threadpool(aluguel.analisar, sessao, investidor_id, conteudo)
@@ -37,7 +37,7 @@ async def importar_aluguel(
     request: Request, sessao: SessaoDep, investidor_id: InvestidorId,
     incluir: Annotated[str | None, Query(max_length=20_000)] = None,
 ):
-    obter_ou_404(sessao, Investidor, investidor_id)
+    await run_in_threadpool(obter_ou_404, sessao, Investidor, investidor_id)
     conteudo = await ler_corpo(request, aluguel.TAMANHO_MAXIMO)
     hashes = {h for h in (incluir or "").split(",") if h.strip()}
     try:

@@ -96,7 +96,7 @@ async def restaurar_arquivo(request: Request):
                 recebido += len(bloco)
                 if recebido > backup.TAMANHO_MAXIMO:
                     raise HTTPException(413, "Arquivo maior que 200 MB")
-                destino.write(bloco)
+                await run_in_threadpool(destino.write, bloco)
         if not recebido:
             raise HTTPException(422, "Arquivo vazio")
         resultado = await run_in_threadpool(_restaurar, temporario)

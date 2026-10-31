@@ -213,7 +213,7 @@ Em **🧾 Imposto de Renda**, escolha o CPF e o ano: a tela mostra a apuração 
 | **Cotações** | Atualização automática no pregão (Yahoo Finance, B3 e EUA), fechamento oficial da B3 (COTAHIST) e câmbio pela PTAX do Banco Central. Histórico diário desde a primeira operação. Status das atualizações em Configurações. |
 | **Importação** | Importa a planilha de controle existente (`.xlsx`) de forma idempotente e concilia o resultado com os valores calculados pela própria planilha. Importa os relatórios **Negociação**, **Movimentação** e **Proventos recebidos** da Área do Investidor da B3 (botão *Importar extrato B3* em Operações e Proventos). Cada arquivo importado forma um lote que pode ser desfeito. |
 | **Exportação** | Botões **CSV** e **XLSX** no topo de todas as páginas: exportam as tabelas visíveis (uma aba por tabela no XLSX, com moeda, percentual, número e data tipados); listas paginadas saem completas, com o filtro atual. |
-| **Backup** | Backup automático diário (mantém os 10 mais recentes) e manual em `%LOCALAPPDATA%\InvestHub\backups`; download e restauração validada (cópia do banco atual antes de restaurar e migração automática de backups antigos). |
+| **Backup** | Backup automático diário (mantém os 10 mais recentes) e manual em `%LOCALAPPDATA%\InvestHub\backups`; download e restauração validada (cópia do banco atual antes de restaurar — mantidas as 10 mais recentes — e migração automática de backups antigos). Backups manuais nunca são apagados automaticamente. |
 | **Cripto** | Busca no catálogo CoinGecko, vínculo por identificador canônico, preços USD/BRL, variações 24h/7d/30d, capitalização, histórico e posições. CoinGecko principal; Kraken como fallback somente de preço para moedas com vínculo verificado. Monitor mensal de vendas/ganhos por investidor, sem calcular imposto ou DARF. |
 
 ### Cripto: fontes e limites
@@ -359,6 +359,7 @@ Copie `.env.example` para `.env` se quiser alterar o padrão:
 | `INVESTHUB_COTACOES_INTERVALO_MIN` | `15` | Intervalo das cotações no pregão (seg–sex, 10h–18h) |
 | `INVESTHUB_COTAHIST_HORA` | `21` | Hora da busca do fechamento oficial da B3 (repete às 8h) |
 | `INVESTHUB_PTAX_DIAS_UTEIS_ANTES` | `0` | Defasagem da PTAX sugerida nos lançamentos (0 = data do fato gerador) |
+| `INVESTHUB_HOSTS_PERMITIDOS` | `["127.0.0.1", "localhost"]` | Hosts aceitos no cabeçalho `Host` e na origem de requisições de escrita (proteção contra sites maliciosos abertos no navegador) |
 
 > O banco fica propositalmente fora de pastas sincronizadas (OneDrive, Dropbox), pois a sincronização de um SQLite aberto pode corrompê-lo.
 
@@ -729,6 +730,7 @@ Provavelmente há outra instância rodando. Feche-a com `Ctrl+C` no terminal del
 - Todos os dados ficam **no seu computador** (ou no PostgreSQL que você escolher); nada é enviado a servidores próprios.
 - As únicas chamadas externas são consultas públicas de cotação (tickers e moedas).
 - A API escuta apenas em `127.0.0.1`.
+- A API recusa requisições com cabeçalho `Host` desconhecido e gravações vindas de outros sites abertos no navegador (proteção contra CSRF e *DNS rebinding*).
 - CPF é exibido sempre mascarado na interface.
 - Planilhas, banco de dados e arquivos `.env` estão no `.gitignore`.
 

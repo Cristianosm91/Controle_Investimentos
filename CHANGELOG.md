@@ -32,6 +32,15 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
   e aporte necessário, em valores de hoje.
 
 ### Corrigido
+- Segurança: a API recusa `Host` desconhecido (400) e gravações cuja origem é outro site (403), impedindo que
+  páginas abertas no navegador desfaçam importações, restaurem backups ou leiam dados via *DNS rebinding*.
+- "Carregar histórico de cotações" disparado duas vezes seguidas não roda mais duas cargas em paralelo.
+- Uploads de extrato/aluguel/backup não bloqueiam mais as demais requisições durante consultas ao banco ou gravação
+  do arquivo.
+- Cópias "antes da restauração" limitadas às 10 mais recentes; restos `.parcial` de backups/envios interrompidos
+  são removidos ao iniciar; o encerramento registra as tarefas que estavam em execução.
+- Configurações → Parâmetros: valores padrão dos limiares de alerta (o build da interface falhava na checagem de
+  tipos).
 - Evolução patrimonial com Mercado igual ao Investido nos meses passados: sem histórico de cotações, o app agora
   carrega automaticamente na inicialização o histórico B3 (COTAHIST) e o complementar (exterior, PTAX, índices).
 - Valuation: botão "Salvar premissas" usa a cor padrão da aplicação.

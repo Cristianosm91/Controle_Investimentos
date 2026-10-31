@@ -6,6 +6,8 @@ import pytest
 # Antes de importar o app: testes nunca tocam o banco real nem iniciam jobs.
 os.environ["INVESTHUB_JOBS_ATIVOS"] = "false"
 os.environ["INVESTHUB_DB_PATH"] = os.path.join(tempfile.mkdtemp(prefix="investhub-testes-"), "testes.db")
+# O TestClient envia `Host: testserver`.
+os.environ["INVESTHUB_HOSTS_PERMITIDOS"] = '["127.0.0.1", "localhost", "testserver"]'
 
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import create_engine, event  # noqa: E402

@@ -25,7 +25,7 @@ def _incluir(texto: str | None) -> set[int]:
 
 @router.post("/extratos/b3/previa", response_model=PreviaExtratoOut)
 async def previa_extrato(request: Request, sessao: SessaoDep, investidor_id: InvestidorId):
-    obter_ou_404(sessao, Investidor, investidor_id)
+    await run_in_threadpool(obter_ou_404, sessao, Investidor, investidor_id)
     conteudo = await ler_corpo(request, extrato_b3.TAMANHO_MAXIMO)
     try:
         previa = await run_in_threadpool(extrato_b3.analisar, sessao, investidor_id, conteudo)
@@ -41,7 +41,7 @@ async def previa_extrato(request: Request, sessao: SessaoDep, investidor_id: Inv
 async def importar_extrato(
     request: Request, sessao: SessaoDep, investidor_id: InvestidorId, incluir: str | None = None,
 ):
-    obter_ou_404(sessao, Investidor, investidor_id)
+    await run_in_threadpool(obter_ou_404, sessao, Investidor, investidor_id)
     linhas = _incluir(incluir)
     conteudo = await ler_corpo(request, extrato_b3.TAMANHO_MAXIMO)
     try:

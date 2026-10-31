@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from . import __version__
 from .api import (
@@ -30,6 +31,7 @@ from .api import (
     valuation,
 )
 from .config import RAIZ_PROJETO, settings
+from .seguranca import OrigemLocalMiddleware
 from .services import jobs
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -44,6 +46,9 @@ async def ciclo_de_vida(_app: FastAPI):
 
 
 app = FastAPI(title="InvestHub+", version=__version__, lifespan=ciclo_de_vida)
+# O último adicionado roda primeiro: Host é validado antes da origem.
+app.add_middleware(OrigemLocalMiddleware, hosts_permitidos=settings.hosts_permitidos)
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.hosts_permitidos)
 
 for modulo in (
     cadastros, ativos, lancamentos, carteira, atualizacoes, rentabilidade, configuracoes, alocacao, ir, fundamentos, radar,
