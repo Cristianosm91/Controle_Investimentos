@@ -290,7 +290,7 @@ Requisitos: cache local, retry com backoff, timeout, log de falhas, nunca bloque
 
 ### Fase 5 — Análise
 - [x] Base de fundamentos para ações e FII: snapshots diários idempotentes, API de consulta e atualização semanal via Fundamentus; Investidor10 listado como indisponível até existir rota pública utilizável e termos verificáveis
-- [ ] **P8 Radar/Watchlist** (drawdown, variações, 52 semanas, indicadores)
+- [x] **P8 Radar/Watchlist**: cadastro e remoção de ativos B3 sem posição; exibe cotação, fundamentos, variações 1/7/14d, drawdown de 60 dias, faixa de 52 semanas, estimativa de Graham e YoC; métricas dependentes de histórico incompleto ficam indisponíveis; ativos monitorados entram nas atualizações e cargas históricas
 - [ ] **P9 Status do ativo** (drill-down + linha do tempo)
 - [ ] **P11 Valuation** (7 modelos) e TIR/TWR por ativo
 - [ ] Provedor CoinGecko → Kraken + **P13 Cripto** (página própria, com controle de isenção R$ 35 mil/mês)

@@ -12,6 +12,7 @@ import { ImpostoRenda } from "./pages/ImpostoRenda";
 import { Operacoes } from "./pages/Operacoes";
 import { Portfolio } from "./pages/Portfolio";
 import { Proventos } from "./pages/Proventos";
+import { Radar } from "./pages/Radar";
 import { Rentabilidade } from "./pages/Rentabilidade";
 import { Resumo } from "./pages/Resumo";
 import "./estilo.css";
@@ -28,6 +29,7 @@ const prontas: Record<string, JSX.Element> = {
   "/proventos": <Proventos />,
   "/caixa": <Caixa />,
   "/alocacao": <Alocacao />,
+  "/radar": <Radar />,
   "/ir": <ImpostoRenda />,
 };
 
