@@ -42,7 +42,7 @@ function Barras({ titulo, itens, total }: { titulo: string; itens: [string, numb
     <div className="card exposicao">
       <span>{titulo}</span>
       {visiveis.map(([rotulo, valor]) => (
-        <div key={rotulo} className="barra-linha" title={moeda(valor)}>
+        <div key={rotulo} className="barra-linha" title={`${rotulo}: ${moeda(valor)}`}>
           <div className="barra-rotulo">{rotulo}</div>
           <div className="barra-trilho">
             <div className="barra" style={{ width: `${(valor / maior) * 100}%` }} />

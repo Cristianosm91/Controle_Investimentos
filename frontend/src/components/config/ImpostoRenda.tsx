@@ -5,6 +5,7 @@ import { invalidarDerivados, paraFracao, paraPercentual, useDominio, useParametr
 import { data, moeda, percentual } from "../../formato";
 import type { Parametros, PrejuizoInicial, RegraFiscal } from "../../tipos";
 import { SeletorInvestidorIR, useInvestidorIR } from "../SeletorInvestidorIR";
+import { CampoData } from "../CampoData";
 
 function ParametrosIR() {
   const { data: atuais } = useParametros();
@@ -277,11 +278,11 @@ function RegrasFiscais() {
           </label>
           <label>
             Início da vigência
-            <input type="date" required value={form.vigencia_inicio} onChange={(e) => setForm({ ...form, vigencia_inicio: e.target.value })} />
+            <CampoData required valor={form.vigencia_inicio} aoMudar={(v) => setForm({ ...form, vigencia_inicio: v })} />
           </label>
           <label>
             Fim da vigência
-            <input type="date" value={form.vigencia_fim} onChange={(e) => setForm({ ...form, vigencia_fim: e.target.value })} />
+            <CampoData valor={form.vigencia_fim} aoMudar={(v) => setForm({ ...form, vigencia_fim: v })} />
           </label>
           <label>
             Alíquota (%)
