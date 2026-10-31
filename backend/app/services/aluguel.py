@@ -21,6 +21,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..models import Ativo, Investidor, Provento
+from . import lotes
 
 EVENTO = "ALUGUEL"
 ORIGEM = "corretora"
@@ -297,20 +298,28 @@ def analisar(sessao: Session, investidor_id: int, conteudo: bytes) -> list[ItemP
     return itens
 
 
-def importar(sessao: Session, investidor_id: int, conteudo: bytes, incluir: set[str]) -> int:
-    """Grava os itens "novo" e os "verificar" cujo hash está em `incluir`; devolve a quantidade gravada."""
+def importar(
+    sessao: Session, investidor_id: int, conteudo: bytes, incluir: set[str], arquivo: str | None = None
+) -> tuple[int, int | None]:
+    """Grava os itens "novo" e os "verificar" cujo hash está em `incluir`; devolve (quantidade gravada, lote)."""
     if sessao.get(Investidor, investidor_id) is None:
         raise ExtratoInvalido("Investidor não encontrado")
     ativos = {a.ticker: a for a in sessao.scalars(select(Ativo))}
     gravados = 0
+    lote = None
     for item in analisar(sessao, investidor_id, conteudo):
         if item.status != "novo" and not (item.status == "verificar" and item.hash in incluir):
             continue
+        if lote is None:
+            lote = lotes.novo(sessao, "ALUGUEL", investidor_id, arquivo)
         sessao.add(Provento(
             investidor_id=investidor_id, ativo=ativos[item.ticker], data_pagamento=item.data, evento=EVENTO,
             valor=item.valor, irrf=item.irrf, taxas=item.taxas, moeda="BRL", cambio=Decimal(1),
             observacao="Importado do extrato da corretora (BTC)", origem=ORIGEM, hash_origem=item.hash,
+            lote_id=lote.id,
         ))
         gravados += 1
+    if lote is not None:
+        lotes.contar(sessao, lote)
     sessao.commit()
-    return gravados
+    return gravados, lote.id if lote else None

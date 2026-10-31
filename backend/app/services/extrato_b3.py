@@ -20,7 +20,8 @@ from openpyxl import load_workbook
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..models import Ativo, Corretora, Investidor, Operacao, Provento
+from ..models import Ativo, Corretora, Investidor, LoteImportacao, Operacao, Provento
+from . import lotes
 
 ORIGEM = "b3"
 TAMANHO_MAXIMO = 10 * 1024 * 1024
@@ -420,16 +421,26 @@ class Resultado:
     proventos: int = 0
     ativos_criados: list[str] = field(default_factory=list)
     corretoras_criadas: list[str] = field(default_factory=list)
+    lote_id: int | None = None
 
 
-def importar(sessao: Session, investidor_id: int, conteudo: bytes, incluir: set[int]) -> Resultado:
-    """Grava as linhas "novo" e as "verificar" cujo número está em `incluir`."""
+def importar(
+    sessao: Session, investidor_id: int, conteudo: bytes, incluir: set[int], arquivo: str | None = None
+) -> Resultado:
+    """Grava as linhas "novo" e as "verificar" cujo número está em `incluir`, num lote que pode ser desfeito."""
     if sessao.get(Investidor, investidor_id) is None:
         raise ExtratoInvalido("Investidor não encontrado")
     previa = analisar(sessao, investidor_id, conteudo)
     resultado = Resultado()
     ativos = {a.ticker: a for a in sessao.scalars(select(Ativo))}
     corretoras = {_normalizar(c.nome).upper(): c for c in sessao.scalars(select(Corretora))}
+    lote: LoteImportacao | None = None
+
+    def lote_id() -> int:
+        nonlocal lote
+        if lote is None:
+            lote = lotes.novo(sessao, "EXTRATO_B3", investidor_id, arquivo)
+        return lote.id
 
     def ativo(linha: Linha) -> Ativo:
         if linha.ticker not in ativos:
@@ -461,7 +472,7 @@ def importar(sessao: Session, investidor_id: int, conteudo: bytes, incluir: set[
                 investidor_id=investidor_id, ativo=ativo(linha), corretora=corretora(linha), data=linha.data,
                 evento=linha.evento, quantidade=linha.quantidade, preco=linha.preco, taxas=Decimal(0), irrf=Decimal(0),
                 moeda="BRL", cambio=Decimal(1), daytrade=linha.daytrade, observacao=observacao, origem=ORIGEM,
-                hash_origem=linha.hash,
+                hash_origem=linha.hash, lote_id=lote_id(),
             ))
             resultado.operacoes += 1
         elif linha.tipo == "PROVENTO":
@@ -469,7 +480,11 @@ def importar(sessao: Session, investidor_id: int, conteudo: bytes, incluir: set[
                 investidor_id=investidor_id, ativo=ativo(linha), corretora=corretora(linha),
                 data_pagamento=linha.data, evento=linha.evento, valor=linha.valor, irrf=Decimal(0), taxas=Decimal(0),
                 moeda="BRL", cambio=Decimal(1), observacao=observacao, origem=ORIGEM, hash_origem=linha.hash,
+                lote_id=lote_id(),
             ))
             resultado.proventos += 1
+    if lote is not None:
+        lotes.contar(sessao, lote)
+        resultado.lote_id = lote.id
     sessao.commit()
     return resultado

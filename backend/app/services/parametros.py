@@ -27,6 +27,12 @@ class Parametros:
     ir_outras_classes_no_limite: bool = False
     # Venda de direito de subscrição de FII até 28/09/2021 como isenta (padrão: tributa como FII, 20%).
     ir_subscricao_fii_isenta: bool = False
+    # Alertas: vazio desliga. Desvio entre peso atual e alvo dos books (pontos percentuais).
+    alerta_desvio_pp: int | None = 5
+    # Renda fixa vencendo nos próximos N dias.
+    alerta_vencimento_dias: int | None = 30
+    # Cotação automática de posição aberta sem atualização há mais de N dias.
+    alerta_cotacao_dias: int | None = 5
 
 
 def _ler(texto: str, tipo):
@@ -56,6 +62,9 @@ _TIPOS = {
     "ir_opcoes_no_limite": bool,
     "ir_outras_classes_no_limite": bool,
     "ir_subscricao_fii_isenta": bool,
+    "alerta_desvio_pp": int,
+    "alerta_vencimento_dias": int,
+    "alerta_cotacao_dias": int,
 }
 
 

@@ -1,4 +1,5 @@
 from typing import Annotated
+from urllib.parse import unquote
 
 from fastapi import Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
@@ -20,6 +21,12 @@ def filtro_investidores(
 
 
 InvestidoresDep = Annotated[list[int] | None, Depends(filtro_investidores)]
+
+
+def nome_arquivo(request: Request) -> str | None:
+    """Nome original do arquivo enviado pelo front (cabeçalho X-Nome-Arquivo, codificado como URI)."""
+    valor = request.headers.get("x-nome-arquivo")
+    return unquote(valor)[:200] if valor else None
 
 
 def obter_ou_404(sessao: Session, modelo, id_: int):

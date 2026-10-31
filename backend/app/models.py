@@ -74,6 +74,25 @@ class Ativo(Base):
     # CNPJ da empresa/fundo emissor (ficha Bens e Direitos da DIRPF).
     cnpj: Mapped[str | None] = mapped_column(String(14))
     coingecko_id: Mapped[str | None] = mapped_column(String(120), unique=True)
+    # Renda fixa: vencimento do título e isenção de IR (LCI, LCA, CRI, CRA, poupança, debênture incentivada).
+    data_vencimento: Mapped[date | None] = mapped_column(Date)
+    isento_ir: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class LoteImportacao(Base):
+    """Um arquivo importado; permite desfazer só os lançamentos gravados por ele."""
+
+    __tablename__ = "lote_importacao"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tipo: Mapped[str] = mapped_column(String(30))
+    arquivo: Mapped[str | None] = mapped_column(String(200))
+    investidor_id: Mapped[int | None] = mapped_column(ForeignKey("investidor.id", ondelete="SET NULL"))
+    criado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    desfeito_em: Mapped[datetime | None] = mapped_column(DateTime)
+    operacoes: Mapped[int] = mapped_column(default=0)
+    proventos: Mapped[int] = mapped_column(default=0)
+    caixa: Mapped[int] = mapped_column(default=0)
 
 
 class Operacao(Base):
@@ -97,6 +116,7 @@ class Operacao(Base):
     observacao: Mapped[str | None] = mapped_column(String(200))
     origem: Mapped[str] = mapped_column(String(20), default="manual")
     hash_origem: Mapped[str | None] = mapped_column(String(64), unique=True)
+    lote_id: Mapped[int | None] = mapped_column(ForeignKey("lote_importacao.id", ondelete="SET NULL"), index=True)
 
     investidor: Mapped[Investidor] = relationship()
     ativo: Mapped[Ativo] = relationship()
@@ -122,6 +142,7 @@ class Provento(Base):
     observacao: Mapped[str | None] = mapped_column(String(200))
     origem: Mapped[str] = mapped_column(String(20), default="manual")
     hash_origem: Mapped[str | None] = mapped_column(String(64), unique=True)
+    lote_id: Mapped[int | None] = mapped_column(ForeignKey("lote_importacao.id", ondelete="SET NULL"), index=True)
 
     investidor: Mapped[Investidor] = relationship()
     ativo: Mapped[Ativo] = relationship()
@@ -141,6 +162,7 @@ class MovCaixa(Base):
     observacao: Mapped[str | None] = mapped_column(String(200))
     origem: Mapped[str] = mapped_column(String(20), default="manual")
     hash_origem: Mapped[str | None] = mapped_column(String(64), unique=True)
+    lote_id: Mapped[int | None] = mapped_column(ForeignKey("lote_importacao.id", ondelete="SET NULL"), index=True)
 
     corretora: Mapped[Corretora | None] = relationship()
 
@@ -223,6 +245,25 @@ class AtivoRadar(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     ativo_id: Mapped[int] = mapped_column(ForeignKey("ativo.id", ondelete="CASCADE"))
+    criado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    # Gera alerta quando a cotação fica igual ou abaixo deste preço (moeda do ativo).
+    preco_alvo: Mapped[Decimal | None] = mapped_column(Valor)
+
+
+class Meta(Base):
+    """Objetivo financeiro: patrimônio ou renda mensal de proventos a atingir até uma data (valores de hoje)."""
+
+    __tablename__ = "meta"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nome: Mapped[str] = mapped_column(String(80))
+    tipo: Mapped[str] = mapped_column(String(20))  # PATRIMONIO | RENDA
+    valor_alvo: Mapped[Decimal] = mapped_column(Valor)
+    data_alvo: Mapped[date] = mapped_column(Date)
+    aporte_mensal: Mapped[Decimal] = mapped_column(Valor, default=Decimal(0))
+    rentabilidade_aa: Mapped[Decimal] = mapped_column(Valor)  # real (acima da inflação), fração
+    rendimento_aa: Mapped[Decimal | None] = mapped_column(Valor)  # dividend yield para metas de renda; vazio = atual
+    investidores: Mapped[str | None] = mapped_column(String(200))  # IDs separados por vírgula; vazio = todos
     criado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 

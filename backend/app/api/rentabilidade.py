@@ -10,6 +10,11 @@ from .deps import InvestidoresDep, SessaoDep
 router = APIRouter(tags=["rentabilidade"])
 
 
+def real(twr, ipca):
+    """Retorno descontada a inflação: (1 + nominal) / (1 + IPCA) − 1."""
+    return None if twr is None or ipca is None else (1 + twr) / (1 + ipca) - 1
+
+
 @router.get("/rentabilidade/mensal", response_model=list[MesRentabilidadeOut])
 def rentabilidade_mensal(
     sessao: SessaoDep, investidores: InvestidoresDep, inicio: date | None = None, fim: date | None = None
@@ -22,6 +27,7 @@ def rentabilidade_mensal(
             ibov=l.benchmark.ibov, ifix=l.benchmark.ifix, cdi=l.benchmark.cdi, ipca=l.benchmark.ipca,
             ibov_acumulado=l.acumulados["ibov"], ifix_acumulado=l.acumulados["ifix"],
             cdi_acumulado=l.acumulados["cdi"], ipca_acumulado=l.acumulados["ipca"],
+            real_acumulado=real(l.twr_acumulado, l.acumulados["ipca"]),
         )
         for l in painel.mensal(sessao, investidores, inicio, fim)
     ]
@@ -41,7 +47,10 @@ def rentabilidade_resumo(sessao: SessaoDep, investidores: InvestidoresDep):
         yoc_12m=r.proventos_12m / r.investido if r.investido else None,
         tir_aa=r.tir_aa,
         tir_am=None if r.tir_aa is None else (1 + r.tir_aa) ** (1 / 12) - 1,
-        janelas=[JanelaOut(nome=j.nome, inicio=j.inicio, twr=j.twr, **j.benchmarks) for j in r.janelas],
+        janelas=[
+            JanelaOut(nome=j.nome, inicio=j.inicio, twr=j.twr, **j.benchmarks, real=real(j.twr, j.benchmarks["ipca"]))
+            for j in r.janelas
+        ],
         proventos_mensais=r.proventos_mensais,
     )
 

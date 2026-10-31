@@ -52,8 +52,10 @@ def alterar_ativo(id_: int, dados: AtivoIn, sessao: SessaoDep):
         raise HTTPException(409, "Não altere a identidade de uma cripto vinculada; cadastre um ativo distinto")
     era_calculado = renda_fixa.calculado(obj)
     campos = dados.model_dump()
-    if "cnpj" not in dados.model_fields_set:
-        campos.pop("cnpj")  # formulários que não editam o CNPJ não o apagam
+    # Formulários que não editam estes campos não os apagam.
+    for campo in ("cnpj", "data_vencimento", "isento_ir"):
+        if campo not in dados.model_fields_set:
+            campos.pop(campo)
     if "coingecko_id" not in dados.model_fields_set and dados.classe == "CRIPTO":
         campos.pop("coingecko_id")
     for campo, valor in campos.items():
