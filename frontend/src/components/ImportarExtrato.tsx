@@ -14,7 +14,7 @@ const STATUS: Record<StatusExtrato, string> = {
   ignorado: "Não importado",
 };
 
-const RELATORIO = { NEGOCIACAO: "Negociação", MOVIMENTACAO: "Movimentação" };
+const RELATORIO = { NEGOCIACAO: "Negociação", MOVIMENTACAO: "Movimentação", PROVENTOS: "Proventos recebidos" };
 
 export function ImportarExtrato({ aoFechar }: { aoFechar: () => void }) {
   const cliente = useQueryClient();
@@ -70,8 +70,9 @@ export function ImportarExtrato({ aoFechar }: { aoFechar: () => void }) {
     <Modal titulo="Importar extrato da B3" aoFechar={aoFechar} largo>
       <div className="importar-extrato">
         <p className="sutil">
-          Na Área do Investidor da B3, exporte em Excel o relatório <strong>Negociação</strong> (compras e vendas) ou{" "}
-          <strong>Movimentação</strong> (proventos, amortizações e desdobramentos). Nada é gravado antes da confirmação;
+          Na Área do Investidor da B3, exporte em Excel o relatório <strong>Negociação</strong> (compras e vendas),{" "}
+          <strong>Movimentação</strong> (proventos, amortizações e desdobramentos) ou <strong>Proventos recebidos</strong>.
+          Nada é gravado antes da confirmação;
           lançamentos que já existem são ignorados. A B3 não informa corretagem/emolumentos: as taxas entram zeradas.
         </p>
 

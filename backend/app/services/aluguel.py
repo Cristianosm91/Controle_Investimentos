@@ -176,7 +176,9 @@ def _ler_tabela(conteudo: bytes) -> list[tuple]:
         except Exception as erro:
             raise ExtratoInvalido(f"Não foi possível abrir a planilha: {erro}") from erro
         try:
-            return [tuple(linha) for linha in livro.worksheets[0].iter_rows(values_only=True)]
+            planilha = livro.worksheets[0]
+            planilha.reset_dimensions()  # arquivos com dimensão "A1" seriam lidos só até a primeira linha
+            return [tuple(linha) for linha in planilha.iter_rows(values_only=True)]
         finally:
             livro.close()
     for codificacao in ("utf-8-sig", "cp1252"):

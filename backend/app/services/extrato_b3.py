@@ -41,6 +41,8 @@ _PROVENTOS = {
     "dividendo": "DIVIDENDO",
     "juros sobre capital proprio": "JSCP",
     "rendimento": "RENDIMENTO",
+    # Provento repassado pelo tomador das ações emprestadas (BTC); a planilha usava "Reembolso de JSCP".
+    "reembolso": "REEMBOLSO_JSCP",
 }
 # Movimentação → operação (somente créditos).
 _OPERACOES_MOVIMENTACAO = {"amortizacao": "AMORTIZACAO", "desdobro": "DESDOBRAMENTO"}
@@ -71,12 +73,20 @@ _COLUNAS_MOVIMENTACAO = {
     "entrada/saida": "sentido", "data": "data", "movimentacao": "movimentacao", "produto": "produto",
     "instituicao": "instituicao", "quantidade": "quantidade", "preco unitario": "preco", "valor da operacao": "valor",
 }
+# Relatório "Proventos recebidos": só créditos; o valor já é líquido.
+_COLUNAS_PROVENTOS = {
+    "produto": "produto", "pagamento": "data", "tipo de evento": "movimentacao", "instituicao": "instituicao",
+    "quantidade": "quantidade", "preco unitario": "preco", "valor liquido": "valor",
+}
+_RELATORIOS = (
+    ("NEGOCIACAO", _COLUNAS_NEGOCIACAO), ("MOVIMENTACAO", _COLUNAS_MOVIMENTACAO), ("PROVENTOS", _COLUNAS_PROVENTOS),
+)
 
 
 @dataclass
 class Linha:
     numero: int
-    relatorio: str  # NEGOCIACAO | MOVIMENTACAO
+    relatorio: str  # NEGOCIACAO | MOVIMENTACAO | PROVENTOS
     descricao: str
     data: date | None
     ticker: str | None
@@ -112,7 +122,8 @@ def _decimal(valor) -> Decimal | None:
     texto = str(valor).replace("R$", "").replace("\u00a0", "").strip()
     if texto in ("", "-", "—"):
         return None
-    if "," in texto:
+    # Texto da B3 é pt-BR: vírgula decimal e ponto de milhar ("1.350" = mil trezentos e cinquenta).
+    if "," in texto or re.fullmatch(r"-?\d{1,3}(\.\d{3})+", texto):
         texto = texto.replace(".", "").replace(",", ".")
     try:
         return Decimal(texto)
@@ -144,7 +155,10 @@ def _ler_planilha(conteudo: bytes) -> list[tuple]:
     except Exception as erro:
         raise ExtratoInvalido(f"Não foi possível abrir a planilha: {erro}") from erro
     try:
-        return [tuple(linha) for linha in livro.worksheets[0].iter_rows(values_only=True)]
+        planilha = livro.worksheets[0]
+        # A B3 grava a dimensão como "A1": sem isto o modo read_only lê só a primeira linha.
+        planilha.reset_dimensions()
+        return [tuple(linha) for linha in planilha.iter_rows(values_only=True)]
     finally:
         livro.close()
 
@@ -152,11 +166,12 @@ def _ler_planilha(conteudo: bytes) -> list[tuple]:
 def _mapear_cabecalho(linhas: list[tuple]) -> tuple[str, int, dict[str, int]]:
     for indice, linha in enumerate(linhas[:20]):
         nomes = {_normalizar(c): i for i, c in enumerate(linha) if c is not None}
-        for relatorio, colunas in (("NEGOCIACAO", _COLUNAS_NEGOCIACAO), ("MOVIMENTACAO", _COLUNAS_MOVIMENTACAO)):
+        for relatorio, colunas in _RELATORIOS:
             if all(nome in nomes for nome in colunas):
                 return relatorio, indice, {campo: nomes[nome] for nome, campo in colunas.items()}
     raise ExtratoInvalido(
-        "Formato não reconhecido. Use os relatórios Negociação ou Movimentação da Área do Investidor da B3 (.xlsx)."
+        "Formato não reconhecido. Use os relatórios Negociação, Movimentação ou Proventos recebidos da Área do "
+        "Investidor da B3 (.xlsx)."
     )
 
 
@@ -173,7 +188,7 @@ def _classe_inferida(ticker: str, nome: str | None, mercado: str | None = None) 
         return "OPÇÃO"
     if "fiagro" in nome_n:
         return "FIAGRO"
-    if re.search(r"imobiliari|\bfii\b", nome_n):
+    if re.search(r"imobiliari|\bfii\b|\bimob\b", nome_n):
         return "FII"
     if re.search(r"\betf\b|indice|index|ishares", nome_n):
         return "ETF"
@@ -202,7 +217,9 @@ def ler(conteudo: bytes) -> tuple[str, list[Linha]]:
         if relatorio == "NEGOCIACAO":
             linhas.append(_linha_negociacao(numero, dia, valor, qtd, preco, total, instituicao))
         else:
-            linhas.append(_linha_movimentacao(numero, dia, valor, qtd, preco, total, instituicao))
+            if relatorio == "PROVENTOS":
+                valor["sentido"] = "Credito"
+            linhas.append(_linha_movimentacao(numero, dia, valor, qtd, preco, total, instituicao, relatorio))
     if not linhas:
         raise ExtratoInvalido("O relatório não tem lançamentos.")
     return relatorio, linhas
@@ -232,15 +249,17 @@ def _linha_negociacao(numero, dia, valor, qtd, preco, total, instituicao) -> Lin
     return linha
 
 
-def _linha_movimentacao(numero, dia, valor, qtd, preco, total, instituicao) -> Linha:
+def _linha_movimentacao(numero, dia, valor, qtd, preco, total, instituicao, relatorio="MOVIMENTACAO") -> Linha:
     movimentacao = _normalizar(valor["movimentacao"])
     produto = str(valor["produto"] or "").strip()
     ticker, _, nome = produto.partition(" - ")
     ticker = ticker.strip().upper() or None
     credito = _normalizar(valor["sentido"]).startswith("credito")
-    descricao = f"{str(valor['movimentacao'] or '').strip()} · {'Crédito' if credito else 'Débito'}"
+    descricao = str(valor["movimentacao"] or "").strip()
+    if relatorio == "MOVIMENTACAO":
+        descricao += f" · {'Crédito' if credito else 'Débito'}"
     linha = Linha(
-        numero, "MOVIMENTACAO", descricao, dia, ticker, "IGNORADA", instituicao=instituicao,
+        numero, relatorio, descricao, dia, ticker, "IGNORADA", instituicao=instituicao,
         nome_produto=nome.strip() or None,
     )
     valor_total = total if total is not None else qtd * preco
@@ -251,6 +270,8 @@ def _linha_movimentacao(numero, dia, valor, qtd, preco, total, instituicao) -> L
             linha.status, linha.motivo = "ignorado", "Provento sem valor"
         else:
             linha.tipo, linha.evento, linha.valor = "PROVENTO", _PROVENTOS[movimentacao], valor_total
+            if movimentacao == "reembolso":
+                linha.motivo = "Reembolso de provento de ações emprestadas (BTC): confira se foi JCP ou dividendo"
     elif movimentacao in _OPERACOES_MOVIMENTACAO and credito:
         evento = _OPERACOES_MOVIMENTACAO[movimentacao]
         if qtd <= 0 or (evento == "AMORTIZACAO" and valor_total <= 0):
