@@ -28,6 +28,7 @@ interface Props<T> {
   /** Conteúdo da última coluna de cada linha (ex.: editar/excluir). */
   acoes?: (item: T) => ReactNode;
   filtroTicker?: boolean;
+  classes?: { valor: string; rotulo: string }[];
   /** Parâmetros fixos da consulta (ex.: { evento: "ALUGUEL" }). */
   filtrosFixos?: Record<string, string>;
 }
@@ -42,9 +43,11 @@ export function ListaPaginada<T>({
   topo,
   acoes,
   filtroTicker = true,
+  classes,
   filtrosFixos,
 }: Props<T>) {
   const [ticker, setTicker] = useState("");
+  const [classe, setClasse] = useState("");
   const [inicio, setInicio] = useState("");
   const [fim, setFim] = useState("");
   const [pagina, setPagina] = useState(0);
@@ -53,6 +56,7 @@ export function ListaPaginada<T>({
     ...filtrosFixos,
     investidores: filtroInvestidores,
     ticker,
+    ...(classes ? { classe } : {}),
     inicio,
     fim,
     limite: POR_PAGINA,
@@ -109,6 +113,20 @@ export function ListaPaginada<T>({
         <div className="acoes filtros">
           {filtroTicker && (
             <input placeholder="Ticker" value={ticker} onChange={(e) => filtrar(() => setTicker(e.target.value.toUpperCase()))} />
+          )}
+          {classes && (
+            <select
+              aria-label="Classe do ativo"
+              value={classe}
+              onChange={(e) => filtrar(() => setClasse(e.target.value))}
+            >
+              <option value="">Todas as classes</option>
+              {classes.map((opcao) => (
+                <option key={opcao.valor} value={opcao.valor}>
+                  {opcao.rotulo}
+                </option>
+              ))}
+            </select>
           )}
           <CampoData valor={inicio} aoMudar={(v) => filtrar(() => setInicio(v))} title="Data inicial" />
           <CampoData valor={fim} aoMudar={(v) => filtrar(() => setFim(v))} title="Data final" />
