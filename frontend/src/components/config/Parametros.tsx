@@ -3,6 +3,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { api } from "../../api";
 import { invalidarDerivados, useParametros } from "../../cadastros";
 import type { Parametros as TParametros } from "../../tipos";
+import { CampoData } from "../CampoData";
 
 const PADRAO: TParametros = {
   caixa_data_inicio: null,
@@ -49,10 +50,9 @@ export function Parametros() {
         <h3>Caixa</h3>
         <label>
           Integrar lançamentos ao caixa a partir de
-          <input
-            type="date"
-            value={form.caixa_data_inicio ?? ""}
-            onChange={(e) => setForm({ ...form, caixa_data_inicio: e.target.value || null })}
+          <CampoData
+            valor={form.caixa_data_inicio ?? ""}
+            aoMudar={(v) => setForm({ ...form, caixa_data_inicio: v || null })}
           />
           <small className="sutil">
             Desta data em diante, compras, vendas, amortizações e proventos líquidos movimentam o saldo da corretora. Em branco = só as
@@ -75,7 +75,7 @@ export function Parametros() {
       </form>
       <p className="sutil">
         Câmbio dos lançamentos no exterior: PTAX de venda da data (Lei 14.754/2023), definido em <code>.env</code>{" "}
-        (<code>CONTROLEINV_PTAX_DIAS_UTEIS_ANTES</code>). Parâmetros de IR ficam em Configurações → Imposto de renda.
+        (<code>INVESTHUB_PTAX_DIAS_UTEIS_ANTES</code>). Parâmetros de IR ficam em Configurações → Imposto de renda.
       </p>
     </>
   );

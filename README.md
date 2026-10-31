@@ -117,6 +117,8 @@ Na primeira execução o `iniciar.bat`:
 3. aplica as migrações do banco;
 4. abre `http://127.0.0.1:8000` no navegador.
 
+Nas execuções seguintes, a interface é recompilada automaticamente sempre que algum arquivo do frontend (`frontend\src`, `package.json`, configurações do Vite/TypeScript) for mais recente que o build em `frontend\dist`. Se o `npm` não estiver disponível, o app sobe com o build existente e exibe um aviso.
+
 ### Instalação manual
 
 ```powershell

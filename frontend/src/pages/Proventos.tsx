@@ -27,19 +27,23 @@ export function Proventos() {
     { titulo: "Corretora", render: (p) => p.corretora ?? "—" },
   ];
 
+  const abas = (
+    <div className="abas">
+      <button className={aba === "lancamentos" ? "aba ativa" : "aba"} onClick={() => setAba("lancamentos")}>
+        Lançamentos
+      </button>
+      <button className={aba === "matriz" ? "aba ativa" : "aba"} onClick={() => setAba("matriz")}>
+        Matriz mensal
+      </button>
+    </div>
+  );
+
   return (
     <>
-      <div className="abas">
-        <button className={aba === "lancamentos" ? "aba ativa" : "aba"} onClick={() => setAba("lancamentos")}>
-          Lançamentos
-        </button>
-        <button className={aba === "matriz" ? "aba ativa" : "aba"} onClick={() => setAba("matriz")}>
-          Matriz mensal
-        </button>
-      </div>
       {aba === "matriz" ? (
         <section>
           <h1>Proventos</h1>
+          {abas}
           <MatrizProventos filtro={filtro} />
         </section>
       ) : (
@@ -50,6 +54,7 @@ export function Proventos() {
         colunas={colunas}
         chave={(p) => p.id}
         cabecalho={<button onClick={() => setEdicao("novo")}>+ Novo provento</button>}
+        topo={abas}
         acoes={(p) => (
           <AcoesLinha
             recurso="proventos"

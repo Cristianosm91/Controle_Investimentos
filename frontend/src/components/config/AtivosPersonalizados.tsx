@@ -4,6 +4,7 @@ import { api, query } from "../../api";
 import { invalidarDerivados, paraFracao, paraPercentual, useDominio } from "../../cadastros";
 import { data as fmtData, numero, percentual } from "../../formato";
 import type { Ativo, Cota } from "../../tipos";
+import { CampoData } from "../CampoData";
 
 const hoje = () => new Date().toLocaleDateString("sv-SE");
 
@@ -62,7 +63,7 @@ function SaldoManual({ ativo, aoSalvar }: { ativo: Ativo; aoSalvar: () => void }
         enviar.mutate();
       }}
     >
-      <input type="date" required value={dia} onChange={(e) => setDia(e.target.value)} />
+      <CampoData required valor={dia} aoMudar={setDia} />
       <input
         type="number"
         step="any"
@@ -263,7 +264,7 @@ export function AtivosPersonalizados() {
             </label>
             <label>
               Data-base (cota = 1)
-              <input required type="date" value={form.data_base} onChange={(e) => setForm({ ...form, data_base: e.target.value })} />
+              <CampoData required valor={form.data_base} aoMudar={(v) => setForm({ ...form, data_base: v })} />
             </label>
           </>
         )}

@@ -98,7 +98,7 @@ export function Alocacao() {
         </span>
       </div>
 
-      <form className="formulario" onSubmit={(e) => e.preventDefault()}>
+      <form className="formulario simulador" onSubmit={(e) => e.preventDefault()}>
         <h3>Simulador</h3>
         <label>
           Aporte (R$)
@@ -134,7 +134,7 @@ export function Alocacao() {
             </div>
             <div className="card">
               <span>Compras sugeridas</span>
-              <strong className="positivo">{moeda(compras)}</strong>
+              <strong className={classeSinal(compras)}>{moeda(compras)}</strong>
             </div>
             {modo === "rebalancear" && (
               <div className="card">
@@ -151,7 +151,7 @@ export function Alocacao() {
             )}
           </div>
 
-          <div className="paineis">
+          <div className="paineis alinhado-topo">
             <TabelaGrupos titulo="Por estratégia" grupos={r.estrategias} />
             <TabelaGrupos titulo="Por book" grupos={r.books.filter((b) => b.peso_alvo > 0 || b.valor_atual > 0)} />
           </div>
