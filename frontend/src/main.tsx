@@ -52,7 +52,7 @@ createRoot(document.getElementById("root")!).render(
                 <Route
                   key={p.caminho}
                   path={p.caminho}
-                  element={prontas[p.caminho] ?? <EmConstrucao titulo={p.rotulo} fase={"fase" in p ? p.fase : undefined} />}
+                  element={prontas[p.caminho] ?? <EmConstrucao titulo={p.rotulo} />}
                 />
               ))}
               <Route path="/configuracoes" element={<Configuracoes />} />
