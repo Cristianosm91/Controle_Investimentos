@@ -99,6 +99,7 @@ class AtivoIn(BaseModel):
     taxa_aa: Decimal | None = Field(default=None, gt=-1, description="Taxa adicional a.a. (fração)")
     data_base: date | None = None
     cnpj: str | None = None
+    coingecko_id: str | None = Field(default=None, min_length=1, max_length=120, pattern=r"^[a-z0-9][a-z0-9-]*$")
 
     @field_validator("cnpj")
     @classmethod
@@ -124,6 +125,8 @@ class AtivoIn(BaseModel):
 
     @model_validator(mode="after")
     def _renda_fixa(self) -> "AtivoIn":
+        if self.coingecko_id is not None and self.classe != "CRIPTO":
+            raise ValueError("Identificador CoinGecko só é permitido para CRIPTO")
         if self.indexador is None:
             self.indexador_pct = self.taxa_aa = self.data_base = None
             return self
@@ -155,6 +158,69 @@ class AtivoOut(_Saida):
     taxa_aa: Num | None = None
     data_base: date | None = None
     cnpj: str | None = None
+    coingecko_id: str | None = None
+
+
+class CriptoIn(BaseModel):
+    coingecko_id: str = Field(min_length=1, max_length=120, pattern=r"^[a-z0-9][a-z0-9-]*$")
+    ticker: str = Field(min_length=1, max_length=20, pattern=r"^[A-Za-z0-9_-]+$")
+    ativo_id: int | None = Field(default=None, gt=0)
+
+
+class MoedaCriptoOut(BaseModel):
+    id: str
+    ticker: str
+    nome: str
+
+
+class ItemCriptoOut(BaseModel):
+    ativo_id: int
+    ticker: str
+    nome: str | None
+    coingecko_id: str | None
+    preco_usd: Num | None
+    preco_brl: Num | None
+    market_cap_usd: Num | None
+    variacao_24h: Num | None
+    variacao_7d: Num | None
+    variacao_30d: Num | None
+    fonte: str | None
+    atualizado_em: datetime | None
+    quantidade: Num
+    preco_medio_brl: Num
+    investido_brl: Num
+    mercado_brl: Num | None
+    lucro_aberto_brl: Num | None
+
+
+class PainelCriptoOut(BaseModel):
+    itens: list[ItemCriptoOut]
+    cambio_usd_brl: Num | None
+    cambio_data: date | None
+    avisos: list[str]
+
+
+class MesCriptoOut(BaseModel):
+    investidor_id: int
+    investidor: str
+    competencia: date
+    vendas_brl: Num
+    ganhos_brl: Num | None
+    perdas_brl: Num | None
+    resultado_brl: Num | None
+    limite_brl: Num
+    saldo_limite_brl: Num
+    acima_limite: bool
+
+
+class MonitorCriptoOut(BaseModel):
+    meses: list[MesCriptoOut]
+    avisos: list[str]
+
+
+class PontoCriptoOut(BaseModel):
+    instante: datetime
+    preco_usd: Num
 
 
 class SaldoManualIn(BaseModel):

@@ -43,7 +43,10 @@ def atualizar_cotacoes(
     """Consulta os provedores em ordem; cada um só recebe os ativos que os anteriores não resolveram."""
     provedores = provedores if provedores is not None else provedores_padrao()
     ativos_padrao = ativos is None
-    ativos = list(ativos if ativos is not None else ativos_monitorados(sessao))
+    ativos = [
+        ativo for ativo in (ativos if ativos is not None else ativos_monitorados(sessao))
+        if ativo.classe != "CRIPTO"
+    ]
     pendentes = {a.ticker: a for a in ativos}
     resultado = ResultadoAtualizacao()
 
