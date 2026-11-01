@@ -311,6 +311,20 @@ class ValuationHistorico(Base):
     pl_historico: Mapped[Decimal | None] = mapped_column(Valor)
     pl_setor: Mapped[Decimal | None] = mapped_column(Valor)
     pvp_justificado: Mapped[Decimal | None] = mapped_column(Valor)
+    premissa_lpa: Mapped[Decimal | None] = mapped_column(Valor)
+    premissa_vpa: Mapped[Decimal | None] = mapped_column(Valor)
+    premissa_dividendo_anual: Mapped[Decimal | None] = mapped_column(Valor)
+    premissa_roe: Mapped[Decimal | None] = mapped_column(Valor)
+    premissa_payout: Mapped[Decimal | None] = mapped_column(Valor)
+    premissa_g: Mapped[Decimal | None] = mapped_column(Valor)
+    premissa_ke: Mapped[Decimal | None] = mapped_column(Valor)
+    premissa_pl_historico: Mapped[Decimal | None] = mapped_column(Valor)
+    premissa_pl_setor: Mapped[Decimal | None] = mapped_column(Valor)
+    premissa_fcfe_1: Mapped[Decimal | None] = mapped_column(Valor)
+    premissa_fcfe_2: Mapped[Decimal | None] = mapped_column(Valor)
+    premissa_fcfe_3: Mapped[Decimal | None] = mapped_column(Valor)
+    premissa_fcfe_4: Mapped[Decimal | None] = mapped_column(Valor)
+    premissa_fcfe_5: Mapped[Decimal | None] = mapped_column(Valor)
 
 
 class IndiceMensal(Base):

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Response
 
 from ..schemas import (
+    BuscaPremissasValuationOut,
     HistoricoValuationOut,
     PremissasValuationIn,
     ValuationAtivoIn,
@@ -34,6 +35,14 @@ def remover_historico(ativo_id: int, sessao: SessaoDep):
 def consultar_valuation(ativo_id: int, sessao: SessaoDep, investidores: InvestidoresDep):
     try:
         return servico.consultar(sessao, ativo_id, investidores)
+    except LookupError as erro:
+        raise HTTPException(404, str(erro)) from erro
+
+
+@router.post("/{ativo_id}/buscar-premissas", response_model=BuscaPremissasValuationOut)
+def buscar_premissas(ativo_id: int, sessao: SessaoDep):
+    try:
+        return servico.buscar_premissas(sessao, ativo_id)
     except LookupError as erro:
         raise HTTPException(404, str(erro)) from erro
 

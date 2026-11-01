@@ -10,6 +10,9 @@ import "./Valuation.css";
 type CampoPremissa = keyof PremissasValuation;
 type Formulario = Record<CampoPremissa, string>;
 type CampoConfiguracao = { chave: CampoPremissa; rotulo: string; unidade: string; passo: string };
+type BuscaPremissas = { premissas: PremissasValuation; avisos: string[] };
+
+const CAMPOS_AUTOMATICOS: CampoPremissa[] = ["lpa", "vpa", "dividendo_anual", "roe", "payout", "g"];
 
 const CAMPOS: CampoConfiguracao[] = [
   { chave: "lpa", rotulo: "LPA", unidade: "por ação", passo: "any" },
@@ -18,7 +21,7 @@ const CAMPOS: CampoConfiguracao[] = [
   { chave: "roe", rotulo: "ROE", unidade: "%", passo: "0.01" },
   { chave: "payout", rotulo: "Payout", unidade: "%", passo: "0.01" },
   { chave: "g", rotulo: "Crescimento perpétuo (g)", unidade: "%", passo: "0.01" },
-  { chave: "ke", rotulo: "Custo de capital próprio (Ke)", unidade: "%", passo: "0.01" },
+  { chave: "ke", rotulo: "Custo de capital (Ke)", unidade: "%", passo: "0.01" },
   { chave: "pl_historico", rotulo: "P/L histórico-alvo", unidade: "múltiplo", passo: "any" },
   { chave: "pl_setor", rotulo: "P/L do setor-alvo", unidade: "múltiplo", passo: "any" },
   { chave: "fcfe_1", rotulo: "FCFE por ação · ano 1", unidade: "por ação", passo: "any" },
@@ -65,15 +68,11 @@ export function Valuation() {
   const [ticker, setTicker] = useState("");
   const [classeNova, setClasseNova] = useState<"AÇÃO" | "FII" | "FIAGRO">("AÇÃO");
   const [avisos, setAvisos] = useState<string[]>([]);
+  const [mensagemBusca, setMensagemBusca] = useState("");
   const [formulario, setFormulario] = useState<Formulario>(formularioVazio);
   const ativos = useQuery({ queryKey: ["ativos"], queryFn: () => api.get<Ativo[]>("/ativos") });
 
   const selecionar = (id: number | string) => setParams({ ativo: String(id) }, { replace: true });
-
-  useEffect(() => {
-    if (ativos.isFetching || !ativos.data?.length) return;
-    if (!ativos.data.some((ativo) => String(ativo.id) === ativoId)) selecionar(ativos.data[0].id);
-  }, [ativoId, ativos.data, ativos.isFetching]);
 
   const ativoAtual = ativos.data?.find((ativo) => String(ativo.id) === ativoId);
   const tickerAtual = ativoAtual?.ticker;
@@ -118,7 +117,23 @@ export function Valuation() {
       cliente.invalidateQueries({ queryKey: ["valuation-historico"] });
     },
   });
-  const erro = ativos.error ?? preparar.error ?? valuation.error ?? salvar.error;
+  const buscarPremissas = useMutation({
+    mutationFn: (id: number) => api.post<BuscaPremissas>(`/valuation/${id}/buscar-premissas`),
+    onSuccess: (resultado) => {
+      setFormulario((atual) => {
+        const proximo = { ...atual };
+        for (const chave of CAMPOS_AUTOMATICOS) {
+          const valor = resultado.premissas[chave];
+          if (valor !== null) proximo[chave] = String(CAMPOS_PERCENTUAIS.has(chave) ? valor * 100 : valor);
+        }
+        return proximo;
+      });
+      setAvisos(resultado.avisos);
+      setMensagemBusca("Premissas disponíveis atualizadas. Campos sem dados automáticos foram mantidos.");
+    },
+    onError: () => setMensagemBusca("Não foi possível buscar as premissas."),
+  });
+  const erro = ativos.error ?? preparar.error ?? valuation.error ?? salvar.error ?? buscarPremissas.error;
   const detalhe = valuation.data;
   const mensagemErro = erro instanceof Error ? erro.message : erro ? String(erro) : null;
 
@@ -149,7 +164,6 @@ export function Valuation() {
         <label>
           Ativo
           <input
-            list="valuation-ativos"
             value={ticker}
             onChange={(evento) => setTicker(evento.target.value.toUpperCase())}
             placeholder="Digite um ticker, ex.: PETR4"
@@ -158,13 +172,6 @@ export function Valuation() {
             title="Use de 4 a 16 letras ou números"
             required
           />
-          <datalist id="valuation-ativos">
-            {ativos.data?.map((ativo) => (
-              <option key={ativo.id} value={ativo.ticker}>
-                {ativo.nome ?? ativo.classe}
-              </option>
-            ))}
-          </datalist>
         </label>
         <label className="valuation-classe">
           Classe (se novo)
@@ -229,8 +236,22 @@ export function Valuation() {
                 LPA, VPA e dividendo anual são estimados pela cotação e pelos múltiplos/DY publicados; ROE vem do
                 fundamento mais recente. Revise esses valores e informe Ke, múltiplos-alvo e projeções de FCFE quando
                 disponíveis. As premissas ficam salvas por ativo e cada cálculo salvo entra no histórico de valuations
-                (último e dois anteriores).
+                (último e dois anteriores). Use “Buscar premissas” para atualizar automaticamente os campos com dados
+                disponíveis; os demais podem ser preenchidos manualmente.
               </p>
+              <button
+                type="button"
+                className="valuation-salvar"
+                disabled={buscarPremissas.isPending}
+                onClick={() => {
+                  setMensagemBusca("");
+                  setAvisos([]);
+                  buscarPremissas.mutate(Number(ativoId));
+                }}
+              >
+                {buscarPremissas.isPending ? "BUSCANDO…" : "BUSCAR PREMISSAS"}
+              </button>
+              {mensagemBusca && <p className="sutil" role="status">{mensagemBusca}</p>}
               <div className="valuation-campos">
                 {CAMPOS.map(({ chave, rotulo, unidade, passo }) => (
                   <label key={chave}>

@@ -891,6 +891,11 @@ class PremissasValuationOut(_Saida):
     fcfe_5: Num | None
 
 
+class BuscaPremissasValuationOut(BaseModel):
+    premissas: PremissasValuationOut
+    avisos: list[str]
+
+
 class ModeloValuationOut(BaseModel):
     id: Literal["graham", "bazin", "dcf_fcfe", "gordon", "pl_historico", "pl_setor", "pvp_justificado"]
     rotulo: str
@@ -975,6 +980,7 @@ class CalculoValuationOut(BaseModel):
     upside: Num | None
     modelos_disponiveis: int
     modelos: ModelosHistoricoValuationOut
+    premissas: PremissasValuationOut
 
 
 class HistoricoValuationOut(BaseModel):
