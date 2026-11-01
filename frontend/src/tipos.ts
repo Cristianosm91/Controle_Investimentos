@@ -317,6 +317,7 @@ export interface CalculoValuation {
   upside: number | null;
   modelos_disponiveis: number;
   modelos: Record<ModeloValuation["id"], number | null>;
+  premissas: PremissasValuation;
 }
 
 export interface HistoricoValuation {
