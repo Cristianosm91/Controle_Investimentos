@@ -784,7 +784,9 @@ export interface AgendaProventos {
   meses: { mes: string; confirmado: number; estimado: number }[];
   por_ativo: { ativo_id: number; ticker: string; classe: string; confirmado: number; estimado: number; total: number; yoc: number | null }[];
   total_12m: number;
+  total_recebido_12m: number;
   media_mensal: number;
+  yoc_atual: number | null;
   yoc_projetado: number | null;
 }
 

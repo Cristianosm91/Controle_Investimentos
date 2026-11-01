@@ -28,14 +28,29 @@ export function AgendaProventos() {
           <small className="sutil">{a.a_receber.length} pagamento(s) futuro(s)</small>
         </div>
         <div className="card">
-          <span>Projeção dos próximos 12 meses</span>
-          <strong>{moeda(a.total_12m)}</strong>
-          <small className="sutil">média de {moeda(a.media_mensal)} por mês</small>
+          <span>Recebidos nos últimos 12 meses</span>
+          <strong>{moeda(a.total_recebido_12m)}</strong>
+          <small className="sutil">total efetivamente recebido</small>
         </div>
         <div className="card">
-          <span>Yield on cost projetado</span>
+          <span>Média mensal (12 meses)</span>
+          <strong>{moeda(a.media_mensal)}</strong>
+          <small className="sutil">total recebido ÷ 12</small>
+        </div>
+        <div className="card">
+          <span>Yield on Cost atual</span>
+          <strong>{percentual(a.yoc_atual)}</strong>
+          <small className="sutil">recebidos nos últimos 12 meses ÷ custo atual da carteira</small>
+        </div>
+        <div className="card">
+          <span>Projeção (próximos 12 meses)</span>
+          <strong>{moeda(a.total_12m)}</strong>
+          <small className="sutil">estimativa com lançamentos confirmados e projeção histórica</small>
+        </div>
+        <div className="card">
+          <span>Yield on Cost projetado</span>
           <strong>{percentual(a.yoc_projetado)}</strong>
-          <small className="sutil">projeção 12 meses ÷ custo dos ativos pagadores</small>
+          <small className="sutil">projeção 12 meses ÷ custo atual da carteira</small>
         </div>
       </div>
 
