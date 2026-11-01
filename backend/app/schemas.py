@@ -1272,7 +1272,9 @@ class AgendaProventosOut(BaseModel):
     meses: list[MesProjecaoOut]
     por_ativo: list[AtivoProjecaoOut]
     total_12m: Num
+    total_recebido_12m: Num
     media_mensal: Num
+    yoc_atual: Num | None
     yoc_projetado: Num | None
 
 

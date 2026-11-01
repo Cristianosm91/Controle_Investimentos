@@ -159,11 +159,19 @@ def test_api_agenda(cliente):
         "quantidade": 10, "preco": 10,
     })
     cliente.post("/api/proventos", json={
+        "investidor_id": inv, "ativo_id": ativo, "data_pagamento": str(hoje - timedelta(days=10)),
+        "evento": "DIVIDENDO", "valor": 20,
+    })
+    cliente.post("/api/proventos", json={
         "investidor_id": inv, "ativo_id": ativo, "data_pagamento": str(hoje + timedelta(days=3)), "evento": "DIVIDENDO",
         "valor": 5,
     })
     r = cliente.get("/api/proventos/agenda").json()
     assert r["total_a_receber"] == 5 and r["a_receber"][0]["ticker"] == "ITSA4"
+    assert r["total_recebido_12m"] == 20
+    assert r["media_mensal"] == 20 / 12
+    assert r["yoc_atual"] == 0.2
+    assert r["yoc_projetado"] == r["total_12m"] / 100
     assert len(r["meses"]) == 12
     assert any(a["codigo"] == "proventos" for a in cliente.get("/api/alertas").json())
 
