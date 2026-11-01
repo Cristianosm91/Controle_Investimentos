@@ -53,7 +53,6 @@ def renda_fixa(sessao: SessaoDep, investidores: InvestidoresDep):
 @router.get("/proventos/agenda", response_model=AgendaProventosOut)
 def agenda(sessao: SessaoDep, investidores: InvestidoresDep):
     a = agenda_proventos.calcular(sessao, investidores)
-    custo = sum(p.custo for p in a.por_ativo)
     return AgendaProventosOut(
         a_receber=[ProventoAgendaOut(**vars(i)) for i in a.a_receber],
         total_a_receber=a.total_a_receber,
@@ -66,8 +65,10 @@ def agenda(sessao: SessaoDep, investidores: InvestidoresDep):
             for p in a.por_ativo
         ],
         total_12m=a.total_12m,
-        media_mensal=a.total_12m / 12,
-        yoc_projetado=sum(p.total for p in a.por_ativo) / custo if custo else None,
+        total_recebido_12m=a.total_recebido_12m,
+        media_mensal=a.total_recebido_12m / 12,
+        yoc_atual=a.total_recebido_12m / a.custo_carteira if a.custo_carteira else None,
+        yoc_projetado=a.total_12m / a.custo_carteira if a.custo_carteira else None,
     )
 
 
