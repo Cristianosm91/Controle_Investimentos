@@ -249,6 +249,44 @@ def consultar(sessao: Session, ativo_id: int, investidores: Sequence[int] | None
     return _consultar(sessao, ativo_id, investidores)
 
 
+def buscar_premissas(
+    sessao: Session,
+    ativo_id: int,
+    provedores: Sequence[ProvedorCotacao] | None = None,
+    cliente_fundamentos: httpx.Client | None = None,
+) -> dict:
+    ativo = sessao.get(Ativo, ativo_id)
+    if ativo is None:
+        raise LookupError(f"Ativo {ativo_id} não encontrado")
+
+    avisos = []
+    if ativo.cotacao_automatica:
+        resultado_cotacoes = cotacoes.atualizar_cotacoes(sessao, provedores, [ativo])
+        if ativo.ticker in resultado_cotacoes.sem_cotacao:
+            avisos.append(f"Cotação de {ativo.ticker} indisponível")
+    else:
+        avisos.append(f"Cotação de {ativo.ticker} é manual")
+
+    if ativo.mercado == "BVMF":
+        resultado_fundamentos = fundamentos.atualizar(sessao, cliente_fundamentos, ativo_ids=[ativo.id])
+        if ativo.ticker in resultado_fundamentos.sem_dados:
+            avisos.append(f"Fundamentos de {ativo.ticker} indisponíveis")
+        avisos.extend(resultado_fundamentos.falhas)
+    else:
+        avisos.append(f"Busca de fundamentos indisponível para {ativo.ticker}")
+
+    cotacao = sessao.scalar(
+        select(Cotacao).where(Cotacao.ativo_id == ativo_id).order_by(Cotacao.data.desc(), Cotacao.id.desc()).limit(1)
+    )
+    fundamento = sessao.scalar(
+        select(Fundamento)
+        .where(Fundamento.ativo_id == ativo_id)
+        .order_by(Fundamento.data_ref.desc(), Fundamento.atualizado_em.desc(), Fundamento.id.desc())
+        .limit(1)
+    )
+    return {"premissas": _premissas_automaticas(cotacao, fundamento), "avisos": avisos}
+
+
 def salvar_premissas(
     sessao: Session,
     ativo_id: int,
@@ -281,6 +319,7 @@ def _registrar_historico(sessao: Session, resultado: dict) -> None:
             preco_mediano=resultado["analise"]["preco_mediano"],
             modelos_disponiveis=resultado["analise"]["modelos_disponiveis"],
             **{campo: precos.get(campo) for campo in _MODELOS_HISTORICO},
+            **{f"premissa_{campo}": valor for campo, valor in resultado["premissas"].items()},
         )
     )
     sessao.flush()
@@ -343,6 +382,9 @@ def historico(sessao: Session) -> list[dict]:
                         "upside": _upside(calculo.preco_mediano, calculo.cotacao),
                         "modelos_disponiveis": calculo.modelos_disponiveis,
                         "modelos": {campo: getattr(calculo, campo) for campo in _MODELOS_HISTORICO},
+                        "premissas": {
+                            campo: getattr(calculo, f"premissa_{campo}") for campo in _CAMPOS_PREMISSAS
+                        },
                     }
                     for calculo in calculos[:CALCULOS_MANTIDOS]
                 ],

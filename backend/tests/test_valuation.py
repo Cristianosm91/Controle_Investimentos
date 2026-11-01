@@ -1,5 +1,6 @@
 from datetime import date, timedelta
 from decimal import Decimal as D
+from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, func, select
@@ -188,6 +189,7 @@ def test_historico_mantem_ultimo_calculo_e_os_dois_anteriores(cliente: TestClien
     abcd = next(item for item in lista if item["ticker"] == "ABCD3")
     assert len(abcd["calculos"]) == 3
     assert [c["modelos"]["bazin"] for c in abcd["calculos"]] == [40, 30, 20]
+    assert [c["premissas"]["dividendo_anual"] for c in abcd["calculos"]] == [2.4, 1.8, 1.2]
     assert abcd["calculos"][0]["modelos"]["dcf_fcfe"] is None
     assert abcd["calculos"][0]["modelos_disponiveis"] == 6
     assert abcd["calculos"][0]["preco_mediano"] is not None
@@ -284,3 +286,40 @@ def test_preparar_ativo_avisa_quando_fontes_nao_encontram_o_ticker(monkeypatch):
 
 def test_endpoint_preparar_ativo_valida_ticker(cliente: TestClient):
     assert cliente.post("/api/valuation/ativo", json={"ticker": "a b"}).status_code == 422
+
+
+def test_endpoint_buscar_premissas_atualiza_fontes_sem_salvar_por_cima_das_manuais(
+    cliente: TestClient, monkeypatch
+):
+    ativo = cliente.post("/api/ativos", json={"ticker": "ABCD3", "classe": "AÇÃO"}).json()
+    rota = f"/api/valuation/{ativo['id']}"
+    entrada = {campo: None for campo in premissas_teste()}
+    entrada.update({"lpa": 99, "ke": 0.1})
+    assert cliente.put(f"{rota}/premissas", json=entrada).status_code == 200
+    monkeypatch.setattr(valuation.cotacoes, "provedores_padrao", lambda: [_ProvedorFalso({"ABCD3": D("100")})])
+
+    def atualizar_fundamentos(sessao, _cliente=None, hoje=None, ativo_ids=None):
+        sessao.add(
+            Fundamento(
+                ativo_id=ativo["id"],
+                data_ref=hoje or date.today(),
+                fonte="teste",
+                preco_lucro=D("10"),
+                preco_valor_patrimonial=D("2"),
+                dividend_yield=D("5"),
+                roe=D("15"),
+            )
+        )
+        sessao.commit()
+        return SimpleNamespace(sem_dados=[], falhas=[])
+
+    monkeypatch.setattr(valuation.fundamentos, "atualizar", atualizar_fundamentos)
+
+    resposta = cliente.post(f"{rota}/buscar-premissas")
+
+    assert resposta.status_code == 200
+    assert resposta.json()["premissas"]["lpa"] == 10
+    assert resposta.json()["premissas"]["vpa"] == 50
+    assert resposta.json()["premissas"]["ke"] is None
+    assert resposta.json()["avisos"] == []
+    assert cliente.get(rota).json()["premissas"]["lpa"] == 99

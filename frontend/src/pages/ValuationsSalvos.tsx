@@ -4,10 +4,26 @@ import { Link } from "react-router-dom";
 import { api } from "../api";
 import { classeSinal, data, moeda, numero, percentual } from "../formato";
 import { MODELOS_VALUATION as MODELOS } from "../referencias";
-import type { CalculoValuation, HistoricoValuation } from "../tipos";
+import type { CalculoValuation, HistoricoValuation, PremissasValuation } from "../tipos";
 import "./Valuation.css";
 
 const ROTULOS_CALCULO = ["Último cálculo", "Anterior", "Anterior (2)"];
+const PREMISSAS_HISTORICO: { chave: keyof PremissasValuation; rotulo: string; percentual?: boolean }[] = [
+  { chave: "lpa", rotulo: "LPA" },
+  { chave: "vpa", rotulo: "VPA" },
+  { chave: "dividendo_anual", rotulo: "Dividendo anual" },
+  { chave: "roe", rotulo: "ROE", percentual: true },
+  { chave: "payout", rotulo: "Payout", percentual: true },
+  { chave: "g", rotulo: "Crescimento perpétuo (g)", percentual: true },
+  { chave: "ke", rotulo: "Custo de capital próprio (Ke)", percentual: true },
+  { chave: "pl_historico", rotulo: "P/L histórico" },
+  { chave: "pl_setor", rotulo: "P/L do setor" },
+  { chave: "fcfe_1", rotulo: "FCFE por ação · ano 1" },
+  { chave: "fcfe_2", rotulo: "FCFE por ação · ano 2" },
+  { chave: "fcfe_3", rotulo: "FCFE por ação · ano 3" },
+  { chave: "fcfe_4", rotulo: "FCFE por ação · ano 4" },
+  { chave: "fcfe_5", rotulo: "FCFE por ação · ano 5" },
+];
 
 function dataHora(iso: string): string {
   return `${data(iso)} ${iso.slice(11, 16)}`;
@@ -104,7 +120,7 @@ export function ValuationsSalvos() {
                             className="link"
                             onClick={() => setAberto(aberto === item.ativo_id ? null : item.ativo_id)}
                           >
-                            {aberto === item.ativo_id ? "Ocultar modelos" : "Ver modelos"}
+                            {aberto === item.ativo_id ? "Ocultar detalhes" : "Ver detalhes"}
                           </button>
                           <button
                             className="link perigo"
@@ -154,6 +170,38 @@ export function ValuationsSalvos() {
                               </tr>
                             </tbody>
                           </table>
+                          <h3>Premissas usadas em cada cálculo</h3>
+                          <table className="tabela valuation-modelos">
+                            <thead>
+                              <tr>
+                                <th>Premissa</th>
+                                {item.calculos.map((calculo) => (
+                                  <th key={calculo.calculado_em} className="num">
+                                    {dataHora(calculo.calculado_em)}
+                                  </th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {PREMISSAS_HISTORICO.map(({ chave, rotulo, percentual: ehPercentual }) => (
+                                <tr key={chave}>
+                                  <td>{rotulo}</td>
+                                  {item.calculos.map((calculo) => {
+                                    const valor = calculo.premissas[chave];
+                                    return (
+                                      <td key={calculo.calculado_em} className="num">
+                                        {valor === null
+                                          ? "—"
+                                          : ehPercentual
+                                            ? percentual(valor)
+                                            : numero(valor)}
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         </td>
                       </tr>
                     )}
@@ -165,6 +213,7 @@ export function ValuationsSalvos() {
           <p className="sutil valuation-ajuda">
             O preço justo é a mediana dos modelos calculáveis em cada cálculo. “Diferença hoje” compara o último preço
             justo com a cotação mais recente; a diferença de cada cálculo usa a cotação vigente naquele momento.
+            Premissas de cálculos anteriores à atualização podem aparecer como “—”.
           </p>
         </div>
       )}
