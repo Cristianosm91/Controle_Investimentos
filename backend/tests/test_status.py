@@ -128,6 +128,39 @@ def test_status_book_uses_configured_asset_allocation():
     engine.dispose()
 
 
+def test_status_open_result_excludes_bonus_from_invested_capital():
+    engine = create_engine("sqlite://", poolclass=StaticPool)
+    Base.metadata.create_all(engine)
+    hoje = date(2026, 10, 31)
+    with Session(engine) as sessao:
+        investidor = Investidor(nome="Ana")
+        ativo = Ativo(ticker="PETR4", classe="AÇÃO", mercado="BVMF", moeda="BRL")
+        sessao.add_all([investidor, ativo])
+        sessao.flush()
+        sessao.add_all(
+            [
+                Operacao(
+                    investidor_id=investidor.id, ativo_id=ativo.id, data=date(2026, 1, 1), evento="C",
+                    quantidade=D("10"), preco=D("100"), moeda="BRL", cambio=D("1"),
+                ),
+                Operacao(
+                    investidor_id=investidor.id, ativo_id=ativo.id, data=date(2026, 2, 1), evento="BONIFICACAO",
+                    quantidade=D("1"), preco=D("100"), moeda="BRL", cambio=D("1"),
+                ),
+                Cotacao(ativo_id=ativo.id, data=hoje, preco=D("120"), fonte="B3"),
+            ]
+        )
+        sessao.flush()
+
+        resultado = status.consultar(sessao, "ativo", ativo.id, [investidor.id], limite=10, deslocamento=0, hoje=hoje)
+
+        assert resultado["investido"] == D("1000")
+        assert resultado["mercado"] == D("1320")
+        assert resultado["lucro_aberto"] == D("320")
+        assert resultado["lucro_total"] == D("320")
+    engine.dispose()
+
+
 def test_status_returns_zeroes_for_empty_portfolio(cliente):
     carteira = cliente.post("/api/carteiras", json={"nome": "Vazia", "ativos": []})
     assert carteira.status_code == 201

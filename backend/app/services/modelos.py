@@ -13,6 +13,8 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 
+from ..dominio import EVENTOS_PLANILHA_CODIGOS
+
 _LINHAS_FORMATADAS = 1000
 _FORMATOS = {"data": "DD/MM/YYYY", "numero": "#,##0.########", "moeda": "#,##0.00"}
 _CABECALHO = PatternFill("solid", fgColor="DBEAFE")
@@ -49,9 +51,14 @@ MODELOS: dict[str, Modelo] = {
         (
             Coluna("ativo", "Ticker negociado (ex.: PETR4)", largura=14),
             Coluna("date", "Data da operação", formato="data", largura=14),
-            Coluna("evento", "C/Compra ou V/Venda", opcoes=("C", "V"), largura=14),
-            Coluna("qtd", "Quantidade positiva, inclusive nas vendas", formato="numero", largura=12),
-            Coluna("preco", "Preço unitário em R$", formato="moeda", largura=12),
+            Coluna(
+                "evento", "Sigla do evento",
+                opcoes=EVENTOS_PLANILHA_CODIGOS,
+                largura=18,
+            ),
+            Coluna("qtd", "Quantidade conforme o evento", formato="numero", largura=12),
+            Coluna("preco", "Preço unitário em R$ (sinal conforme o evento)",
+                   formato="moeda", largura=20),
             Coluna("taxas", "Corretagem e emolumentos, em R$", obrigatoria=False, formato="moeda", largura=12),
             Coluna("corretora", "Nome da corretora", obrigatoria=False, largura=20),
             Coluna("irrf", "IRRF da operação, em R$", obrigatoria=False, formato="moeda", largura=12),
@@ -62,8 +69,29 @@ MODELOS: dict[str, Modelo] = {
             ("PETR4", date(2026, 3, 9), "V", 10, 40, 2.5, "XP", 0.01, "BRL"),
         ),
         (
-            "Use quantidade positiva tanto para compra quanto para venda; o evento define o sinal.",
-            "Este modelo aceita apenas operações em BRL.",
+            "Modelo personalizado para importar operações e eventos; preencha Evento com uma sigla válida da lista.",
+            (
+                "C, IPO, SUB, V, BN, V.SUB e CISAO usam quantidade positiva; V e V.SUB são convertidos em saída. "
+                "SUB deve informar no preço unitário o custo total por ativo, incluindo eventual custo do direito. "
+                "BN exige preço zero por não envolver desembolso. DT usa quantidade positiva para compra e negativa "
+                "para venda, marcando day trade."
+            ),
+            (
+                "DESDOBRAMENTO, GRUPAMENTO, TC e AT usam quantidade com sinal: positiva para entrada/aumento e "
+                "negativa para saída/redução. Transferências devem ter as duas pontas em linhas separadas."
+            ),
+            (
+                "AM exige quantidade positiva e preço unitário negativo. Eventos sem impacto de custo, como "
+                "DESDOBRAMENTO/GRUPAMENTO, exigem preço zero. Taxas e IRRF devem ser não negativos."
+            ),
+            (
+                "Este modelo aceita somente operações em BRL. Proventos (DIVIDENDO, JSCP, RENDIMENTO, BTC/ALUGUEL, "
+                "entre outros) devem ser importados pelo modelo de Proventos."
+            ),
+            (
+                "BAIXA, R.CAP, EX.OPC, TERMO, AJ.POS, ISENTO, TAXA e C.COTA são reconhecidos como códigos "
+                "documentados, mas não são suportados por este modelo; a linha será rejeitada com a justificativa."
+            ),
         ),
     ),
     "b3-negociacao": Modelo(

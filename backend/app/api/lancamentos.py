@@ -1,7 +1,8 @@
+import re
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
@@ -44,11 +45,19 @@ def _validar_refs(sessao: Session, dados: BaseModel) -> None:
 
 def _listar(
     sessao: Session, modelo, campo_data, schema, investidores, ticker, inicio, fim, limite, deslocamento, evento=None,
-    classe=None,
+    classe=None, ids=None,
 ):
     base = select(modelo)
     if investidores:
         base = base.where(modelo.investidor_id.in_(investidores))
+    if ids is not None:
+        try:
+            ids_lista = {int(valor) for valor in ids.split(",") if valor}
+        except ValueError as erro:
+            raise HTTPException(422, "IDs de lançamentos inválidos") from erro
+        if not ids_lista or min(ids_lista) <= 0:
+            raise HTTPException(422, "Informe pelo menos um ID de lançamento válido")
+        base = base.where(modelo.id.in_(ids_lista))
     if evento:
         base = base.where(modelo.evento == evento)
     if (ticker or classe) and hasattr(modelo, "ativo_id"):
@@ -70,6 +79,23 @@ def _listar(
         base.options(*opcoes).order_by(campo_data.desc(), modelo.id.desc()).limit(limite).offset(deslocamento)
     ).all()
     return Pagina[schema](total=total or 0, itens=[_saida(o, schema) for o in itens])
+
+
+def _ids_apontamento(
+    sessao: Session,
+    investidores: list[int],
+    apontamento: str,
+    campo: str,
+) -> list[int]:
+    if not re.fullmatch(r"[a-f0-9]{64}", apontamento):
+        raise HTTPException(422, "Identificador de apontamento inválido")
+    from ..services import qualidade
+
+    verificacao = next(
+        (v for v in qualidade.verificar(sessao, investidores) if v.fingerprint == apontamento),
+        None,
+    )
+    return getattr(verificacao, campo, []) if verificacao else []
 
 
 def _criar(sessao: Session, modelo, dados: BaseModel, schema):
@@ -106,12 +132,21 @@ def listar_operacoes(
     classe: str | None = None,
     inicio: date | None = None,
     fim: date | None = None,
+    ids: str | None = None,
+    apontamento: str | None = None,
     limite: Limite = 200,
     deslocamento: Deslocamento = 0,
 ):
+    if apontamento:
+        ids_relacionados = _ids_apontamento(
+            sessao, investidores, apontamento, "operacao_ids"
+        )
+        if not ids_relacionados:
+            return Pagina[OperacaoOut](total=0, itens=[])
+        ids = ",".join(str(id_) for id_ in ids_relacionados)
     return _listar(
         sessao, Operacao, Operacao.data, OperacaoOut, investidores, ticker, inicio, fim, limite, deslocamento,
-        classe=classe,
+        classe=classe, ids=ids,
     )
 
 
@@ -142,10 +177,20 @@ def listar_proventos(
     limite: Limite = 200,
     deslocamento: Deslocamento = 0,
     evento: Annotated[str | None, Query(max_length=20)] = None,
+    classe: str | None = None,
+    apontamento: str | None = None,
 ):
+    ids = None
+    if apontamento:
+        ids_relacionados = _ids_apontamento(
+            sessao, investidores, apontamento, "provento_ids"
+        )
+        if not ids_relacionados:
+            return Pagina[ProventoOut](total=0, itens=[])
+        ids = ",".join(str(id_) for id_ in ids_relacionados)
     return _listar(
         sessao, Provento, Provento.data_pagamento, ProventoOut, investidores, ticker, inicio, fim, limite, deslocamento,
-        evento,
+        evento, classe=classe, ids=ids,
     )
 
 
@@ -174,8 +219,20 @@ def listar_caixa(
     fim: date | None = None,
     limite: Limite = 200,
     deslocamento: Deslocamento = 0,
+    apontamento: str | None = None,
 ):
-    return _listar(sessao, MovCaixa, MovCaixa.data, MovCaixaOut, investidores, None, inicio, fim, limite, deslocamento)
+    ids = None
+    if apontamento:
+        ids_relacionados = _ids_apontamento(
+            sessao, investidores, apontamento, "caixa_ids"
+        )
+        if not ids_relacionados:
+            return Pagina[MovCaixaOut](total=0, itens=[])
+        ids = ",".join(str(id_) for id_ in ids_relacionados)
+    return _listar(
+        sessao, MovCaixa, MovCaixa.data, MovCaixaOut, investidores, None, inicio, fim,
+        limite, deslocamento, ids=ids,
+    )
 
 
 @router.post("/caixa", response_model=MovCaixaOut, status_code=201)

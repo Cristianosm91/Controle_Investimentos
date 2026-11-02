@@ -115,6 +115,7 @@ class Linha:
     status: str = "novo"  # novo | duplicado | verificar | ignorado
     motivo: str | None = None
     hash: str | None = None
+    evento_original: str | None = None
 
 
 @dataclass
@@ -275,30 +276,110 @@ def _linha_negociacao(numero, dia, valor, qtd, preco, total, instituicao) -> Lin
 
 def _linha_planilha_operacoes(numero, dia, valor, qtd, preco, instituicao) -> Linha:
     """Lê o layout simples: ativo, date, evento, qtd, preco, taxas, corretora, irrf, moeda."""
+    from ..dominio import EVENTOS_PLANILHA_NAO_SUPORTADOS, EVENTOS_PLANILHA_OPERACOES
+
     ticker = str(valor["ticker"] or "").strip().upper()
-    evento_bruto = _normalizar(valor["evento"])
-    evento = {"c": "C", "compra": "C", "v": "V", "venda": "V"}.get(evento_bruto)
+    evento_bruto = str(valor.get("evento") or "").strip().upper()
+    evento = EVENTOS_PLANILHA_OPERACOES.get(evento_bruto)
     moeda = str(valor.get("moeda") or "BRL").strip().upper()
     linha = Linha(
         numero, "PLANILHA_OPERACOES", "Planilha de operações", dia, ticker or None, "IGNORADA",
         instituicao=instituicao, moeda=moeda, origem=ORIGEM_PLANILHA_OPERACOES,
+        evento_original=evento_bruto or None,
     )
-    if not re.fullmatch(r"[A-Z0-9]{4,16}", ticker):
-        linha.status, linha.motivo = "ignorado", "Ativo inválido ou ausente"
+    campos_invalidos = [
+        nome
+        for campo, nome in (
+            ("qtd", "qtd"),
+            ("preco", "preco"),
+            ("taxas", "taxas"),
+            ("irrf", "irrf"),
+        )
+        if valor.get(campo) not in (None, "") and _decimal(valor.get(campo)) is None
+    ]
+    if dia is None:
+        linha.status, linha.motivo = "ignorado", f"Linha {numero}: data ausente ou inválida"
+    elif not re.fullmatch(r"[A-Z0-9]{4,16}", ticker):
+        linha.status, linha.motivo = "ignorado", f"Linha {numero}: ativo inválido ou ausente"
+    elif not evento_bruto:
+        linha.status, linha.motivo = "ignorado", f"Linha {numero}: coluna Evento vazia"
+    elif campos_invalidos:
+        linha.status, linha.motivo = (
+            "ignorado",
+            f"Linha {numero}: valor inválido no(s) campo(s) {', '.join(campos_invalidos)} "
+            f"para o evento '{evento_bruto}'.",
+        )
     elif evento is None:
-        linha.status, linha.motivo = "ignorado", "Evento inválido: use C/Compra ou V/Venda"
-    elif qtd <= 0 or preco <= 0:
-        linha.status, linha.motivo = "ignorado", "Quantidade ou preço ausente"
+        motivo = EVENTOS_PLANILHA_NAO_SUPORTADOS.get(evento_bruto)
+        if motivo:
+            linha.status, linha.motivo = (
+                "ignorado",
+                f"Linha {numero}: evento '{evento_bruto}' reconhecido, mas não suportado; {motivo}.",
+            )
+        else:
+            linha.status, linha.motivo = (
+                "ignorado",
+                f"Linha {numero}: evento '{evento_bruto}' não reconhecido. Corrija a coluna Evento.",
+            )
     elif moeda != "BRL":
-        linha.status, linha.motivo = "ignorado", "Somente operações em BRL são aceitas neste modelo"
+        linha.status, linha.motivo = (
+            "ignorado",
+            f"Linha {numero}: moeda '{moeda}' não suportada; use BRL.",
+        )
     else:
-        linha.tipo, linha.evento = "OPERACAO", evento
-        linha.quantidade = qtd if evento == "C" else -qtd
-        linha.preco, linha.valor = preco, qtd * preco
-        # Taxas e IRRF são valores monetários em centavos; normaliza resíduos binários do Excel.
-        linha.taxas = (_decimal(valor.get("taxas")) or Decimal(0)).quantize(Decimal("0.01"))
-        linha.irrf = (_decimal(valor.get("irrf")) or Decimal(0)).quantize(Decimal("0.01"))
-        linha.classe = _classe_inferida(ticker, None)
+        taxas = (_decimal(valor.get("taxas")) or Decimal(0)).quantize(Decimal("0.01"))
+        irrf = (_decimal(valor.get("irrf")) or Decimal(0)).quantize(Decimal("0.01"))
+        quantidade = qtd
+        daytrade = False
+
+        if evento == "DAYTRADE":
+            evento = "C" if qtd > 0 else "V"
+            quantidade = qtd
+            daytrade = True
+            quantidade_valida = qtd != 0
+            preco_valido = preco > 0
+        elif evento in ("C", "V"):
+            quantidade_valida = qtd > 0
+            preco_valido = preco > 0
+            quantidade = qtd if evento == "C" else -qtd
+        elif evento == "BONIFICACAO":
+            quantidade_valida = qtd > 0
+            preco_valido = preco == 0
+        elif evento == "DESDOBRAMENTO":
+            quantidade_valida = qtd != 0
+            preco_valido = preco == 0
+        elif evento == "TRANSFERENCIA":
+            quantidade_valida = qtd != 0
+            preco_valido = preco >= 0
+        elif evento == "AMORTIZACAO":
+            quantidade_valida = qtd > 0
+            preco_valido = preco < 0
+        elif evento == "CISAO":
+            quantidade_valida = qtd > 0
+            preco_valido = preco <= 0
+        else:
+            quantidade_valida = qtd > 0
+            preco_valido = preco >= 0
+            quantidade = -qtd
+
+        if taxas < 0 or irrf < 0:
+            linha.status, linha.motivo = (
+                "ignorado",
+                f"Linha {numero}: taxas e IRRF não podem ser negativos para o evento '{evento_bruto}'.",
+            )
+        elif not quantidade_valida or not preco_valido:
+            linha.status, linha.motivo = (
+                "ignorado",
+                f"Linha {numero}: quantidade/preço incompatíveis com o evento '{evento_bruto}'. "
+                "Confira os sinais e os campos obrigatórios indicados nas instruções do modelo.",
+            )
+        else:
+            linha.tipo, linha.evento = "OPERACAO", evento
+            linha.quantidade = quantidade
+            linha.preco, linha.valor = preco, abs(qtd * preco)
+            linha.taxas, linha.irrf = taxas, irrf
+            linha.daytrade = daytrade
+            linha.classe = _classe_inferida(ticker, None)
     return linha
 
 
@@ -522,11 +603,18 @@ def importar(
         if linha.status != "novo" and not (linha.status == "verificar" and linha.numero in incluir):
             continue
         if linha.tipo == "OPERACAO":
+            observacao = (
+                "Importado do extrato B3"
+                if linha.origem == ORIGEM_B3
+                else "Importado de planilha de operações"
+            )
+            if linha.evento_original and linha.evento_original != linha.evento:
+                observacao += f" · sigla informada: {linha.evento_original}"
             sessao.add(Operacao(
                 investidor_id=investidor_id, ativo=ativo(linha), corretora=corretora(linha), data=linha.data,
                 evento=linha.evento, quantidade=linha.quantidade, preco=linha.preco, taxas=linha.taxas, irrf=linha.irrf,
                 moeda=linha.moeda, cambio=Decimal(1), daytrade=linha.daytrade,
-                observacao="Importado do extrato B3" if linha.origem == ORIGEM_B3 else "Importado de planilha de operações",
+                observacao=observacao,
                 origem=linha.origem,
                 hash_origem=linha.hash, lote_id=lote_id(),
             ))

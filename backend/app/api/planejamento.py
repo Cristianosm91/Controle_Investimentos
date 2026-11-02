@@ -1,6 +1,7 @@
 from datetime import date
+from typing import Annotated
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from ..models import Meta
 from ..schemas import (
@@ -51,8 +52,10 @@ def renda_fixa(sessao: SessaoDep, investidores: InvestidoresDep):
 # ---------- Agenda e projeção de proventos ----------
 
 @router.get("/proventos/agenda", response_model=AgendaProventosOut)
-def agenda(sessao: SessaoDep, investidores: InvestidoresDep):
-    a = agenda_proventos.calcular(sessao, investidores)
+def agenda(
+    sessao: SessaoDep, investidores: InvestidoresDep, classe: Annotated[str | None, Query(max_length=30)] = None
+):
+    a = agenda_proventos.calcular(sessao, investidores, classe=classe)
     return AgendaProventosOut(
         a_receber=[ProventoAgendaOut(**vars(i)) for i in a.a_receber],
         total_a_receber=a.total_a_receber,

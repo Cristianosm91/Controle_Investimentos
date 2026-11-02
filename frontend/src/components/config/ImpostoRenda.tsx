@@ -6,6 +6,7 @@ import { data, moeda, percentual } from "../../formato";
 import type { Parametros, PrejuizoInicial, RegraFiscal } from "../../tipos";
 import { SeletorInvestidorIR, useInvestidorIR } from "../SeletorInvestidorIR";
 import { CampoData } from "../CampoData";
+import { useExclusaoEmLote } from "../ExclusaoEmLote";
 
 function ParametrosIR() {
   const { data: atuais } = useParametros();
@@ -199,6 +200,14 @@ function RegrasFiscais() {
     onSuccess: aposGravar,
   });
   const excluir = useMutation({ mutationFn: (id: number) => api.del(`/ir/regras/${id}`), onSuccess: aposGravar });
+  const selecao = useExclusaoEmLote({
+    itens: regras,
+    chave: (r) => r.id,
+    remover: (id) => api.del(`/ir/regras/${id}`),
+    titulo: "regras fiscais",
+    consulta: "ir-regras",
+    aposExcluir: aposGravar,
+  });
 
   const editar = (r: RegraFiscal) =>
     setForm({
@@ -221,9 +230,11 @@ function RegrasFiscais() {
         {regras.length === 0 && " Sem regras cadastradas: o cálculo usa as regras padrão da RFB."}
       </p>
       {erro && <div className="erro">{(erro as Error).message}</div>}
+      {selecao.acoes}
       <table className="tabela compacta">
         <thead>
           <tr>
+            <th />
             <th>Categoria</th>
             <th>Vigência</th>
             <th className="num">Alíquota</th>
@@ -236,6 +247,7 @@ function RegrasFiscais() {
         <tbody>
           {regras.map((r) => (
             <tr key={r.id}>
+              <td>{selecao.checkbox(r.id)}</td>
               <td>{nome(r.categoria)}</td>
               <td>
                 {data(r.vigencia_inicio)} – {r.vigencia_fim ? data(r.vigencia_fim) : "atual"}

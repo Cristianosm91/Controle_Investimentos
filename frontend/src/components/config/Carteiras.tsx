@@ -4,6 +4,7 @@ import { api } from "../../api";
 import { invalidarDerivados, paraFracao, paraPercentual, useAtivos, useDominio } from "../../cadastros";
 import { moeda, percentual } from "../../formato";
 import type { Carteira } from "../../tipos";
+import { useExclusaoEmLote } from "../ExclusaoEmLote";
 
 interface LinhaForm {
   ticker: string;
@@ -83,6 +84,14 @@ export function Carteiras() {
     },
   });
   const excluir = useMutation({ mutationFn: (id: number) => api.del(`/carteiras/${id}`), onSuccess: recarregar });
+  const selecao = useExclusaoEmLote({
+    itens: carteiras,
+    chave: (c) => c.id,
+    remover: (id) => api.del(`/carteiras/${id}`),
+    titulo: "carteiras",
+    consulta: "carteiras",
+    aposExcluir: recarregar,
+  });
   const erro = salvar.error ?? excluir.error;
 
   const mudarLinha = (i: number, parcial: Partial<LinhaForm>) =>
@@ -104,11 +113,13 @@ export function Carteiras() {
       {erro && <div className="erro">{(erro as Error).message}</div>}
       {aviso && <div className="aviso">{aviso}</div>}
       {carteiras.length === 0 && <div className="aviso">Nenhuma carteira cadastrada.</div>}
+      {selecao.acoes}
 
       {carteiras.map((c) => (
         <div key={c.id} className="painel">
           <div className="titulo-linha">
             <h3>
+              {selecao.checkbox(c.id)}{" "}
               {c.nome} {c.categoria && <span className="etiqueta">{c.categoria}</span>}
               {!c.ativa && <span className="etiqueta">inativa</span>}
             </h3>

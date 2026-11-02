@@ -507,6 +507,7 @@ class PosicaoOut(BaseModel):
     quantidade: Num
     preco_medio: Num
     custo: Num
+    valor_investido: Num
     cotacao: Num | None
     cotacao_data: date | None
     cotacao_fonte: str | None
@@ -541,6 +542,11 @@ class CaixaSaldosOut(BaseModel):
     integrado_desde: date | None
     total_brl: Num
     saldos: list[SaldoCaixaOut]
+
+
+class ValorInvestidoOut(BaseModel):
+    valor_investido: Num
+    valor_investido_posicoes_abertas: Num
 
 
 class GrupoAlocacaoOut(BaseModel):
@@ -1045,6 +1051,7 @@ class ResumoOut(BaseModel):
     lucro_aberto: Num
     lucro_realizado: Num
     proventos_total: Num
+    aluguel_total: Num
     proventos_12m: Num
     yoc_12m: Num | None
     tir_aa: float | None
@@ -1307,6 +1314,14 @@ class VerificacaoOut(BaseModel):
     descricao: str
     link: str | None
     itens: list[str]
+    fingerprint: str = ""
+    operacao_ids: list[int] = []
+    provento_ids: list[int] = []
+    caixa_ids: list[int] = []
+    ativo_ids: list[int] = []
+    investidor_ids: list[int] = []
+    status: Literal["aberto", "tratado", "resolvido"] = "aberto"
+    tratado_em: str | None = None
 
 
 # ---------- Exposição ----------

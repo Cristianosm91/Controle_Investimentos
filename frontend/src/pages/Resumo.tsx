@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api, query } from "../api";
+import { useAtivos } from "../cadastros";
 import { GraficoBarras, GraficoLinhas } from "../components/Graficos";
 import { classeSinal, data, moeda, moedaCompacta, percentual } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
@@ -13,13 +15,16 @@ function Pct({ v }: { v: number | null | undefined }) {
 
 export function Resumo() {
   const { filtro } = useInvestidor();
+  const { data: ativos = [] } = useAtivos();
+  const [classe, setClasse] = useState("");
+  const classes = [...new Set(ativos.map((ativo) => ativo.classe))].sort();
   const resumo = useQuery({
-    queryKey: ["resumo", filtro],
-    queryFn: () => api.get<TResumo>(`/rentabilidade/resumo${query({ investidores: filtro })}`),
+    queryKey: ["resumo", filtro, classe],
+    queryFn: () => api.get<TResumo>(`/rentabilidade/resumo${query({ investidores: filtro, classe })}`),
   });
   const mensal = useQuery({
-    queryKey: ["rentabilidade", filtro, "todos"],
-    queryFn: () => api.get<MesRentabilidade[]>(`/rentabilidade/mensal${query({ investidores: filtro })}`),
+    queryKey: ["rentabilidade", filtro, classe, "todos"],
+    queryFn: () => api.get<MesRentabilidade[]>(`/rentabilidade/mensal${query({ investidores: filtro, classe })}`),
   });
   const posicoes = useQuery({
     queryKey: ["posicoes", filtro, false],
@@ -28,15 +33,30 @@ export function Resumo() {
 
   const r = resumo.data;
   const meses = mensal.data ?? [];
-  const abertas = (posicoes.data ?? []).filter((p) => p.quantidade > 0 && p.variacao_dia_pct !== null);
+  const abertas = (posicoes.data ?? []).filter(
+    (p) => p.quantidade > 0 && p.variacao_dia_pct !== null && (!classe || p.classe === classe),
+  );
   const destaques = [...abertas].sort((a, b) => (b.variacao_dia_pct ?? 0) - (a.variacao_dia_pct ?? 0));
-  const lucroTotal = r ? r.lucro_aberto + r.lucro_realizado + r.proventos_total : 0;
+  const lucroTotal = r ? r.lucro_aberto + r.lucro_realizado + r.proventos_total + r.aluguel_total : 0;
 
   return (
     <section>
       <div className="titulo-linha">
         <h1>Resumo</h1>
-        {r?.data_referencia && <span className="sutil">Cotações até {data(r.data_referencia)}</span>}
+        <div className="acoes">
+          <label>
+            Classe
+            <select aria-label="Filtrar resumo por classe" value={classe} onChange={(e) => setClasse(e.target.value)}>
+              <option value="">Todas as classes</option>
+              {classes.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </label>
+          {r?.data_referencia && <span className="sutil">Cotações até {data(r.data_referencia)}</span>}
+        </div>
       </div>
       {(resumo.error ?? mensal.error) && <div className="erro">{((resumo.error ?? mensal.error) as Error).message}</div>}
       {resumo.isLoading && <p>Carregando…</p>}
@@ -57,7 +77,12 @@ export function Resumo() {
             <div className="card">
               <span>Lucro total</span>
               <strong className={classeSinal(lucroTotal)}>{moeda(lucroTotal)}</strong>
-              <small className="sutil">aberto + realizado + proventos</small>
+              <small className="sutil">aberto + realizado + proventos + aluguel BTC</small>
+            </div>
+            <div className="card">
+              <span>Aluguel BTC</span>
+              <strong className={classeSinal(r.aluguel_total)}>{moeda(r.aluguel_total)}</strong>
+              <small className="sutil">resultado líquido já incluído no lucro total</small>
             </div>
             <div className="card">
               <span>Proventos (12 meses)</span>

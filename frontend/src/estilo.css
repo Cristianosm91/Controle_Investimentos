@@ -342,6 +342,14 @@ select {
   background: #f9fafb;
 }
 
+.tabela tbody tr.qualidade-relacionada > td {
+  background: #F0F0F0;
+}
+
+.tabela tbody tr.qualidade-relacionada > td:first-child {
+  box-shadow: inset 3px 0 #666666;
+}
+
 .tabela.compacta {
   background: var(--painel);
   border: 1px solid var(--borda);

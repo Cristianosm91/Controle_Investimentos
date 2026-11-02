@@ -17,17 +17,16 @@ def carregar_posicoes(
 ) -> dict[tuple[int, int], Posicao]:
     consulta = select(
         Operacao.id, Operacao.investidor_id, Operacao.ativo_id, Operacao.data, Operacao.evento,
-        Operacao.quantidade, Operacao.preco, Operacao.taxas, Operacao.daytrade, Operacao.cambio,
-    )
+        Operacao.quantidade, Operacao.preco, Operacao.taxas, Operacao.daytrade, Operacao.cambio, Operacao.irrf,
+    ).where(Operacao.data <= (ate or date.today()))
     if investidor_ids:
         consulta = consulta.where(Operacao.investidor_id.in_(investidor_ids))
     if ativo_ids is not None:
         consulta = consulta.where(Operacao.ativo_id.in_(ativo_ids))
-    if ate:
-        consulta = consulta.where(Operacao.data <= ate)
     movimentos = (
         Movimento(
-            r.investidor_id, r.ativo_id, r.data, r.evento, r.quantidade, r.preco, r.taxas, r.daytrade, r.id, r.cambio
+            r.investidor_id, r.ativo_id, r.data, r.evento, r.quantidade, r.preco, r.taxas, r.daytrade, r.id,
+            r.cambio, r.irrf,
         )
         for r in sessao.execute(consulta)
     )
@@ -45,6 +44,7 @@ def _proventos_liquidos(
         consulta = consulta.where(Provento.investidor_id.in_(investidor_ids))
     if ativo_ids is not None:
         consulta = consulta.where(Provento.ativo_id.in_(ativo_ids))
+    consulta = consulta.where(Provento.data_pagamento <= date.today())
     return {(i, a): Decimal(str(v or 0)) for i, a, v in sessao.execute(consulta)}
 
 
@@ -108,8 +108,9 @@ def montar_carteira(
     consolidado: bool,
     somente_abertas: bool = True,
     ativo_ids: set[int] | None = None,
+    ate: date | None = None,
 ) -> list[LinhaCarteira]:
-    posicoes = carregar_posicoes(sessao, investidor_ids, ativo_ids=ativo_ids)
+    posicoes = carregar_posicoes(sessao, investidor_ids, ate=ate, ativo_ids=ativo_ids)
     proventos = _proventos_liquidos(sessao, investidor_ids, ativo_ids)
 
     if consolidado:

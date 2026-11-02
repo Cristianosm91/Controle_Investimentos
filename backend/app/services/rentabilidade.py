@@ -155,11 +155,11 @@ def caixa(m: Movimento) -> Decimal:
     """
     ev, q = m.evento, m.quantidade
     if ev == "C" or (ev == "TRANSFERENCIA" and q > 0):
-        return -(q * m.preco + m.taxas) * m.cambio
+        return -(q * m.preco + m.taxas + m.irrf) * m.cambio
     if ev in ("V", "VENDA_SUBSCRICAO") or ev == "TRANSFERENCIA":
-        return (-q * m.preco - m.taxas) * m.cambio
+        return (-q * m.preco - m.taxas - m.irrf) * m.cambio
     if ev == "AMORTIZACAO":
-        return -q * m.preco * m.cambio
+        return (-q * m.preco - m.irrf) * m.cambio
     return ZERO
 
 
@@ -311,18 +311,21 @@ def carregar_dados(
     if investidor_ids:
         filtros_op.append(Operacao.investidor_id.in_(investidor_ids))
         filtros_prov.append(Provento.investidor_id.in_(investidor_ids))
-    if ativo_ids:
+    if ativo_ids is not None:
         filtros_op.append(Operacao.ativo_id.in_(ativo_ids))
         filtros_prov.append(Provento.ativo_id.in_(ativo_ids))
+    filtros_op.append(Operacao.data <= date.today())
+    filtros_prov.append(Provento.data_pagamento <= date.today())
 
     movimentos = [
         Movimento(
-            r.investidor_id, r.ativo_id, r.data, r.evento, r.quantidade, r.preco, r.taxas, r.daytrade, r.id, r.cambio
+            r.investidor_id, r.ativo_id, r.data, r.evento, r.quantidade, r.preco, r.taxas, r.daytrade, r.id,
+            r.cambio, r.irrf,
         )
         for r in sessao.execute(
             select(
                 Operacao.investidor_id, Operacao.ativo_id, Operacao.data, Operacao.evento, Operacao.quantidade,
-                Operacao.preco, Operacao.taxas, Operacao.daytrade, Operacao.id, Operacao.cambio,
+                Operacao.preco, Operacao.taxas, Operacao.daytrade, Operacao.id, Operacao.cambio, Operacao.irrf,
             ).where(*filtros_op)
         )
     ]

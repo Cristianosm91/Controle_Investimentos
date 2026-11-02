@@ -25,6 +25,7 @@ class Movimento:
     daytrade: bool = False
     ordem: int = 0
     cambio: Decimal = Decimal(1)
+    irrf: Decimal = ZERO
 
 
 @dataclass
@@ -46,6 +47,98 @@ class Posicao:
         return self.quantidade > _RESIDUO
 
 
+@dataclass(frozen=True)
+class ResultadoInvestimento:
+    valor_investido: Decimal
+    capital_por_posicao: dict[tuple[int, int], Decimal]
+
+    @property
+    def valor_investido_posicoes_abertas(self) -> Decimal:
+        return self.valor_investido
+
+
+@dataclass
+class PosicaoInvestimento:
+    quantidade: Decimal = ZERO
+    capital: Decimal = ZERO
+
+
+@dataclass
+class TransferenciaInvestimento:
+    data: date
+    quantidade: Decimal
+    capital: Decimal
+
+
+def calcular_investimento(movimentos: Iterable[Movimento]) -> ResultadoInvestimento:
+    """Calcula o desembolso ainda associado às posições abertas."""
+    posicoes: dict[tuple[int, int], PosicaoInvestimento] = {}
+    transferencias: dict[int, list[TransferenciaInvestimento]] = {}
+
+    def reduzir(posicao: PosicaoInvestimento, quantidade: Decimal) -> Decimal:
+        if quantidade <= 0 or posicao.quantidade <= 0:
+            return ZERO
+        quantidade = min(quantidade, posicao.quantidade)
+        capital = (
+            posicao.capital
+            if quantidade == posicao.quantidade
+            else posicao.capital * quantidade / posicao.quantidade
+        )
+        posicao.quantidade -= quantidade
+        posicao.capital -= capital
+        if posicao.quantidade <= _RESIDUO:
+            posicao.quantidade = ZERO
+            posicao.capital = ZERO
+        return capital
+
+    for movimento in ordenar(movimentos):
+        chave = (movimento.investidor_id, movimento.ativo_id)
+        posicao = posicoes.setdefault(chave, PosicaoInvestimento())
+        evento, quantidade = movimento.evento, movimento.quantidade
+
+        if evento == "C":
+            desembolso = (quantidade * movimento.preco + movimento.taxas + movimento.irrf) * movimento.cambio
+            if not movimento.daytrade:
+                posicao.quantidade += quantidade
+                posicao.capital += desembolso
+        elif evento == "V" and not movimento.daytrade:
+            reduzir(posicao, -quantidade)
+        elif evento in ("BONIFICACAO", "DESDOBRAMENTO") and not movimento.daytrade:
+            posicao.quantidade = max(ZERO, posicao.quantidade + quantidade)
+            if posicao.quantidade == ZERO:
+                posicao.capital = ZERO
+        elif evento == "TRANSFERENCIA" and quantidade < 0:
+            capital = reduzir(posicao, -quantidade)
+            transferencias.setdefault(movimento.investidor_id, []).append(
+                TransferenciaInvestimento(movimento.data, -quantidade, capital)
+            )
+        elif evento == "TRANSFERENCIA" and quantidade > 0:
+            posicao.quantidade += quantidade
+            restante = quantidade
+            pendentes = transferencias.setdefault(movimento.investidor_id, [])
+            for transferencia in sorted(pendentes, key=lambda t: abs((movimento.data - t.data).days)):
+                if restante <= 0 or abs((movimento.data - transferencia.data).days) > 7:
+                    continue
+                movida = min(restante, transferencia.quantidade)
+                capital = (
+                    transferencia.capital
+                    if movida == transferencia.quantidade
+                    else transferencia.capital * movida / transferencia.quantidade
+                )
+                posicao.capital += capital
+                transferencia.quantidade -= movida
+                transferencia.capital -= capital
+                restante -= movida
+
+    capital_por_posicao = {
+        chave: posicao.capital
+        for chave, posicao in posicoes.items()
+        if posicao.quantidade > _RESIDUO
+    }
+    aberto = sum(capital_por_posicao.values(), ZERO)
+    return ResultadoInvestimento(aberto, capital_por_posicao)
+
+
 def _zerar_residuo(p: Posicao) -> None:
     if abs(p.quantidade) < _RESIDUO:
         p.quantidade = ZERO
@@ -55,7 +148,7 @@ def _zerar_residuo(p: Posicao) -> None:
 def _entrada(p: Posicao, m: Movimento) -> Decimal:
     if not p.aberta:
         p.data_inicio = m.data
-    p.custo += (m.quantidade * m.preco + m.taxas) * m.cambio
+    p.custo += (m.quantidade * m.preco + m.taxas + m.irrf) * m.cambio
     p.quantidade += m.quantidade
     return ZERO
 
@@ -66,7 +159,7 @@ def _saida(p: Posicao, m: Movimento, realiza_lucro: bool) -> Decimal:
     p.custo -= pm * saida
     p.quantidade -= saida
     _zerar_residuo(p)
-    return (saida * m.preco - m.taxas) * m.cambio - pm * saida if realiza_lucro else ZERO
+    return (saida * m.preco - m.taxas - m.irrf) * m.cambio - pm * saida if realiza_lucro else ZERO
 
 
 def aplicar(p: Posicao, m: Movimento) -> Decimal:
@@ -79,7 +172,7 @@ def aplicar(p: Posicao, m: Movimento) -> Decimal:
     if ev == "TRANSFERENCIA":
         return _saida(p, m, realiza_lucro=False)
     if ev == "VENDA_SUBSCRICAO":
-        return (-q * m.preco - m.taxas) * m.cambio
+        return (-q * m.preco - m.taxas - m.irrf) * m.cambio
     if ev == "DESDOBRAMENTO":
         p.quantidade += q
         _zerar_residuo(p)

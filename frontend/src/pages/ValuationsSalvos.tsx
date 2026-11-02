@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Fragment, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
+import { useExclusaoEmLote } from "../components/ExclusaoEmLote";
 import { classeSinal, data, moeda, numero, percentual } from "../formato";
 import { MODELOS_VALUATION as MODELOS } from "../referencias";
 import type { CalculoValuation, HistoricoValuation, PremissasValuation } from "../tipos";
@@ -54,6 +55,14 @@ export function ValuationsSalvos() {
     mutationFn: (ativoId: number) => api.del(`/valuation/${ativoId}/historico`),
     onSuccess: () => cliente.invalidateQueries({ queryKey: ["valuation-historico"] }),
   });
+  const selecao = useExclusaoEmLote({
+    itens: historico.data ?? [],
+    chave: (item) => item.ativo_id,
+    remover: (id) => api.del(`/valuation/${id}/historico`),
+    titulo: "valuations salvos",
+    consulta: "valuation-historico",
+    aposExcluir: () => cliente.invalidateQueries({ queryKey: ["valuation-historico"] }),
+  });
   const erro = historico.error ?? remover.error;
 
   return (
@@ -67,6 +76,7 @@ export function ValuationsSalvos() {
       </div>
 
       {erro && <div className="erro">{(erro as Error).message}</div>}
+      {selecao.acoes}
       {historico.isLoading && <p>Carregando…</p>}
       {historico.data?.length === 0 && (
         <div className="aviso">
@@ -81,6 +91,7 @@ export function ValuationsSalvos() {
             <table className="tabela valuation-historico">
               <thead>
                 <tr>
+                  <th />
                   <th>Ativo</th>
                   <th className="num">Cotação atual</th>
                   <th className="num">Diferença hoje</th>
@@ -94,6 +105,7 @@ export function ValuationsSalvos() {
                 {historico.data.map((item) => (
                   <Fragment key={item.ativo_id}>
                     <tr>
+                      <td>{selecao.checkbox(item.ativo_id)}</td>
                       <td>
                         <strong>{item.ticker}</strong>
                         <div className="sutil texto-limitado">{item.nome ?? item.classe}</div>

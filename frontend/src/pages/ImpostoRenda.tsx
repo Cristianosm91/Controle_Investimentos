@@ -3,6 +3,7 @@ import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { api, query } from "../api";
 import { Modal } from "../components/Modal";
+import { useExclusaoEmLote } from "../components/ExclusaoEmLote";
 import { CampoData } from "../components/CampoData";
 import { SeletorInvestidorIR, useInvestidorIR } from "../components/SeletorInvestidorIR";
 import { invalidarDerivados, useAtivos, useDominio } from "../cadastros";
@@ -272,6 +273,17 @@ function Darfs({ investidor }: { investidor: number }) {
       invalidarDerivados(cliente);
     },
   });
+  const selecao = useExclusaoEmLote({
+    itens: darfs,
+    chave: (d) => d.id,
+    remover: (id) => api.del(`/ir/darfs/${id}`),
+    titulo: "DARFs pagos",
+    consulta: "ir-darfs",
+    aposExcluir: () => {
+      cliente.invalidateQueries({ queryKey: ["ir-darfs"] });
+      invalidarDerivados(cliente);
+    },
+  });
   const erro = error ?? excluir.error;
   return (
     <>
@@ -283,9 +295,12 @@ function Darfs({ investidor }: { investidor: number }) {
       {darfs.length === 0 ? (
         <p className="sutil">Nenhum DARF registrado.</p>
       ) : (
+        <>
+        {selecao.acoes}
         <table className="tabela compacta">
           <thead>
             <tr>
+              <th />
               <th>Mês de apuração</th>
               <th>Pagamento</th>
               <th className="num">Valor</th>
@@ -295,6 +310,7 @@ function Darfs({ investidor }: { investidor: number }) {
           <tbody>
             {darfs.map((d) => (
               <tr key={d.id}>
+                <td>{selecao.checkbox(d.id)}</td>
                 <td>{mesAno(d.competencia)}</td>
                 <td>{data(d.data_pagamento)}</td>
                 <td className="num">{moeda(d.valor)}</td>
@@ -310,6 +326,7 @@ function Darfs({ investidor }: { investidor: number }) {
             ))}
           </tbody>
         </table>
+        </>
       )}
       {edicao && <FormDarf investidor={investidor} darf={edicao === "novo" ? undefined : edicao} aoFechar={() => setEdicao(null)} />}
     </>

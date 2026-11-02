@@ -6,12 +6,12 @@ import { useInvestidor } from "../InvestidorContext";
 import type { AgendaProventos as TAgenda } from "../tipos";
 import { GraficoBarras } from "./Graficos";
 
-export function AgendaProventos() {
+export function AgendaProventos({ classe }: { classe?: string }) {
   const { filtro, investidores } = useInvestidor();
   const { data: dominio } = useDominio();
   const { data: a, isLoading, error } = useQuery({
-    queryKey: ["proventos-agenda", filtro],
-    queryFn: () => api.get<TAgenda>(`/proventos/agenda${query({ investidores: filtro })}`),
+    queryKey: ["proventos-agenda", filtro, classe],
+    queryFn: () => api.get<TAgenda>(`/proventos/agenda${query({ investidores: filtro, classe })}`),
   });
   const nome = (id: number) => investidores.find((i) => i.id === id)?.nome ?? id;
 

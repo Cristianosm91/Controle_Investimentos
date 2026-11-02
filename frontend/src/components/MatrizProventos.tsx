@@ -4,15 +4,15 @@ import { api, query } from "../api";
 import { MESES, moeda } from "../formato";
 import type { MatrizProventos as TMatriz } from "../tipos";
 
-export function MatrizProventos({ filtro }: { filtro: string | undefined }) {
+export function MatrizProventos({ filtro, classe }: { filtro: string | undefined; classe?: string }) {
   const [ano, setAno] = useState<string>("");
   const anos = useQuery({
-    queryKey: ["proventos-matriz", filtro, ""],
-    queryFn: () => api.get<TMatriz>(`/proventos/matriz${query({ investidores: filtro })}`),
+    queryKey: ["proventos-matriz", filtro, classe, ""],
+    queryFn: () => api.get<TMatriz>(`/proventos/matriz${query({ investidores: filtro, classe })}`),
   });
   const { data: m, isLoading, error } = useQuery({
-    queryKey: ["proventos-matriz", filtro, ano],
-    queryFn: () => api.get<TMatriz>(`/proventos/matriz${query({ investidores: filtro, ano })}`),
+    queryKey: ["proventos-matriz", filtro, classe, ano],
+    queryFn: () => api.get<TMatriz>(`/proventos/matriz${query({ investidores: filtro, ano, classe })}`),
     placeholderData: (anterior) => anterior,
   });
   const meses = m?.linhas.length ?? 0;

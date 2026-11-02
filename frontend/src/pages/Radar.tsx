@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, query } from "../api";
+import { useExclusaoEmLote } from "../components/ExclusaoEmLote";
 import { classeSinal, data, moeda, percentual } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
 import type { Ativo, ItemRadar } from "../tipos";
@@ -86,6 +87,14 @@ export function Radar() {
     mutationFn: (ativoId: number) => api.del(`/radar/${ativoId}`),
     onSuccess: () => cliente.invalidateQueries({ queryKey: ["radar"] }),
   });
+  const selecao = useExclusaoEmLote({
+    itens: radar.data ?? [],
+    chave: (item) => item.ativo_id,
+    remover: (id) => api.del(`/radar/${id}`),
+    titulo: "ativos do Radar",
+    consulta: "radar",
+    aposExcluir: () => cliente.invalidateQueries({ queryKey: ["radar"] }),
+  });
   const erro = radar.error ?? ativos.error ?? adicionar.error ?? cadastrar.error ?? remover.error;
 
   return (
@@ -96,6 +105,7 @@ export function Radar() {
       </div>
 
       {erro && <div className="erro">{(erro as Error).message}</div>}
+      {selecao.acoes}
 
       <div className="painel">
         <div className="radar-controles">
@@ -167,6 +177,7 @@ export function Radar() {
           <table className="tabela radar-tabela">
             <thead>
               <tr>
+                <th />
                 <th>Ativo</th>
                 <th className="num">Cotação</th>
                 <th className="num">Preço-alvo</th>
@@ -185,6 +196,7 @@ export function Radar() {
             <tbody>
               {radar.data.map((item) => (
                 <tr key={item.ativo_id}>
+                  <td>{selecao.checkbox(item.ativo_id)}</td>
                   <td>
                     <strong>{item.ticker}</strong>
                     <div className="sutil">{item.nome ?? item.classe}</div>

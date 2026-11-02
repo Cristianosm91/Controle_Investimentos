@@ -159,7 +159,7 @@ class Importador:
         self._ocorrencias: Counter[str] = Counter()
         self.estatisticas: Counter[str] = Counter()
         self.avisos: list[str] = []
-        self._daytrades_vistos: set[tuple[str, date, Decimal, Decimal]] = set()
+        self._daytrades_vistos: Counter[tuple[str, date, Decimal, Decimal]] = Counter()
 
     def _hash(self, aba: str, *campos) -> str:
         # Duas linhas idênticas são legítimas (ex.: duas compras iguais no dia); a ocorrência as diferencia.
@@ -234,9 +234,11 @@ class Importador:
                 evento = "C" if qtd > 0 else "V"
                 preco_val = decimal(col(l, 5))
                 chave_dt = (ticker, dia, qtd, preco_val)
-                if chave_dt in self._daytrades_vistos:
+                if not daytrade and self._daytrades_vistos[chave_dt]:
+                    self._daytrades_vistos[chave_dt] -= 1
                     continue
-                self._daytrades_vistos.add(chave_dt)
+                if daytrade:
+                    self._daytrades_vistos[chave_dt] += 1
             else:
                 evento = MAPA_EVENTO_OPERACAO.get(sem_acento(evento_bruto))
                 if evento is None:
@@ -493,7 +495,8 @@ def conciliar(sessao: Session, wb, investidor: Investidor) -> list[str]:
             print(f"Sanidade volume vs fluxo_caixa: diferença R$ {dif_resíduo:.2f} (esperado R$ {esperado_resíduo:.2f})")
             if abs(dif_resíduo - esperado_resíduo) > Decimal("0.05"):
                 divergencias.append(
-                    f"Desvio na relação volume vs fluxo_caixa: R$ {dif_resíduo:.2f} != esperado R$ {esperado_resíduo:.2f} (desvio R$ {abs(dif_resíduo - esperado_resíduo):.2f})"
+                    f"Desvio na relação volume vs fluxo_caixa: R$ {dif_resíduo:.2f} != esperado R$ {esperado_resíduo:.2f} "
+                    f"(desvio R$ {abs(dif_resíduo - esperado_resíduo):.2f})"
                 )
 
     return divergencias

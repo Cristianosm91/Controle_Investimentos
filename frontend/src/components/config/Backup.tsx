@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { api } from "../../api";
+import { useExclusaoEmLote } from "../ExclusaoEmLote";
 import type { Backup as TBackup, Backups, Restauracao } from "../../tipos";
 
 const TIPO: Record<TBackup["tipo"], string> = {
@@ -35,6 +36,14 @@ export function BackupConfig() {
     mutationFn: (nome: string) => api.del(`/backups/${encodeURIComponent(nome)}`),
     onSuccess: () => cliente.invalidateQueries({ queryKey: ["backups"] }),
   });
+  const selecao = useExclusaoEmLote({
+    itens: data?.itens ?? [],
+    chave: (backup) => backup.nome,
+    remover: (nome) => api.del(`/backups/${encodeURIComponent(nome)}`),
+    titulo: "backups",
+    consulta: "backups",
+    aposExcluir: () => cliente.invalidateQueries({ queryKey: ["backups"] }),
+  });
   const restaurar = useMutation({
     mutationFn: (nome: string) => api.post<Restauracao>(`/backups/${encodeURIComponent(nome)}/restaurar`),
     onSuccess: aposRestaurar,
@@ -58,6 +67,7 @@ export function BackupConfig() {
         grandes e guarde uma cópia fora deste computador. A restauração substitui todos os dados.
       </p>
       {falha && <div className="erro">{(falha as Error).message}</div>}
+      {selecao.acoes}
       {resultado && (
         <div className="aviso">
           Banco restaurado de <strong>{resultado.restaurado}</strong>. Cópia dos dados anteriores:{" "}
@@ -98,6 +108,7 @@ export function BackupConfig() {
           <table className="tabela compacta">
             <thead>
               <tr>
+                <th />
                 <th>Data</th>
                 <th>Tipo</th>
                 <th className="num">Tamanho</th>
@@ -114,6 +125,7 @@ export function BackupConfig() {
               )}
               {data?.itens.map((b) => (
                 <tr key={b.nome}>
+                  <td>{selecao.checkbox(b.nome)}</td>
                   <td title={b.nome}>{dataHora(b.criado_em)}</td>
                   <td>{TIPO[b.tipo]}</td>
                   <td className="num">{tamanho(b.tamanho)}</td>

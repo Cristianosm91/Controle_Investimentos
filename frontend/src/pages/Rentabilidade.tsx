@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, query } from "../api";
-import { invalidarDerivados } from "../cadastros";
+import { invalidarDerivados, useAtivos } from "../cadastros";
 import { GraficoBarras, GraficoLinhas } from "../components/Graficos";
 import { classeSinal, mesAno, MESES, moeda, moedaCompacta, percentual } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
@@ -134,19 +134,21 @@ function AvisoSemHistorico({ meses }: { meses: number }) {
 
 export function Rentabilidade() {
   const { filtro } = useInvestidor();
+  const { data: ativos = [] } = useAtivos();
+  const [classe, setClasse] = useState("");
   const [periodo, setPeriodo] = useState<Periodo>("12m");
   const [referencias, setReferencias] = useState<Benchmark[]>(["cdi", "ibov"]);
   const [verReal, setVerReal] = useState(false);
   const inicio = inicioDoPeriodo(periodo);
 
   const periodoQ = useQuery({
-    queryKey: ["rentabilidade", filtro, inicio ?? "todos"],
-    queryFn: () => api.get<MesRentabilidade[]>(`/rentabilidade/mensal${query({ investidores: filtro, inicio })}`),
+    queryKey: ["rentabilidade", filtro, classe, inicio ?? "todos"],
+    queryFn: () => api.get<MesRentabilidade[]>(`/rentabilidade/mensal${query({ investidores: filtro, classe, inicio })}`),
     placeholderData: (anterior) => anterior,
   });
   const todosQ = useQuery({
-    queryKey: ["rentabilidade", filtro, "todos"],
-    queryFn: () => api.get<MesRentabilidade[]>(`/rentabilidade/mensal${query({ investidores: filtro })}`),
+    queryKey: ["rentabilidade", filtro, classe, "todos"],
+    queryFn: () => api.get<MesRentabilidade[]>(`/rentabilidade/mensal${query({ investidores: filtro, classe })}`),
   });
 
   const meses = periodoQ.data ?? [];
@@ -166,6 +168,17 @@ export function Rentabilidade() {
               {p.rotulo}
             </button>
           ))}
+          <label>
+            Classe
+            <select aria-label="Filtrar rentabilidade por classe" value={classe} onChange={(e) => setClasse(e.target.value)}>
+              <option value="">Todas as classes</option>
+              {[...new Set(ativos.map((ativo) => ativo.classe))].sort().map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
       </div>
       {periodoQ.error && <div className="erro">{(periodoQ.error as Error).message}</div>}

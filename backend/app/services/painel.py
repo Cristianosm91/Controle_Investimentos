@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from ..models import Ativo, Provento
 from . import rentabilidade as r
+from .caixa import calcular_valor_investido
 from .posicao import ZERO
 
 _BENCHMARKS = ("ibov", "ifix", "cdi", "ipca")
@@ -23,8 +24,11 @@ class LinhaMensal:
     acumulados: dict[str, Decimal | None]
 
 
-def _calcular(sessao: Session, investidor_ids: Sequence[int] | None, ate: date):
-    dados = r.carregar_dados(sessao, investidor_ids)
+def _calcular(sessao: Session, investidor_ids: Sequence[int] | None, ate: date, classe: str | None = None):
+    ativo_ids = None
+    if classe:
+        ativo_ids = list(sessao.scalars(select(Ativo.id).where(Ativo.classe == classe)))
+    dados = r.carregar_dados(sessao, investidor_ids, ativo_ids)
     proventos = [(d, v) for _, _, d, v in dados.proventos]
     serie = r.serie_mensal(dados.movimentos, proventos, dados.precificacao, ate)
     bench = r.benchmarks_mensais(r.indices(sessao), [m.data for m in serie])
@@ -44,8 +48,11 @@ def _janela(serie: list[r.Mes], bench: list[r.Benchmark], inicio: date | None, f
     ]
 
 
-def mensal(sessao: Session, investidor_ids: Sequence[int] | None, inicio: date | None, fim: date | None) -> list[LinhaMensal]:
-    _, serie, bench = _calcular(sessao, investidor_ids, date.today())
+def mensal(
+    sessao: Session, investidor_ids: Sequence[int] | None, inicio: date | None, fim: date | None,
+    classe: str | None = None,
+) -> list[LinhaMensal]:
+    _, serie, bench = _calcular(sessao, investidor_ids, date.today(), classe)
     return _janela(serie, bench, inicio, fim)
 
 
@@ -64,17 +71,18 @@ class Resumo:
     investido: Decimal
     lucro_realizado: Decimal
     proventos_total: Decimal
+    aluguel_total: Decimal
     proventos_12m: Decimal
     tir_aa: float | None
     janelas: list[Janela]
     proventos_mensais: list[tuple[date, Decimal]]
 
 
-def resumo(sessao: Session, investidor_ids: Sequence[int] | None) -> Resumo:
+def resumo(sessao: Session, investidor_ids: Sequence[int] | None, classe: str | None = None) -> Resumo:
     hoje = date.today()
-    dados, serie, bench = _calcular(sessao, investidor_ids, hoje)
+    dados, serie, bench = _calcular(sessao, investidor_ids, hoje, classe)
     if not serie:
-        return Resumo(None, ZERO, ZERO, ZERO, ZERO, ZERO, None, [], [])
+        return Resumo(None, ZERO, ZERO, ZERO, ZERO, ZERO, ZERO, None, [], [])
 
     atual = serie[-1]
     fim_mes_atual = atual.data
@@ -89,15 +97,29 @@ def resumo(sessao: Session, investidor_ids: Sequence[int] | None) -> Resumo:
         janelas.append(Janela(nome, linhas[0].mes.data.replace(day=1), ultimo.twr_acumulado, ultimo.acumulados))
 
     corte_12m = hoje - timedelta(days=365)
-    proventos_12m = sum((v for _, _, d, v in dados.proventos if d > corte_12m), ZERO)
+    filtros_aluguel = [Provento.evento == "ALUGUEL", Provento.data_pagamento <= hoje]
+    if investidor_ids:
+        filtros_aluguel.append(Provento.investidor_id.in_(investidor_ids))
+    if classe:
+        filtros_aluguel.append(Provento.ativo_id.in_(select(Ativo.id).where(Ativo.classe == classe)))
+    liquido = (Provento.valor - Provento.irrf - Provento.taxas) * Provento.cambio
+    aluguel_total = Decimal(str(sessao.scalar(select(func.sum(liquido)).where(*filtros_aluguel)) or 0))
+    aluguel_12m = Decimal(str(
+        sessao.scalar(select(func.sum(liquido)).where(*filtros_aluguel, Provento.data_pagamento > corte_12m)) or 0
+    ))
+    proventos_12m = sum((v for _, _, d, v in dados.proventos if d > corte_12m), ZERO) - aluguel_12m
     lucro_realizado = sum((m.lucro_trades + m.lucro_daytrade for m in serie), ZERO)
     tir = r.tir(dados.movimentos, [(d, v) for _, _, d, v in dados.proventos], atual.mercado, hoje)
+    investido = calcular_valor_investido(
+        sessao, investidor_ids, classes_incluidas=[classe] if classe else None
+    ).valor_investido
     return Resumo(
         data_referencia=r.ultima_data_cotacao(sessao),
         patrimonio=atual.mercado,
-        investido=atual.investido,
+        investido=investido,
         lucro_realizado=lucro_realizado,
-        proventos_total=sum((v for _, _, _, v in dados.proventos), ZERO),
+        proventos_total=sum((v for _, _, _, v in dados.proventos), ZERO) - aluguel_total,
+        aluguel_total=aluguel_total,
         proventos_12m=proventos_12m,
         tir_aa=tir,
         janelas=janelas,
@@ -117,7 +139,7 @@ class MetricasPosicao:
 def metricas_posicoes(
     sessao: Session, investidor_ids: Sequence[int] | None, valores: dict[tuple[int | None, int], tuple[Decimal, Decimal | None]]
 ) -> dict[tuple[int | None, int], MetricasPosicao]:
-    """`valores`: chave (investidor ou None se consolidado, ativo) -> (custo, valor de mercado)."""
+    """`valores`: chave (investidor ou None se consolidado, ativo) -> (capital investido, valor de mercado)."""
     dados = r.carregar_dados(sessao, investidor_ids)
     consolidado = any(inv is None for inv, _ in valores)
     chave = (lambda inv, ativo: (None, ativo)) if consolidado else (lambda inv, ativo: (inv, ativo))
@@ -148,7 +170,9 @@ class Matriz:
     valores: list[list[Decimal]]
 
 
-def matriz_proventos(sessao: Session, investidor_ids: Sequence[int] | None, ano: int | None) -> Matriz:
+def matriz_proventos(
+    sessao: Session, investidor_ids: Sequence[int] | None, ano: int | None, classe: str | None = None
+) -> Matriz:
     """Sem ano: linhas = anos. Com ano: linhas = ativos daquele ano. Colunas = meses; valores líquidos em BRL."""
     liquido = func.sum((Provento.valor - Provento.irrf - Provento.taxas) * Provento.cambio)
     mes = extract("month", Provento.data_pagamento)
@@ -162,6 +186,10 @@ def matriz_proventos(sessao: Session, investidor_ids: Sequence[int] | None, ano:
     else:
         rotulo = extract("year", Provento.data_pagamento)
         consulta = select(rotulo, mes, liquido)
+    if classe:
+        if not ano:
+            consulta = consulta.join(Ativo, Ativo.id == Provento.ativo_id)
+        consulta = consulta.where(Ativo.classe == classe)
     if investidor_ids:
         consulta = consulta.where(Provento.investidor_id.in_(investidor_ids))
 
