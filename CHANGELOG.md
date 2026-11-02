@@ -6,6 +6,11 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 
 ## [Não lançado]
 
+## [1.2.1] - 2026-11-02
+
+### Corrigido
+- Operações: exibe o IRRF como coluna própria ao lado das taxas.
+
 ## [1.2.0] - 2026-11-02
 
 ### Adicionado
@@ -102,7 +107,8 @@ Primeira versão estável: substitui a planilha de controle de investimentos (Fa
 - Arquivos da B3 com dimensão declarada como `A1` eram lidos só até a primeira linha.
 - Quantidades em texto pt-BR com ponto de milhar (`1.350`) eram lidas como decimais.
 
-[Não lançado]: https://github.com/Cristianosm91/Controle_Investimentos/compare/v1.2.0...HEAD
+[Não lançado]: https://github.com/Cristianosm91/Controle_Investimentos/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/Cristianosm91/Controle_Investimentos/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/Cristianosm91/Controle_Investimentos/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/Cristianosm91/Controle_Investimentos/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/Cristianosm91/Controle_Investimentos/releases/tag/v1.0.0

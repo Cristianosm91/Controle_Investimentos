@@ -63,6 +63,7 @@ export function Operacoes() {
     { titulo: "Qtd", numerica: true, render: (o) => <span className={classeSinal(o.quantidade)}>{numero(o.quantidade, 8)}</span> },
     { titulo: "Preço", numerica: true, render: (o) => moeda(o.preco, o.moeda) },
     { titulo: "Taxas", numerica: true, render: (o) => moeda(o.taxas, o.moeda) },
+    { titulo: "IRRF", numerica: true, render: (o) => moeda(o.irrf, o.moeda) },
     { titulo: "Total (R$)", numerica: true, render: (o) => moeda(Math.abs(o.quantidade * o.preco) * o.cambio) },
     { titulo: "Corretora", render: (o) => o.corretora ?? "—" },
     { titulo: "Obs.", render: (o) => <span className="sutil">{o.observacao}</span> },
