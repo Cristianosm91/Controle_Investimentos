@@ -123,6 +123,23 @@ class Operacao(Base):
     corretora: Mapped[Corretora | None] = relationship()
 
 
+class TratamentoQualidade(Base):
+    __tablename__ = "tratamento_qualidade"
+
+    fingerprint: Mapped[str] = mapped_column(String(64), primary_key=True)
+    codigo: Mapped[str] = mapped_column(String(80))
+    titulo: Mapped[str] = mapped_column(String(160))
+    severidade: Mapped[str] = mapped_column(String(10))
+    descricao: Mapped[str] = mapped_column(String(500))
+    itens: Mapped[str] = mapped_column(String(4000))
+    operacao_ids: Mapped[str] = mapped_column(String(2000))
+    provento_ids: Mapped[str] = mapped_column(String(2000))
+    caixa_ids: Mapped[str] = mapped_column(String(2000))
+    ativo_ids: Mapped[str] = mapped_column(String(2000))
+    investidor_ids: Mapped[str] = mapped_column(String(2000))
+    tratado_em: Mapped[str] = mapped_column(String(40))
+
+
 class Provento(Base):
     __tablename__ = "provento"
     __table_args__ = (Index("ix_provento_inv_ativo_data", "investidor_id", "ativo_id", "data_pagamento"),)

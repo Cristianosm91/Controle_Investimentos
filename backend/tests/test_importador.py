@@ -69,6 +69,39 @@ def test_importa_aluguel_darfs_e_parametros_sem_duplicar(sessao):
     assert prejuizos == {"COMUM": D(1500), "FII": D(300)}
 
 
+def test_importa_ocorrencias_daytrade_identicas_sem_duplicar_entre_abas(sessao):
+    inv = sessao.scalar(select(Investidor))
+    wb = openpyxl.Workbook()
+    normal = wb.active
+    normal.title = "op.normal"
+    daytrade = wb.create_sheet("op.daytrade")
+    for planilha in (normal, daytrade):
+        for _ in range(4):
+            planilha.append([])
+
+    def linha(evento, quantidade):
+        valores = [None] * 23
+        valores[1:10] = ["MGLU3", datetime(2026, 1, 5), evento, D(quantidade), D(10), D(0), "XP", D(0), "BRL"]
+        return valores
+
+    for _ in range(2):
+        daytrade.append(linha("C", "1"))
+        daytrade.append(linha("V", "-1"))
+        normal.append(linha("DT", "1"))
+        normal.append(linha("DT", "-1"))
+
+    importador = Importador(sessao, inv)
+    importador.importar_operacoes(wb, "op.daytrade", daytrade=True)
+    importador.importar_operacoes(wb, "op.normal", daytrade=False)
+    sessao.flush()
+
+    operacoes = sessao.scalars(select(Operacao)).all()
+    assert len(operacoes) == 4
+    assert sum(op.evento == "C" for op in operacoes) == 2
+    assert sum(op.evento == "V" for op in operacoes) == 2
+    assert all(op.daytrade for op in operacoes)
+
+
 def _planilha_cripto(qtd_btc=0.5):
     wb = openpyxl.Workbook()
     ws = wb.active

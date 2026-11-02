@@ -46,6 +46,47 @@ def test_operacoes_filtradas_por_classe(cliente, ids):
     assert resultado["itens"][0]["ticker"] == "HGLG11"
 
 
+def test_filtro_de_operacoes_aplicado_antes_da_paginacao(cliente, ids):
+    fii = cliente.post("/api/ativos", json={"ticker": "HGLG11", "classe": "FII"}).json()["id"]
+    acoes = cliente.post("/api/ativos", json={"ticker": "VALE3", "classe": "AÇÃO"}).json()["id"]
+    for ativo_id in (fii, acoes, fii):
+        assert cliente.post(
+            "/api/operacoes",
+            json={
+                "investidor_id": ids["investidor_id"],
+                "ativo_id": ativo_id,
+                "data": "2026-01-05",
+                "evento": "C",
+                "quantidade": 1,
+                "preco": 10,
+            },
+        ).status_code == 201
+
+    resultado = cliente.get("/api/operacoes", params={"classe": "FII", "limite": 1, "deslocamento": 1}).json()
+    assert resultado["total"] == 2
+    assert len(resultado["itens"]) == 1
+    assert resultado["itens"][0]["ticker"] == "HGLG11"
+
+
+def test_proventos_filtrados_por_classe(cliente, ids):
+    fii = cliente.post("/api/ativos", json={"ticker": "HGLG11", "classe": "FII"}).json()["id"]
+    for ativo_id in (ids["ativo_id"], fii):
+        assert cliente.post(
+            "/api/proventos",
+            json={
+                "investidor_id": ids["investidor_id"],
+                "ativo_id": ativo_id,
+                "data_pagamento": "2026-02-10",
+                "evento": "DIVIDENDO",
+                "valor": 10,
+            },
+        ).status_code == 201
+
+    resultado = cliente.get("/api/proventos", params={"classe": "FII"}).json()
+    assert resultado["total"] == 1
+    assert resultado["itens"][0]["ticker"] == "HGLG11"
+
+
 def test_operacao_rejeita_sinal_e_corretora_inexistente(cliente, ids):
     base = {**ids, "data": "2026-01-05", "evento": "V", "preco": 30}
     assert cliente.post("/api/operacoes", json={**base, "quantidade": 10}).status_code == 422

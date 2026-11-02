@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { api } from "../api";
 import { paraFracao, paraPercentual } from "../cadastros";
 import { CampoData } from "../components/CampoData";
 import { GraficoLinhas } from "../components/Graficos";
 import { Modal } from "../components/Modal";
+import { useExclusaoEmLote } from "../components/ExclusaoEmLote";
 import { data, mesAno, moeda, moedaCompacta, percentual } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
 import type { Meta, TipoMeta } from "../tipos";
@@ -161,7 +162,7 @@ function FormularioMeta({ inicial, aoFechar }: { inicial: FormMeta; aoFechar: ()
   );
 }
 
-function CartaoMeta({ meta, aoEditar }: { meta: Meta; aoEditar: () => void }) {
+function CartaoMeta({ meta, aoEditar, caixaSelecao }: { meta: Meta; aoEditar: () => void; caixaSelecao: ReactNode }) {
   const cliente = useQueryClient();
   const { investidores } = useInvestidor();
   const excluir = useMutation({
@@ -179,7 +180,7 @@ function CartaoMeta({ meta, aoEditar }: { meta: Meta; aoEditar: () => void }) {
     <div className="painel meta">
       <div className="titulo-linha">
         <h3>
-          🎯 {meta.nome} <span className="etiqueta">{ROTULO_TIPO[meta.tipo]}</span>
+          {caixaSelecao} 🎯 {meta.nome} <span className="etiqueta">{ROTULO_TIPO[meta.tipo]}</span>
         </h3>
         <div className="acoes">
           <button className="link" onClick={aoEditar}>
@@ -245,7 +246,16 @@ function CartaoMeta({ meta, aoEditar }: { meta: Meta; aoEditar: () => void }) {
 
 export function Metas() {
   const [edicao, setEdicao] = useState<FormMeta | null>(null);
+  const cliente = useQueryClient();
   const { data: metas = [], isLoading, error } = useQuery({ queryKey: ["metas"], queryFn: () => api.get<Meta[]>("/metas") });
+  const selecao = useExclusaoEmLote({
+    itens: metas,
+    chave: (m) => m.id,
+    remover: (id) => api.del(`/metas/${id}`),
+    titulo: "metas",
+    consulta: "metas",
+    aposExcluir: () => cliente.invalidateQueries({ queryKey: ["metas"] }),
+  });
 
   const editar = (m: Meta) =>
     setEdicao({
@@ -268,6 +278,7 @@ export function Metas() {
       </div>
       {error && <div className="erro">{(error as Error).message}</div>}
       {isLoading && <p>Carregando…</p>}
+      {selecao.acoes}
       {!isLoading && metas.length === 0 && (
         <div className="aviso">
           Defina um objetivo — patrimônio (ex.: R$ 1 milhão em 2040) ou renda mensal de proventos (ex.: R$ 5 mil/mês) — e acompanhe o
@@ -275,7 +286,7 @@ export function Metas() {
         </div>
       )}
       {metas.map((m) => (
-        <CartaoMeta key={m.id} meta={m} aoEditar={() => editar(m)} />
+        <CartaoMeta key={m.id} meta={m} aoEditar={() => editar(m)} caixaSelecao={selecao.checkbox(m.id)} />
       ))}
       <p className="sutil">
         Projeção em valores de hoje: aportes mensais constantes e rentabilidade real (acima da inflação) composta mês a mês; cenários

@@ -37,6 +37,26 @@ def test_resumo(cliente, carteira):
     assert {j["nome"] for j in r["janelas"]} >= {"Mês", "Ano", "12 meses", "Desde o início"}
 
 
+def test_resumo_separa_aluguel_btc_e_filtra_por_classe(cliente, carteira):
+    fii = cliente.post("/api/ativos", json={"ticker": "HGLG11", "classe": "FII"}).json()["id"]
+    cliente.post("/api/operacoes", json={
+        "investidor_id": carteira["investidor"], "ativo_id": fii, "data": carteira["inicio"].isoformat(),
+        "evento": "C", "quantidade": 10, "preco": 50,
+    })
+    cliente.post("/api/proventos", json={
+        "investidor_id": carteira["investidor"], "ativo_id": fii,
+        "data_pagamento": (carteira["inicio"] + timedelta(days=5)).isoformat(),
+        "evento": "ALUGUEL", "valor": 100, "taxas": 10, "irrf": 5,
+    })
+
+    r = cliente.get("/api/rentabilidade/resumo", params={"classe": "FII"}).json()
+    assert r["investido"] == 500
+    assert r["proventos_total"] == 0
+    assert r["aluguel_total"] == 85
+    mensal = cliente.get("/api/rentabilidade/mensal", params={"classe": "FII"}).json()
+    assert mensal[-1]["investido"] == 500
+
+
 def test_resumo_vazio(cliente):
     r = cliente.get("/api/rentabilidade/resumo").json()
     assert r["patrimonio"] == 0 and r["janelas"] == []
@@ -52,6 +72,25 @@ def test_matriz_de_proventos(cliente, carteira):
     assert por_ativo["linhas"] == ["ABCD3"]
     mes = (carteira["inicio"] + timedelta(days=5)).month
     assert por_ativo["valores"][0][mes - 1] == 20
+
+
+def test_matriz_e_agenda_filtradas_por_classe(cliente, carteira):
+    fii = cliente.post("/api/ativos", json={"ticker": "HGLG11", "classe": "FII"}).json()["id"]
+    hoje = date.today()
+    cliente.post("/api/proventos", json={
+        "investidor_id": carteira["investidor"], "ativo_id": fii, "data_pagamento": hoje.isoformat(),
+        "evento": "DIVIDENDO", "valor": 10,
+    })
+    cliente.post("/api/proventos", json={
+        "investidor_id": carteira["investidor"], "ativo_id": fii,
+        "data_pagamento": (hoje + timedelta(days=30)).isoformat(),
+        "evento": "DIVIDENDO", "valor": 15,
+    })
+
+    matriz = cliente.get("/api/proventos/matriz", params={"ano": hoje.year, "classe": "FII"}).json()
+    assert matriz["linhas"] == ["HGLG11"]
+    agenda = cliente.get("/api/proventos/agenda", params={"classe": "FII"}).json()
+    assert [item["ticker"] for item in agenda["a_receber"]] == ["HGLG11"]
 
 
 def test_posicoes_trazem_yoc_e_tir(cliente, carteira):

@@ -13,9 +13,10 @@ from decimal import Decimal
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
-from ..models import Corretora, MovCaixa, Operacao, Provento
+from ..models import Ativo, Corretora, MovCaixa, Operacao, Provento
 from . import parametros
 from .carteira import cambios_atuais
+from .posicao import Movimento, ResultadoInvestimento, calcular_investimento
 
 ZERO = Decimal(0)
 
@@ -49,15 +50,45 @@ class ResultadoCaixa:
         return sum((s.saldo_brl or ZERO for s in self.saldos), ZERO)
 
 
-def _efeito_operacao():
+def _efeito_operacao(em_brl: bool = False):
     """Entrada (+) / saída (-) de dinheiro de cada operação, na moeda da operação."""
     q, p, t, ir = Operacao.quantidade, Operacao.preco, Operacao.taxas, Operacao.irrf
-    return case(
-        (Operacao.evento == "C", -(q * p) - t),
+    efeito = case(
+        (Operacao.evento == "C", -(q * p) - t - ir),
         (Operacao.evento.in_(("V", "VENDA_SUBSCRICAO")), -(q * p) - t - ir),
-        (Operacao.evento == "AMORTIZACAO", -(q * p) - t),
+        (Operacao.evento == "AMORTIZACAO", -(q * p) - t - ir),
         else_=0,
     )
+    return efeito * Operacao.cambio if em_brl else efeito
+
+
+def calcular_valor_investido(
+    sessao: Session,
+    investidor_ids: Sequence[int] | None,
+    classes_excluidas: Sequence[str] | None = None,
+    ate: date | None = None,
+    classes_incluidas: Sequence[str] | None = None,
+) -> ResultadoInvestimento:
+    """Calcula o capital de aquisição ainda associado às posições abertas."""
+    data_referencia = ate or date.today()
+    consulta = select(
+        Operacao.id, Operacao.investidor_id, Operacao.ativo_id, Operacao.data, Operacao.evento,
+        Operacao.quantidade, Operacao.preco, Operacao.taxas, Operacao.daytrade, Operacao.cambio, Operacao.irrf,
+    ).where(Operacao.data <= data_referencia)
+    if investidor_ids:
+        consulta = consulta.where(Operacao.investidor_id.in_(investidor_ids))
+    if classes_excluidas:
+        consulta = consulta.join(Ativo).where(Ativo.classe.not_in(classes_excluidas))
+    if classes_incluidas is not None:
+        consulta = consulta.join(Ativo).where(Ativo.classe.in_(classes_incluidas))
+    movimentos = [
+        Movimento(
+            r.investidor_id, r.ativo_id, r.data, r.evento, r.quantidade, r.preco, r.taxas,
+            r.daytrade, r.id, r.cambio, r.irrf,
+        )
+        for r in sessao.execute(consulta)
+    ]
+    return calcular_investimento(movimentos)
 
 
 def calcular(sessao: Session, investidor_ids: Sequence[int] | None, data_inicio: date | None = None) -> ResultadoCaixa:

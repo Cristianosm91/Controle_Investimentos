@@ -1,10 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api";
 import { invalidarDerivados } from "../../cadastros";
+import { useExclusaoEmLote } from "../ExclusaoEmLote";
 import { useInvestidor } from "../../InvestidorContext";
 import type { LoteImportacao } from "../../tipos";
 
-const TIPOS: Record<string, string> = { EXTRATO_B3: "Extrato B3", ALUGUEL: "Extrato de aluguel (BTC)" };
+const TIPOS: Record<string, string> = {
+  EXTRATO_B3: "Extrato B3",
+  PLANILHA_OPERACOES: "Planilha de operações",
+  ALUGUEL: "Extrato de aluguel (BTC)",
+};
 
 const dataHora = (iso: string) => new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
 
@@ -18,6 +23,20 @@ export function Importacoes() {
   const desfazer = useMutation({
     mutationFn: (id: number) => api.post<{ operacoes: number; proventos: number; caixa: number }>(`/lotes/${id}/desfazer`),
     onSuccess: () => {
+      for (const chave of ["lotes", "operacoes", "proventos", "caixa"]) cliente.invalidateQueries({ queryKey: [chave] });
+      invalidarDerivados(cliente);
+    },
+  });
+  const lotesAtivos = lotes.filter((l) => !l.desfeito_em);
+  const selecao = useExclusaoEmLote({
+    itens: lotesAtivos,
+    chave: (l) => l.id,
+    remover: (id) => api.post(`/lotes/${id}/desfazer`),
+    titulo: "lotes de importação",
+    consulta: "lotes",
+    rotuloAcao: "Desfazer",
+    rotuloResultado: "lote(s) desfeito(s)",
+    aposExcluir: () => {
       for (const chave of ["lotes", "operacoes", "proventos", "caixa"]) cliente.invalidateQueries({ queryKey: [chave] });
       invalidarDerivados(cliente);
     },
@@ -42,10 +61,13 @@ export function Importacoes() {
       {isLoading && <p>Carregando…</p>}
       {!isLoading && lotes.length === 0 && <div className="aviso">Nenhuma importação registrada ainda.</div>}
       {lotes.length > 0 && (
+        <>
+        {selecao.acoes}
         <div className="tabela-container">
           <table className="tabela compacta">
             <thead>
               <tr>
+                <th />
                 <th>Data</th>
                 <th>Tipo</th>
                 <th>Arquivo</th>
@@ -59,6 +81,7 @@ export function Importacoes() {
             <tbody>
               {lotes.map((l) => (
                 <tr key={l.id}>
+                  <td>{!l.desfeito_em && selecao.checkbox(l.id)}</td>
                   <td>{dataHora(l.criado_em)}</td>
                   <td>{TIPOS[l.tipo] ?? l.tipo}</td>
                   <td className="texto-limitado">{l.arquivo ?? "—"}</td>
@@ -87,6 +110,7 @@ export function Importacoes() {
             </tbody>
           </table>
         </div>
+        </>
       )}
     </>
   );

@@ -88,13 +88,19 @@ def quantidade_na_data(movimentos: Sequence[Movimento], dia: date) -> Decimal:
     return p.quantidade
 
 
-def calcular(sessao: Session, investidor_ids: Sequence[int] | None, hoje: date | None = None) -> Agenda:
+def calcular(
+    sessao: Session, investidor_ids: Sequence[int] | None, hoje: date | None = None, classe: str | None = None
+) -> Agenda:
     hoje = hoje or date.today()
     inicio_janela = _somar_meses(_mes(hoje), 1)
     fim_janela = _somar_meses(inicio_janela, 12)
     liquido = (Provento.valor - Provento.irrf - Provento.taxas) * Provento.cambio
 
     filtro = [Provento.investidor_id.in_(investidor_ids)] if investidor_ids else []
+    ativos_da_classe = None
+    if classe:
+        ativos_da_classe = set(sessao.scalars(select(Ativo.id).where(Ativo.classe == classe)))
+        filtro.append(Provento.ativo_id.in_(ativos_da_classe))
     futuros = sessao.execute(
         select(Provento.id, Provento.investidor_id, Provento.ativo_id, Ativo.ticker, Provento.evento,
                Provento.data_com, Provento.data_pagamento, liquido)
@@ -115,7 +121,11 @@ def calcular(sessao: Session, investidor_ids: Sequence[int] | None, hoje: date |
     )
     total_recebido_12m = Decimal(str(total_recebido_12m or 0))
 
-    posicoes = {k: p for k, p in carregar_posicoes(sessao, investidor_ids).items() if p.aberta}
+    posicoes = {
+        k: p
+        for k, p in carregar_posicoes(sessao, investidor_ids, ativo_ids=ativos_da_classe).items()
+        if p.aberta
+    }
     custo_carteira = sum((p.custo for p in posicoes.values()), ZERO)
     ativos = {a.id: a for a in sessao.scalars(select(Ativo).where(Ativo.id.in_({a for _, a in posicoes})))} if posicoes else {}
     por_ativo: dict[int, AtivoProjecao] = {}

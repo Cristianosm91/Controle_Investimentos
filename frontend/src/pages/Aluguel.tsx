@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, query } from "../api";
-import { invalidarDerivados } from "../cadastros";
+import { invalidarDerivados, useAtivos } from "../cadastros";
 import { AcoesLinha } from "../components/AcoesLinha";
 import { FormProvento } from "../components/FormLancamentos";
 import { GraficoBarras } from "../components/Graficos";
@@ -278,9 +278,13 @@ function Resumo({ filtro }: { filtro: string | undefined }) {
 
 export function Aluguel() {
   const { filtro, investidores } = useInvestidor();
+  const { data: ativos = [] } = useAtivos();
   const [edicao, setEdicao] = useState<Provento | "novo" | null>(null);
   const [importando, setImportando] = useState(false);
   const nome = (id: number) => investidores.find((i) => i.id === id)?.nome ?? id;
+  const classes = [...new Set(ativos.map((ativo) => ativo.classe))]
+    .sort()
+    .map((valor) => ({ valor, rotulo: valor.charAt(0) + valor.slice(1).toLowerCase() }));
 
   const colunas: ColunaLista<Provento>[] = [
     { titulo: "Data", render: (p) => data(p.data_pagamento) },
@@ -301,6 +305,7 @@ export function Aluguel() {
         filtrosFixos={{ evento: "ALUGUEL" }}
         filtroInvestidores={filtro}
         colunas={colunas}
+        classes={classes}
         chave={(p) => p.id}
         topo={<Resumo filtro={filtro} />}
         cabecalho={

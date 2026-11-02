@@ -18,6 +18,7 @@ from ..models import (
     Provento,
 )
 from . import configuracao
+from .caixa import calcular_valor_investido
 from .carteira import montar_carteira
 
 ZERO = Decimal(0)
@@ -62,7 +63,10 @@ def _eventos_query(sessao: Session, ativo_ids: set[int], investidores: Sequence[
         Operacao.quantidade.label("quantidade"),
         Operacao.preco.label("preco"),
         case(
-            (Operacao.evento.in_(("C", "V")), (-Operacao.quantidade * Operacao.preco - Operacao.taxas) * Operacao.cambio),
+            (
+                Operacao.evento.in_(("C", "V")),
+                (-Operacao.quantidade * Operacao.preco - Operacao.taxas - Operacao.irrf) * Operacao.cambio,
+            ),
             else_=None,
         ).label("valor_brl"),
         Operacao.moeda.label("moeda"),
@@ -102,13 +106,23 @@ def consultar(
     linhas = {
         linha.ativo.id: linha
         for linha in montar_carteira(
-            sessao, investidores, consolidado=True, somente_abertas=False, ativo_ids=ativo_ids
+            sessao,
+            investidores,
+            consolidado=True,
+            somente_abertas=False,
+            ativo_ids=ativo_ids,
+            ate=hoje,
         )
         if linha.ativo.id in ativo_ids
     }
     posicoes = {ativo_id: linhas[ativo_id].posicao for ativo_id in ativo_ids if ativo_id in linhas}
+    capital = calcular_valor_investido(sessao, investidores, ate=hoje).capital_por_posicao
     investido = sum(
-        (posicoes[ativo_id].custo * peso for ativo_id, peso in pesos.items() if ativo_id in posicoes),
+        (
+            valor * pesos[ativo_id]
+            for (_, ativo_id), valor in capital.items()
+            if ativo_id in pesos
+        ),
         ZERO,
     )
     mercado_parcial = ZERO

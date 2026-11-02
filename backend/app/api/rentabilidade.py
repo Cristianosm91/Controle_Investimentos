@@ -17,7 +17,8 @@ def real(twr, ipca):
 
 @router.get("/rentabilidade/mensal", response_model=list[MesRentabilidadeOut])
 def rentabilidade_mensal(
-    sessao: SessaoDep, investidores: InvestidoresDep, inicio: date | None = None, fim: date | None = None
+    sessao: SessaoDep, investidores: InvestidoresDep, inicio: date | None = None, fim: date | None = None,
+    classe: Annotated[str | None, Query(max_length=30)] = None,
 ):
     return [
         MesRentabilidadeOut(
@@ -29,13 +30,15 @@ def rentabilidade_mensal(
             cdi_acumulado=l.acumulados["cdi"], ipca_acumulado=l.acumulados["ipca"],
             real_acumulado=real(l.twr_acumulado, l.acumulados["ipca"]),
         )
-        for l in painel.mensal(sessao, investidores, inicio, fim)
+        for l in painel.mensal(sessao, investidores, inicio, fim, classe)
     ]
 
 
 @router.get("/rentabilidade/resumo", response_model=ResumoOut)
-def rentabilidade_resumo(sessao: SessaoDep, investidores: InvestidoresDep):
-    r = painel.resumo(sessao, investidores)
+def rentabilidade_resumo(
+    sessao: SessaoDep, investidores: InvestidoresDep, classe: Annotated[str | None, Query(max_length=30)] = None
+):
+    r = painel.resumo(sessao, investidores, classe)
     return ResumoOut(
         data_referencia=r.data_referencia,
         patrimonio=r.patrimonio,
@@ -43,6 +46,7 @@ def rentabilidade_resumo(sessao: SessaoDep, investidores: InvestidoresDep):
         lucro_aberto=r.patrimonio - r.investido,
         lucro_realizado=r.lucro_realizado,
         proventos_total=r.proventos_total,
+        aluguel_total=r.aluguel_total,
         proventos_12m=r.proventos_12m,
         yoc_12m=r.proventos_12m / r.investido if r.investido else None,
         tir_aa=r.tir_aa,
@@ -60,8 +64,9 @@ def matriz_de_proventos(
     sessao: SessaoDep,
     investidores: InvestidoresDep,
     ano: Annotated[int | None, Query(ge=1990, le=2100)] = None,
+    classe: Annotated[str | None, Query(max_length=30)] = None,
 ):
-    m = painel.matriz_proventos(sessao, investidores, ano)
+    m = painel.matriz_proventos(sessao, investidores, ano, classe)
     totais_mes = [sum(linha[i] for linha in m.valores) for i in range(12)]
     return MatrizProventosOut(
         titulo_linhas=m.titulo_linhas,

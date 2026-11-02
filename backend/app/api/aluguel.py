@@ -17,8 +17,11 @@ InvestidorId = Annotated[int, Query(ge=1)]
 @router.get("/aluguel", response_model=ResumoAluguelOut)
 def resumo_aluguel(
     sessao: SessaoDep, investidores: InvestidoresDep, ano: Annotated[int | None, Query(ge=2000, le=2100)] = None,
+    classe: Annotated[str | None, Query(max_length=30)] = None,
+    classes_excluidas: Annotated[str | None, Query(max_length=2_000)] = None,
 ):
-    return aluguel.resumo(sessao, investidores, ano)
+    excluidas = [c.strip() for c in (classes_excluidas or "").split(",") if c.strip()]
+    return aluguel.resumo(sessao, investidores, ano, classe, excluidas)
 
 
 @router.post("/aluguel/extrato/previa", response_model=list[ItemAluguelOut])

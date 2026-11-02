@@ -24,6 +24,7 @@ export interface Posicao {
   quantidade: number;
   preco_medio: number;
   custo: number;
+  valor_investido: number;
   cotacao: number | null;
   cotacao_data: string | null;
   cotacao_fonte: string | null;
@@ -41,6 +42,11 @@ export interface Posicao {
   book: string | null;
   estrategia: string | null;
   carteira: string | null;
+}
+
+export interface ValorInvestido {
+  valor_investido: number;
+  valor_investido_posicoes_abertas: number;
 }
 
 export interface Operacao {
@@ -483,6 +489,7 @@ export interface Resumo {
   lucro_aberto: number;
   lucro_realizado: number;
   proventos_total: number;
+  aluguel_total: number;
   proventos_12m: number;
   yoc_12m: number | null;
   tir_aa: number | null;
@@ -809,6 +816,14 @@ export interface Verificacao {
   descricao: string;
   link: string | null;
   itens: string[];
+  fingerprint: string;
+  operacao_ids: number[];
+  provento_ids: number[];
+  caixa_ids: number[];
+  ativo_ids: number[];
+  investidor_ids: number[];
+  status: "aberto" | "tratado" | "resolvido";
+  tratado_em: string | null;
 }
 
 export interface ExposicaoCorretora {

@@ -3,7 +3,7 @@ from decimal import Decimal as D
 
 import pytest
 
-from app.services.posicao import Movimento, Posicao, aplicar, calcular_posicoes, consolidar
+from app.services.posicao import Movimento, Posicao, aplicar, calcular_investimento, calcular_posicoes, consolidar
 
 
 def mov(evento, qtd, preco="0", taxas="0", dia=1, inv=1, ativo=1, daytrade=False, ordem=0):
@@ -55,6 +55,54 @@ def test_amortizacao_e_cisao_reduzem_custo():
     ])[(1, 1)]
     assert p.quantidade == 19
     assert p.custo == D("161.5")
+
+
+def test_venda_apos_bonificacao_e_cisao_realiza_custo_ajustado():
+    p = calcular_posicoes([
+        mov("C", "10", "10"),
+        mov("BONIFICACAO", "2", "5", dia=2),
+        mov("CISAO", "12", "-1", dia=3),
+        mov("V", "-6", "12", dia=4),
+    ])[(1, 1)]
+    assert p.quantidade == 6
+    assert p.custo == 49
+    assert p.preco_medio == D("49") / 6
+    assert p.lucro_realizado == 23
+
+
+def test_capital_historico_e_aberto_nao_diminuem_com_venda_ou_evento_sem_caixa():
+    resultado = calcular_investimento([
+        mov("C", "10", "10", "0.2"),
+        mov("V", "-4", "15", "0.2", dia=2),
+        mov("BONIFICACAO", "2", "5", dia=3),
+        mov("CISAO", "8", "-1", dia=4),
+        mov("AMORTIZACAO", "8", "-0.5", dia=5),
+        mov("C", "1", "20", "0.2", dia=6, daytrade=True),
+        mov("V", "-1", "21", dia=6, daytrade=True, ordem=1),
+    ])
+    assert resultado.valor_investido == D("60.12")
+    assert resultado.valor_investido_posicoes_abertas == D("60.12")
+    assert resultado.capital_por_posicao[(1, 1)] == D("60.12")
+
+
+def test_resultado_realizado_desconta_taxas_e_irrf():
+    p = calcular_posicoes([
+        mov("C", "2", "10", "1"),
+        Movimento(1, 1, date(2020, 1, 2), "V", D("-1"), D("12"), D("0.5"), irrf=D("0.1")),
+    ])[(1, 1)]
+    assert p.custo == D("10.5")
+    assert p.lucro_realizado == D("0.9")
+
+
+def test_capital_aberto_zera_na_venda_total_e_transferencia_nao_novo_desembolso():
+    resultado = calcular_investimento([
+        mov("C", "10", "10"),
+        mov("TRANSFERENCIA", "-10", "10", dia=2, ativo=1),
+        mov("TRANSFERENCIA", "10", "10", dia=2, ativo=2, ordem=1),
+        mov("V", "-10", "12", dia=3, ativo=2),
+    ])
+    assert resultado.valor_investido == 0
+    assert resultado.valor_investido_posicoes_abertas == 0
 
 
 def test_transferencia_troca_ticker_sem_lucro():

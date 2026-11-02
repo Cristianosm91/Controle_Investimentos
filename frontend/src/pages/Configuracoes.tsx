@@ -3,6 +3,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import { AtivosPersonalizados } from "../components/config/AtivosPersonalizados";
+import { useExclusaoEmLote } from "../components/ExclusaoEmLote";
 import { BackupConfig } from "../components/config/Backup";
 import { Carteiras } from "../components/config/Carteiras";
 import { EstrategiasBooks } from "../components/config/EstrategiasBooks";
@@ -69,6 +70,22 @@ function Investidores() {
     },
   });
   const excluirGrupo = useMutation({ mutationFn: (id: number) => api.del(`/grupos/${id}`), onSuccess: recarregar });
+  const selecaoInvestidores = useExclusaoEmLote({
+    itens: investidores,
+    chave: (i) => i.id,
+    remover: (id) => api.del(`/investidores/${id}`),
+    titulo: "investidores",
+    consulta: "investidores",
+    aposExcluir: recarregar,
+  });
+  const selecaoGrupos = useExclusaoEmLote({
+    itens: grupos,
+    chave: (g) => g.id,
+    remover: (id) => api.del(`/grupos/${id}`),
+    titulo: "grupos",
+    consulta: "grupos",
+    aposExcluir: recarregar,
+  });
 
   const editar = (i: Investidor) =>
     setForm({ id: i.id, nome: i.nome, cpf: "", grupo_id: i.grupo_id ? String(i.grupo_id) : "", cor: i.cor, ativo: i.ativo });
@@ -87,10 +104,12 @@ function Investidores() {
         Cada investidor tem posições, preço médio e IR próprios (por CPF). O seletor no topo filtra todas as páginas.
       </p>
       {erro && <div className="erro">{(erro as Error).message}</div>}
+      {selecaoInvestidores.acoes}
 
       <table className="tabela compacta">
         <thead>
           <tr>
+            <th />
             <th>Nome</th>
             <th>CPF</th>
             <th>Grupo</th>
@@ -101,6 +120,7 @@ function Investidores() {
         <tbody>
           {investidores.map((i) => (
             <tr key={i.id}>
+              <td>{selecaoInvestidores.checkbox(i.id)}</td>
               <td>
                 <span className="bolinha" style={{ background: i.cor }} /> {i.nome}
               </td>
@@ -166,9 +186,11 @@ function Investidores() {
 
       <h2>Grupos</h2>
       <p className="sutil">Agrupam investidores (ex.: Família) para seleção rápida no topo.</p>
+      {selecaoGrupos.acoes}
       <div className="etiquetas">
         {grupos.map((g) => (
           <span key={g.id} className="etiqueta">
+            {selecaoGrupos.checkbox(g.id)}
             {g.nome}
             <button className="link perigo" onClick={() => excluirGrupo.mutate(g.id)} aria-label={`Excluir ${g.nome}`}>
               ×

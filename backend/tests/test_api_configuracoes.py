@@ -127,3 +127,111 @@ def test_parametros_e_saldo_de_caixa(cliente, base):
     assert linha["operacoes"] == pytest.approx(-3001 + 1998.9)
     assert linha["proventos"] == 85
     assert saldo["total_brl"] == pytest.approx(10000 - 3001 + 1998.9 + 85)
+
+
+def test_valor_investido_liquido_separa_custo_das_posicoes(cliente, base):
+    def operar(data, evento, quantidade, preco, taxas=0, irrf=0, daytrade=False):
+        resposta = cliente.post("/api/operacoes", json={
+            "investidor_id": base["inv"], "ativo_id": base["petr"], "data": data, "evento": evento,
+            "quantidade": quantidade, "preco": preco, "taxas": taxas, "irrf": irrf, "daytrade": daytrade,
+        })
+        assert resposta.status_code == 201, resposta.text
+
+    operar("2026-01-05", "C", 10, 10, taxas=0.2)
+    operar("2026-02-05", "V", -4, 15, taxas=0.2, irrf=0.1)
+    operar("2026-02-10", "BONIFICACAO", 2, 5)
+    operar("2026-03-05", "CISAO", 8, -1)
+    operar("2026-04-05", "AMORTIZACAO", 8, -0.5, taxas=0.1, irrf=0.05)
+    operar("2026-05-05", "C", 1, 20, taxas=0.2, daytrade=True)
+    operar("2026-05-05", "V", -1, 21, taxas=0.2, irrf=0.1, daytrade=True)
+    cliente.post("/api/proventos", json={
+        "investidor_id": base["inv"], "ativo_id": base["petr"], "data_pagamento": "2026-04-10",
+        "evento": "JSCP", "valor": 10, "irrf": 1, "taxas": 0.2,
+    })
+
+    resposta = cliente.get("/api/carteira/valor-investido")
+    assert resposta.status_code == 200, resposta.text
+    assert resposta.json()["valor_investido"] == pytest.approx(60.12)
+    assert resposta.json()["valor_investido_posicoes_abertas"] == pytest.approx(60.12)
+
+    (posicao,) = cliente.get("/api/posicoes", params={"somente_abertas": False}).json()
+    assert posicao["custo"] == pytest.approx(58.12)
+    assert posicao["valor_investido"] == pytest.approx(60.12)
+    assert posicao["lucro_realizado"] == pytest.approx(19.62)
+    assert posicao["lucro_daytrade"] == pytest.approx(0.5)
+
+
+def test_valor_investido_inclui_operacoes_encerradas(cliente, base):
+    _compra(cliente, base, base["petr"], qtd=10, preco=10, taxas=0.2)
+    venda = cliente.post("/api/operacoes", json={
+        "investidor_id": base["inv"], "ativo_id": base["petr"], "data": "2026-02-05", "evento": "V",
+        "quantidade": -10, "preco": 8, "taxas": 0.2, "irrf": 0.1,
+    })
+    assert venda.status_code == 201, venda.text
+
+    resposta = cliente.get("/api/carteira/valor-investido").json()
+    assert resposta["valor_investido"] == 0
+    assert resposta["valor_investido_posicoes_abertas"] == 0
+    (posicao,) = cliente.get("/api/posicoes", params={"somente_abertas": False}).json()
+    assert posicao["quantidade"] == 0
+    assert posicao["custo"] == 0
+    assert posicao["valor_investido"] == 0
+    assert posicao["lucro_realizado"] == pytest.approx(-20.5)
+
+
+def test_valor_investido_portfolio_com_posicoes_abertas_e_encerradas(cliente, base):
+    _compra(cliente, base, base["petr"], qtd=10, preco=10, taxas=0.2)
+    _compra(cliente, base, base["hglg"], qtd=5, preco=20, taxas=0)
+    venda = cliente.post("/api/operacoes", json={
+        "investidor_id": base["inv"], "ativo_id": base["hglg"], "data": "2026-02-05", "evento": "V",
+        "quantidade": -5, "preco": 20,
+    })
+    assert venda.status_code == 201, venda.text
+
+    resposta = cliente.get("/api/carteira/valor-investido").json()
+    assert resposta["valor_investido"] == pytest.approx(100.2)
+    assert resposta["valor_investido_posicoes_abertas"] == pytest.approx(100.2)
+    posicoes = cliente.get("/api/posicoes", params={"somente_abertas": False}).json()
+    por_ticker = {posicao["ticker"]: posicao for posicao in posicoes}
+    assert por_ticker["PETR4"]["custo"] == pytest.approx(100.2)
+    assert por_ticker["HGLG11"]["quantidade"] == 0
+    assert por_ticker["HGLG11"]["custo"] == 0
+
+
+def test_valor_investido_portfolio_somente_com_posicoes_abertas(cliente, base):
+    _compra(cliente, base, base["petr"], qtd=10, preco=10, taxas=0.2)
+
+    resposta = cliente.get("/api/carteira/valor-investido").json()
+    assert resposta["valor_investido"] == pytest.approx(100.2)
+    assert resposta["valor_investido_posicoes_abertas"] == pytest.approx(100.2)
+    posicoes = cliente.get("/api/posicoes").json()
+    assert len(posicoes) == 1 and posicoes[0]["custo"] == pytest.approx(100.2)
+
+
+def test_valor_investido_ignora_fluxos_com_data_futura(cliente, base):
+    operacao = cliente.post("/api/operacoes", json={
+        "investidor_id": base["inv"], "ativo_id": base["petr"], "data": "2099-01-01", "evento": "C",
+        "quantidade": 1, "preco": 100,
+    })
+    provento = cliente.post("/api/proventos", json={
+        "investidor_id": base["inv"], "ativo_id": base["petr"], "data_pagamento": "2099-01-01",
+        "evento": "DIVIDENDO", "valor": 50,
+    })
+    assert operacao.status_code == provento.status_code == 201
+
+    resposta = cliente.get("/api/carteira/valor-investido").json()
+    assert resposta["valor_investido"] == 0
+    assert resposta["valor_investido_posicoes_abertas"] == 0
+
+
+def test_valor_investido_respeita_classes_excluidas_no_portfolio(cliente, base):
+    _compra(cliente, base, base["petr"], qtd=10, preco=10, taxas=0.2)
+    cripto = cliente.post("/api/ativos", json={"ticker": "BTC", "classe": "CRIPTO"}).json()["id"]
+    _compra(cliente, base, cripto, qtd=1, preco=50, taxas=0)
+
+    todos = cliente.get("/api/carteira/valor-investido").json()
+    sem_cripto = cliente.get("/api/carteira/valor-investido", params={"classes_excluidas": "CRIPTO"}).json()
+    assert todos["valor_investido"] == pytest.approx(150.2)
+    assert todos["valor_investido_posicoes_abertas"] == pytest.approx(150.2)
+    assert sem_cripto["valor_investido"] == pytest.approx(100.2)
+    assert sem_cripto["valor_investido_posicoes_abertas"] == pytest.approx(100.2)

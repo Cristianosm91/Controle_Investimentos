@@ -100,11 +100,23 @@ def ativo_por_raiz(ativos: Iterable[Ativo], raiz: str, ticker: str | None) -> tu
 
 # ---------- Resumo (página P12) ----------
 
-def resumo(sessao: Session, investidores: list[int] | None, ano: int | None) -> dict:
+def resumo(
+    sessao: Session, investidores: list[int] | None, ano: int | None, classe: str | None = None,
+    classes_excluidas: list[str] | None = None,
+) -> dict:
     filtros = [Provento.evento == EVENTO]
     if investidores:
         filtros.append(Provento.investidor_id.in_(investidores))
-    anos = sorted({d.year for d in sessao.scalars(select(Provento.data_pagamento).where(*filtros))}, reverse=True)
+    if classe or classes_excluidas:
+        ativos = select(Ativo.id)
+        if classe:
+            ativos = ativos.where(Ativo.classe == classe)
+        if classes_excluidas:
+            ativos = ativos.where(Ativo.classe.not_in(classes_excluidas))
+        filtros.append(Provento.ativo_id.in_(ativos))
+    anos = sorted({
+        d.year for d in sessao.scalars(select(Provento.data_pagamento).where(*filtros))
+    }, reverse=True)
     base = select(Provento, Ativo.ticker).join(Ativo, Ativo.id == Provento.ativo_id).where(*filtros)
     if ano:
         base = base.where(Provento.data_pagamento.between(date(ano, 1, 1), date(ano, 12, 31)))

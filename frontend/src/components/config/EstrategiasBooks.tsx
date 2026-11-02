@@ -5,6 +5,7 @@ import { invalidarDerivados, paraFracao, paraPercentual, useAtivos, useBooks, us
 import { percentual } from "../../formato";
 import type { Ativo, Book, ExcecaoBook } from "../../tipos";
 import { CampoAtivo } from "../Campos";
+import { useExclusaoEmLote } from "../ExclusaoEmLote";
 
 function useRecarregar() {
   const cliente = useQueryClient();
@@ -42,6 +43,14 @@ function Estrategias() {
     },
   });
   const excluir = useMutation({ mutationFn: (id: number) => api.del(`/estrategias/${id}`), onSuccess: recarregar });
+  const selecao = useExclusaoEmLote({
+    itens: estrategias,
+    chave: (e) => e.id,
+    remover: (id) => api.del(`/estrategias/${id}`),
+    titulo: "estratégias",
+    consulta: "estrategias",
+    aposExcluir: recarregar,
+  });
   const soma = estrategias.reduce((s, e) => s + e.peso, 0);
   const erro = salvar.error ?? excluir.error;
 
@@ -55,9 +64,11 @@ function Estrategias() {
       <h2>Estratégias</h2>
       <p className="sutil">Divisão de primeiro nível do portfólio (ex.: renda variável × renda fixa). Os pesos devem somar 100%.</p>
       {erro && <div className="erro">{(erro as Error).message}</div>}
+      {selecao.acoes}
       <table className="tabela compacta">
         <thead>
           <tr>
+            <th />
             <th>Estratégia</th>
             <th className="num">Peso no portfólio</th>
             <th />
@@ -66,6 +77,7 @@ function Estrategias() {
         <tbody>
           {estrategias.map((e) => (
             <tr key={e.id}>
+              <td>{selecao.checkbox(e.id)}</td>
               <td>{e.nome}</td>
               <td className="num">{percentual(e.peso)}</td>
               <td className="num">
@@ -79,6 +91,7 @@ function Estrategias() {
             </tr>
           ))}
           <tr className="linha-grupo">
+            <td />
             <td>Total</td>
             <td className={`num ${somaOk(soma) ? "" : "negativo"}`}>{percentual(soma)}</td>
             <td />
@@ -197,6 +210,14 @@ function Books() {
     },
   });
   const excluir = useMutation({ mutationFn: (id: number) => api.del(`/books/${id}`), onSuccess: recarregar });
+  const selecao = useExclusaoEmLote({
+    itens: books,
+    chave: (b) => b.id,
+    remover: (id) => api.del(`/books/${id}`),
+    titulo: "books",
+    consulta: "books",
+    aposExcluir: recarregar,
+  });
   const erro = salvar.error ?? excluir.error;
 
   const mapeadas = new Set(books.flatMap((b) => b.classes));
@@ -224,10 +245,12 @@ function Books() {
       </p>
       {semBook.length > 0 && <div className="aviso">Classes em uso sem book (ficam fora da alocação): {semBook.join(", ")}</div>}
       {erro && <div className="erro">{(erro as Error).message}</div>}
+      {selecao.acoes}
       <div className="tabela-container">
         <table className="tabela">
           <thead>
             <tr>
+              <th />
               <th>Book</th>
               <th className="num">Peso na estratégia</th>
               <th className="num">Peso no portfólio</th>
@@ -241,13 +264,14 @@ function Books() {
               const soma = doGrupo.reduce((s, b) => s + b.peso, 0);
               return [
                 <tr key={`e-${e.id}`} className="linha-grupo">
-                  <td colSpan={5}>
+                  <td colSpan={6}>
                     <strong>{e.nome}</strong> · {percentual(e.peso)} do portfólio ·{" "}
                     <span className={somaOk(soma) ? "" : "negativo"}>books somam {percentual(soma)}</span>
                   </td>
                 </tr>,
                 ...doGrupo.map((b) => (
                   <tr key={b.id}>
+                    <td>{selecao.checkbox(b.id)}</td>
                     <td>{b.nome}</td>
                     <td className="num">{percentual(b.peso)}</td>
                     <td className="num">{percentual(b.peso * e.peso)}</td>

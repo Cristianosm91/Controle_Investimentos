@@ -47,6 +47,7 @@ MAPA_EVENTO_OPERACAO = {
     "AT": "TRANSFERENCIA",
     "CISAO": "CISAO",
     "V.SUB": "VENDA_SUBSCRICAO",
+    "DT": "DT",
 }
 
 MAPA_EVENTO_PROVENTO = {
@@ -158,6 +159,7 @@ class Importador:
         self._ocorrencias: Counter[str] = Counter()
         self.estatisticas: Counter[str] = Counter()
         self.avisos: list[str] = []
+        self._daytrades_vistos: Counter[tuple[str, date, Decimal, Decimal]] = Counter()
 
     def _hash(self, aba: str, *campos) -> str:
         # Duas linhas idênticas são legítimas (ex.: duas compras iguais no dia); a ocorrência as diferencia.
@@ -227,8 +229,16 @@ class Importador:
             if not (ticker and dia and evento_bruto):
                 continue
             qtd = decimal(col(l, 4))
-            if daytrade:
+            eh_dt = daytrade or sem_acento(evento_bruto) == "DT"
+            if eh_dt:
                 evento = "C" if qtd > 0 else "V"
+                preco_val = decimal(col(l, 5))
+                chave_dt = (ticker, dia, qtd, preco_val)
+                if not daytrade and self._daytrades_vistos[chave_dt]:
+                    self._daytrades_vistos[chave_dt] -= 1
+                    continue
+                if daytrade:
+                    self._daytrades_vistos[chave_dt] += 1
             else:
                 evento = MAPA_EVENTO_OPERACAO.get(sem_acento(evento_bruto))
                 if evento is None:
@@ -245,7 +255,7 @@ class Importador:
                 investidor=self.investidor, ativo=ativo, corretora=self.corretora(col(l, 7)),
                 data=dia, evento=evento, quantidade=qtd, preco=preco, taxas=taxas, irrf=irrf, moeda=moeda,
                 cambio=cambio or Decimal(1),
-                daytrade=daytrade, observacao=texto(col(l, 10)), origem=ORIGEM, hash_origem=hash_,
+                daytrade=eh_dt, observacao=texto(col(l, 10)), origem=ORIGEM, hash_origem=hash_,
             ))
             self.estatisticas[f"{aba} importadas"] += 1
 
@@ -462,6 +472,33 @@ def conciliar(sessao: Session, wb, investidor: Investidor) -> list[str]:
                 f"{ticker:<10} planilha qtd={qtd_e:>12.4f} pm={pm_e:>12.4f} | app qtd={qtd_c:>12.4f} pm={pm_c:>12.4f}"
             )
     print(f"\nConciliação com 'dados.': {len(esperado)} posições na planilha, {len(calculado)} no app")
+
+    # Sanidade de volume vs fluxo_caixa na op.normal:
+    # A diferença total de volume - fluxo_caixa deve bater com taxas + amortizações + cisões (resíduo auditado: R$ 3.191,87)
+    if "op.normal" in wb.sheetnames:
+        cabecalho = [texto(c) or "" for c in next(wb["op.normal"].iter_rows(min_row=4, max_row=4, values_only=True), ())]
+        i_vol = next((i for i, h in enumerate(cabecalho) if "VOLUME" in sem_acento(h)), None)
+        i_fluxo = next((i for i, h in enumerate(cabecalho) if "FLUXO" in sem_acento(h)), None)
+        if i_vol is not None and i_fluxo is not None:
+            tot_vol = tot_fluxo = tot_taxas = tot_amort_cisao = Decimal(0)
+            for _, l in linhas(wb, "op.normal", 5):
+                ev = sem_acento(texto(col(l, 3)) or "")
+                if not ev:
+                    continue
+                tot_vol += decimal(col(l, i_vol))
+                tot_fluxo += decimal(col(l, i_fluxo))
+                tot_taxas += decimal(col(l, 6))
+                if ev in ("AM", "AMORTIZACAO", "CISAO"):
+                    tot_amort_cisao += abs(decimal(col(l, 4)) * decimal(col(l, 5)))
+            dif_resíduo = tot_vol - tot_fluxo
+            esperado_resíduo = tot_taxas + tot_amort_cisao
+            print(f"Sanidade volume vs fluxo_caixa: diferença R$ {dif_resíduo:.2f} (esperado R$ {esperado_resíduo:.2f})")
+            if abs(dif_resíduo - esperado_resíduo) > Decimal("0.05"):
+                divergencias.append(
+                    f"Desvio na relação volume vs fluxo_caixa: R$ {dif_resíduo:.2f} != esperado R$ {esperado_resíduo:.2f} "
+                    f"(desvio R$ {abs(dif_resíduo - esperado_resíduo):.2f})"
+                )
+
     return divergencias
 
 
@@ -500,8 +537,8 @@ def main(argv: list[str] | None = None) -> int:
         imp = Importador(sessao, investidor)
         if not args.somente_cripto:
             imp.importar_cadastro_ativos(wb)
-            imp.importar_operacoes(wb, "op.normal", daytrade=False)
             imp.importar_operacoes(wb, "op.daytrade", daytrade=True)
+            imp.importar_operacoes(wb, "op.normal", daytrade=False)
             imp.importar_proventos(wb)
             imp.importar_caixa(wb)
             imp.importar_indices(wb)

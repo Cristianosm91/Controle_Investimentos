@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api, query } from "../api";
 import { AcoesLinha } from "../components/AcoesLinha";
 import { FormCaixa } from "../components/FormLancamentos";
@@ -73,9 +73,15 @@ function Saldos() {
 }
 
 export function Caixa() {
+  const [parametros] = useSearchParams();
+  const navegar = useNavigate();
   const { filtro, investidores } = useInvestidor();
   const { data: dominio } = useDominio();
   const [edicao, setEdicao] = useState<MovCaixa | "nova" | null>(null);
+  const apontamento = parametros.get("apontamento");
+  const regraQualidade = parametros.get("regra");
+  const explicacaoQualidade = parametros.get("explicacao");
+  const retornoQualidade = parametros.get("retorno");
   const nome = (id: number) => investidores.find((i) => i.id === id)?.nome ?? id;
 
   const colunas: ColunaLista<MovCaixa>[] = [
@@ -94,10 +100,29 @@ export function Caixa() {
         recurso="caixa"
         filtroInvestidores={filtro}
         filtroTicker={false}
+        filtrosFixos={apontamento ? { apontamento } : undefined}
         colunas={colunas}
         chave={(m) => m.id}
         cabecalho={<button onClick={() => setEdicao("nova")}>+ Nova movimentação</button>}
-        topo={<Saldos />}
+        topo={
+          <>
+            {apontamento && (
+              <section className="aviso">
+                <strong>Movimentações de caixa relacionadas à Qualidade de Dados</strong>
+                {regraQualidade && <p>Regra: {regraQualidade}</p>}
+                {explicacaoQualidade && <p>{explicacaoQualidade}</p>}
+                <p>Somente as movimentações vinculadas ao apontamento são exibidas. Se nenhum registro aparecer, ele pode ter sido alterado ou excluído desde a análise.</p>
+                <button className="secundario" onClick={() => navegar(retornoQualidade || "/configuracoes?secao=qualidade")}>
+                  VOLTAR À QUALIDADE
+                </button>
+                <button className="secundario" onClick={() => navegar("/caixa")}>
+                  REMOVER FILTRO
+                </button>
+              </section>
+            )}
+            <Saldos />
+          </>
+        }
         acoes={(m) => (
           <AcoesLinha
             recurso="caixa"
