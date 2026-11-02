@@ -32,7 +32,16 @@ def _preenchido(nome: str) -> bytes:
 def test_modelos_b3_sao_lidos_pelo_importador(nome, relatorio, esperado):
     lido, linhas = extrato_b3.ler(_preenchido(nome))
     assert lido == relatorio
-    assert [(l.tipo, l.evento, l.ticker, l.quantidade) for l in linhas] == esperado
+    obtidos = [(l.tipo, l.evento, l.ticker, l.quantidade) for l in linhas]
+    if nome == "planilha-operacoes":
+        assert obtidos[: len(esperado)] == esperado
+        assert len(obtidos) == len(modelos.MODELOS[nome].exemplo)
+        assert [(linha.evento, linha.quantidade) for linha in linhas if linha.evento == "DESDOBRAMENTO"] == [
+            ("DESDOBRAMENTO", D(100)), ("DESDOBRAMENTO", D(-100)),
+            ("DESDOBRAMENTO", D(100)), ("DESDOBRAMENTO", D(-100)),
+        ]
+    else:
+        assert obtidos == esperado
 
 
 @pytest.mark.parametrize("nome", ["planilha-operacoes", "b3-negociacao", "b3-movimentacao", "b3-proventos"])
@@ -98,8 +107,9 @@ def test_modelos_baixados_continuam_importaveis(cliente, nome, arquivo, relatori
             "/api/extratos/b3/importar", params={"investidor_id": investidor_id}, content=arquivo,
             headers={"content-type": "application/octet-stream"},
         )
-        assert importacao.status_code == 200 and importacao.json()["operacoes"] == 2
+        assert importacao.status_code == 200 and importacao.json()["operacoes"] == len(modelos.MODELOS[nome].exemplo)
         operacoes = cliente.get("/api/operacoes", params={"investidores": investidor_id}).json()["itens"]
-        assert {(op["evento"], op["taxas"], op["irrf"]) for op in operacoes} == {
-            ("C", 12.34, 0), ("V", 2.5, 0.01),
+        assert {("C", 12.34, 0), ("V", 2.5, 0.01)} <= {
+            (op["evento"], op["taxas"], op["irrf"]) for op in operacoes
         }
+        assert any(op["ticker"] == "O" and op["moeda"] == "USD" for op in operacoes)

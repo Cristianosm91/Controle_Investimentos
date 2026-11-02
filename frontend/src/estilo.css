@@ -426,6 +426,18 @@ select {
   width: 150px;
 }
 
+.filtros input[placeholder^="Ativos"] {
+  width: min(320px, 80vw);
+}
+
+.linha-correcao td {
+  background: var(--painel);
+}
+
+.editar-importacao {
+  padding: 0.8rem;
+}
+
 .abas {
   display: flex;
   gap: 0.3rem;

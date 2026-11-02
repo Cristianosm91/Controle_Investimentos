@@ -9,11 +9,11 @@ from app.dominio import EVENTOS_PLANILHA_CODIGOS, EVENTOS_PLANILHA_NAO_SUPORTADO
 from app.services import extrato_b3, modelos
 
 
-def _linha(evento: str, quantidade: str, preco: str):
+def _linha(evento: str, quantidade: str, preco: str, ticker: str = "PETR4", moeda: str = "BRL"):
     return extrato_b3._linha_planilha_operacoes(
         12,
         date(2026, 1, 5),
-        {"ticker": "PETR4", "evento": evento, "moeda": "BRL"},
+        {"ticker": ticker, "evento": evento, "moeda": moeda},
         Decimal(quantidade),
         Decimal(preco),
         "XP",
@@ -26,12 +26,14 @@ def test_siglas_operacionais_normalizam_para_eventos_do_dominio():
         ("v", "10", "11", "V", Decimal("-10"), False),
         ("ipo", "10", "5", "C", Decimal("10"), False),
         ("sub", "10", "5", "C", Decimal("10"), False),
-        ("bn", "5", "0", "BONIFICACAO", Decimal("5"), False),
+        ("bn", "5", "4.96", "BONIFICACAO", Decimal("5"), False),
         ("AM", "10", "-0.5", "AMORTIZACAO", Decimal("10"), False),
         ("DT", "2", "10", "C", Decimal("2"), True),
         ("DT", "-2", "10", "V", Decimal("-2"), True),
         ("DESDOBRAMENTO", "5", "0", "DESDOBRAMENTO", Decimal("5"), False),
         ("GRUPAMENTO", "-5", "0", "DESDOBRAMENTO", Decimal("-5"), False),
+        ("S/I", "100", "0", "DESDOBRAMENTO", Decimal("100"), False),
+        ("S/I", "-100", "0", "DESDOBRAMENTO", Decimal("-100"), False),
         ("TC", "-10", "10", "TRANSFERENCIA", Decimal("-10"), False),
         ("AT", "10", "10", "TRANSFERENCIA", Decimal("10"), False),
         ("V.SUB", "3", "2", "VENDA_SUBSCRICAO", Decimal("-3"), False),
@@ -77,9 +79,22 @@ def test_validacao_exige_sinais_e_campos_compativeis_com_evento():
     assert "AM" in amortizacao_invalida.motivo
     assert "quantidade/preço" in amortizacao_invalida.motivo
 
-    bonificacao_invalida = _linha("BN", "2", "1")
+    bonificacao_invalida = _linha("BN", "2", "0")
     assert bonificacao_invalida.tipo == "IGNORADA"
     assert "BN" in bonificacao_invalida.motivo
+
+    venda_negativa = _linha("V", "-10", "11")
+    assert venda_negativa.tipo == "OPERACAO"
+    assert venda_negativa.quantidade == Decimal("-10")
+
+    ticker_curto_em_usd = _linha("C", "1", "200", ticker="O", moeda="USD")
+    assert ticker_curto_em_usd.tipo == "OPERACAO"
+    assert ticker_curto_em_usd.ticker == "O"
+    assert ticker_curto_em_usd.moeda == "USD"
+
+    bonificacao = _linha("BN", "5", "4.96")
+    assert bonificacao.tipo == "OPERACAO"
+    assert bonificacao.preco == Decimal("4.96")
 
     desdobramento_invalido = _linha("DESDOBRAMENTO", "2", "5")
     assert desdobramento_invalido.tipo == "IGNORADA"

@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { api, query } from "../api";
 import { invalidarDerivados, useDominio } from "../cadastros";
-import { data, moeda, numero } from "../formato";
+import { data, numero } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
 import type { LinhaExtrato, PreviaExtrato, ResultadoExtrato, StatusExtrato } from "../tipos";
 import { Modal } from "./Modal";
@@ -30,15 +30,21 @@ export function ImportarExtrato({ aoFechar }: { aoFechar: () => void }) {
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [incluir, setIncluir] = useState<Set<number>>(new Set());
   const [filtro, setFiltro] = useState<StatusExtrato | "">("");
+  const [correcoes, setCorrecoes] = useState<Record<number, Record<string, string>>>({});
+  const [linhaAberta, setLinhaAberta] = useState<number | null>(null);
 
   const parametros = (extra: Record<string, string> = {}) => query({ investidor_id: investidor, ...extra });
   const previa = useMutation({
-    mutationFn: (f: File) => api.enviar<PreviaExtrato>(`/extratos/b3/previa${parametros()}`, f),
+    mutationFn: ({ arquivo: f, dados }: { arquivo: File; dados: Record<number, Record<string, string>> }) =>
+      api.enviar<PreviaExtrato>(`/extratos/b3/previa${parametros({ correcoes: JSON.stringify(dados) })}`, f),
     onSuccess: () => setIncluir(new Set()),
   });
   const importar = useMutation({
     mutationFn: () =>
-      api.enviar<ResultadoExtrato>(`/extratos/b3/importar${parametros({ incluir: [...incluir].join(",") })}`, arquivo!),
+      api.enviar<ResultadoExtrato>(
+        `/extratos/b3/importar${parametros({ incluir: [...incluir].join(","), correcoes: JSON.stringify(correcoes) })}`,
+        arquivo!,
+      ),
     onSuccess: () => {
       for (const chave of ["operacoes", "proventos", "ativos", "corretoras"]) cliente.invalidateQueries({ queryKey: [chave] });
       invalidarDerivados(cliente);
@@ -56,8 +62,10 @@ export function ImportarExtrato({ aoFechar }: { aoFechar: () => void }) {
 
   const analisar = (f: File | null) => {
     setArquivo(f);
+    setCorrecoes({});
+    setLinhaAberta(null);
     importar.reset();
-    if (f && investidor) previa.mutate(f);
+    if (f && investidor) previa.mutate({ arquivo: f, dados: {} });
     else previa.reset();
   };
   const alternar = (n: number) =>
@@ -67,6 +75,15 @@ export function ImportarExtrato({ aoFechar }: { aoFechar: () => void }) {
       else novo.add(n);
       return novo;
     });
+  const editarCampo = (numeroLinha: number, campo: string, valor: string) =>
+    setCorrecoes((atuais) => ({ ...atuais, [numeroLinha]: { ...atuais[numeroLinha], [campo]: valor } }));
+  const revalidar = (linha: LinhaExtrato) => {
+    if (!arquivo) return;
+    const dados = { ...linha.campos, ...correcoes[linha.numero] };
+    const atualizadas = { ...correcoes, [linha.numero]: dados };
+    setCorrecoes(atualizadas);
+    previa.mutate({ arquivo, dados: atualizadas });
+  };
 
   const evento = (l: LinhaExtrato) =>
     l.evento ? (l.tipo === "PROVENTO" ? dominio?.eventos_provento[l.evento] : dominio?.eventos_operacao[l.evento]) ?? l.evento : "";
@@ -78,7 +95,7 @@ export function ImportarExtrato({ aoFechar }: { aoFechar: () => void }) {
         <p className="sutil">
           Na Área do Investidor da B3, exporte em Excel o relatório <strong>Negociação</strong> (compras e vendas),{" "}
           <strong>Movimentação</strong> (proventos, amortizações e desdobramentos) ou <strong>Proventos recebidos</strong>.
-          Também é aceito o modelo de planilha de operações em BRL. 
+          Também é aceito o modelo de planilha de operações em BRL, USD ou EUR.
           Nada é gravado antes da confirmação;
           lançamentos que já existem são ignorados. A B3 não informa corretagem/emolumentos: as taxas entram zeradas.
         </p>
@@ -101,6 +118,8 @@ export function ImportarExtrato({ aoFechar }: { aoFechar: () => void }) {
                 previa.reset();
                 importar.reset();
                 setArquivo(null);
+                setCorrecoes({});
+                setLinhaAberta(null);
               }}
             >
               <option value="">Selecione…</option>
@@ -185,7 +204,8 @@ export function ImportarExtrato({ aoFechar }: { aoFechar: () => void }) {
                   </thead>
                   <tbody>
                     {visiveis.map((l) => (
-                      <tr key={l.numero} className={`linha-${l.status}`}>
+                      <Fragment key={l.numero}>
+                      <tr className={`linha-${l.status}`}>
                         <td>{l.numero}</td>
                         <td>
                           {l.status === "verificar" ? (
@@ -194,7 +214,14 @@ export function ImportarExtrato({ aoFechar }: { aoFechar: () => void }) {
                               Importar
                             </label>
                           ) : (
-                            <span className={`etiqueta status-${l.status}`}>{STATUS[l.status]}</span>
+                            <>
+                              <span className={`etiqueta status-${l.status}`}>{STATUS[l.status]}</span>
+                              {l.status === "ignorado" && previa.data?.relatorio === "PLANILHA_OPERACOES" && (
+                                <button className="link" onClick={() => setLinhaAberta(linhaAberta === l.numero ? null : l.numero)}>
+                                  {linhaAberta === l.numero ? "Fechar" : "Corrigir"}
+                                </button>
+                              )}
+                            </>
                           )}
                         </td>
                         <td>{data(l.data)}</td>
@@ -204,11 +231,65 @@ export function ImportarExtrato({ aoFechar }: { aoFechar: () => void }) {
                           {l.daytrade && <span className="etiqueta">day trade</span>}
                         </td>
                         <td className="num">{l.quantidade ? numero(l.quantidade, 8) : "—"}</td>
-                        <td className="num">{l.preco ? moeda(l.preco) : "—"}</td>
-                        <td className="num">{l.valor ? moeda(l.valor) : "—"}</td>
+                        <td className="num">{l.preco ? `${l.moeda} ${numero(l.preco, 8)}` : "—"}</td>
+                        <td className="num">{l.valor ? `${l.moeda} ${numero(l.valor, 8)}` : "—"}</td>
                         <td className="quebra">{l.instituicao ?? "—"}</td>
                         <td className="quebra sutil">{l.motivo}</td>
                       </tr>
+                      {linhaAberta === l.numero && previa.data?.relatorio === "PLANILHA_OPERACOES" && (
+                        <tr className="linha-correcao">
+                          <td colSpan={10}>
+                            <div className="formulario editar-importacao">
+                              <label>
+                                Ativo
+                                <input value={correcoes[l.numero]?.ticker ?? l.campos.ticker ?? ""} onChange={(e) => editarCampo(l.numero, "ticker", e.target.value.toUpperCase())} />
+                              </label>
+                              <label>
+                                Data
+                                <input type="date" value={correcoes[l.numero]?.data ?? l.campos.data ?? ""} onChange={(e) => editarCampo(l.numero, "data", e.target.value)} />
+                              </label>
+                              <label>
+                                Evento
+                                <input value={correcoes[l.numero]?.evento ?? l.campos.evento ?? ""} onChange={(e) => editarCampo(l.numero, "evento", e.target.value.toUpperCase())} />
+                              </label>
+                              <label>
+                                Quantidade
+                                <input type="number" step="any" value={correcoes[l.numero]?.quantidade ?? l.campos.quantidade ?? ""} onChange={(e) => editarCampo(l.numero, "quantidade", e.target.value)} />
+                              </label>
+                              <label>
+                                Preço
+                                <input type="number" step="any" value={correcoes[l.numero]?.preco ?? l.campos.preco ?? ""} onChange={(e) => editarCampo(l.numero, "preco", e.target.value)} />
+                              </label>
+                              <label>
+                                Taxas
+                                <input type="number" step="any" value={correcoes[l.numero]?.taxas ?? l.campos.taxas ?? ""} onChange={(e) => editarCampo(l.numero, "taxas", e.target.value)} />
+                              </label>
+                              <label>
+                                Corretora
+                                <input value={correcoes[l.numero]?.instituicao ?? l.campos.instituicao ?? ""} onChange={(e) => editarCampo(l.numero, "instituicao", e.target.value)} />
+                              </label>
+                              <label>
+                                IRRF
+                                <input type="number" step="any" value={correcoes[l.numero]?.irrf ?? l.campos.irrf ?? ""} onChange={(e) => editarCampo(l.numero, "irrf", e.target.value)} />
+                              </label>
+                              <label>
+                                Moeda
+                                <select value={correcoes[l.numero]?.moeda ?? l.campos.moeda ?? "BRL"} onChange={(e) => editarCampo(l.numero, "moeda", e.target.value)}>
+                                  <option>BRL</option>
+                                  <option>USD</option>
+                                  <option>EUR</option>
+                                </select>
+                              </label>
+                              <div className="acoes">
+                                <button disabled={previa.isPending} onClick={() => revalidar(l)}>
+                                  {previa.isPending ? "Validando…" : "Validar linha"}
+                                </button>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      </Fragment>
                     ))}
                   </tbody>
                 </table>

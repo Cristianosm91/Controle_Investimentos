@@ -1,3 +1,4 @@
+import json
 import io
 import re
 import zipfile
@@ -101,15 +102,59 @@ def test_planilha_operacoes_importa_taxas_e_irrf(cliente):
     linhas = por_numero(previa)
     assert (linhas[2]["evento"], linhas[2]["quantidade"], linhas[2]["valor"]) == ("C", 100, 3850)
     assert (linhas[3]["evento"], linhas[3]["quantidade"]) == ("V", -10)
-    assert linhas[4]["status"] == "ignorado" and "BRL" in linhas[4]["motivo"]
+    assert (linhas[4]["status"], linhas[4]["evento"], linhas[4]["moeda"]) == ("novo", "C", "USD")
 
     resultado = enviar(cliente, "importar", PLANILHA_OPERACOES, investidor_id=inv).json()
-    assert resultado["operacoes"] == 2
+    assert resultado["operacoes"] == 3
     operacoes = cliente.get("/api/operacoes", params={"investidores": inv}).json()["itens"]
     assert {(op["evento"], op["taxas"], op["irrf"], op["moeda"]) for op in operacoes} == {
-        ("C", 12.34, 0, "BRL"), ("V", 2.5, 0.01, "BRL"),
+        ("C", 12.34, 0, "BRL"), ("V", 2.5, 0.01, "BRL"), ("C", 0, 0, "USD"),
     }
     assert enviar(cliente, "importar", PLANILHA_OPERACOES, investidor_id=inv).json()["operacoes"] == 0
+
+
+def test_planilha_corrige_multiplas_linhas_na_previa_e_importa_sem_editar_arquivo(cliente):
+    inv = investidor(cliente)
+    planilha = xlsx(CAB_PLANILHA_OPERACOES, [
+        ["PETR4", datetime(2025, 2, 5), "XX", "inválido", 200, 0, "XP", 0, "USD"],
+        ["?", datetime(2025, 2, 6), "C", 1, 200, 0, "XP", 0, "EUR"],
+    ])
+    previa = enviar(cliente, "previa", planilha, investidor_id=inv).json()
+    linha = previa["linhas"][0]
+    assert linha["status"] == "ignorado"
+    assert "qtd" in linha["motivo"]
+    assert linha["campos"]["evento"] == "XX"
+    assert previa["linhas"][1]["status"] == "ignorado"
+
+    correcoes = {
+        "2": {"ticker": "O", "evento": "C", "quantidade": "1"},
+        "3": {"ticker": "A"},
+    }
+    parametros = {"investidor_id": inv, "correcoes": json.dumps(correcoes)}
+    revalidada = enviar(cliente, "previa", planilha, **parametros).json()["linhas"]
+    assert [(item["ticker"], item["status"], item["evento"]) for item in revalidada] == [
+        ("O", "novo", "C"), ("A", "novo", "C"),
+    ]
+
+    resultado = enviar(cliente, "importar", planilha, **parametros).json()
+    assert resultado["operacoes"] == 2
+    operacoes = cliente.get("/api/operacoes", params={"investidores": inv}).json()["itens"]
+    assert {(op["ticker"], op["moeda"], op["quantidade"]) for op in operacoes} == {
+        ("O", "USD", 1), ("A", "EUR", 1),
+    }
+
+
+def test_s_i_importa_split_e_inplit_pelo_sinal_da_quantidade(cliente):
+    inv = investidor(cliente)
+    planilha = xlsx(CAB_PLANILHA_OPERACOES, [
+        ["PETR4", datetime(2025, 2, 5), "S/I", 100, 0, 0, "XP", 0, "BRL"],
+        ["PETR4", datetime(2025, 2, 6), "S/I", -100, 0, 0, "XP", 0, "BRL"],
+    ])
+    previa = enviar(cliente, "previa", planilha, investidor_id=inv).json()
+    assert [(linha["evento"], linha["quantidade"], linha["status"]) for linha in previa["linhas"]] == [
+        ("DESDOBRAMENTO", 100, "novo"), ("DESDOBRAMENTO", -100, "novo"),
+    ]
+    assert enviar(cliente, "importar", planilha, investidor_id=inv).json()["operacoes"] == 2
 
 
 def test_importar_negociacao_e_reimportar(cliente):

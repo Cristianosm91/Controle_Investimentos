@@ -45,6 +45,15 @@ def test_bonificacao_entra_pelo_custo_atribuido():
     p = calcular_posicoes([mov("C", "70", "20"), mov("BONIFICACAO", "7", "4.96", dia=2)])[(1, 1)]
     assert p.quantidade == 77
     assert p.custo == D("1434.72")
+    assert p.preco_medio == D("1434.72") / 77
+
+
+def test_preco_da_bonificacao_ajusta_pm_sem_aumentar_capital_investido():
+    movimentos = [mov("C", "10", "10"), mov("BONIFICACAO", "2", "5", dia=2)]
+    posicao = calcular_posicoes(movimentos)[(1, 1)]
+    capital = calcular_investimento(movimentos)
+    assert posicao.preco_medio == D("110") / 12
+    assert capital.valor_investido == D("100")
 
 
 def test_amortizacao_e_cisao_reduzem_custo():

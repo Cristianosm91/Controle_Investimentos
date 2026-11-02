@@ -116,6 +116,7 @@ class Linha:
     motivo: str | None = None
     hash: str | None = None
     evento_original: str | None = None
+    campos: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -222,13 +223,44 @@ def _classe_inferida(ticker: str, nome: str | None, mercado: str | None = None) 
     return "AÇÃO"
 
 
-def ler(conteudo: bytes) -> tuple[str, list[Linha]]:
+def _texto_campo(valor) -> str:
+    if valor is None:
+        return ""
+    if isinstance(valor, datetime):
+        return valor.date().isoformat()
+    if isinstance(valor, date):
+        return valor.isoformat()
+    return str(valor).strip()
+
+
+def ler(conteudo: bytes, correcoes: dict[int, dict[str, str]] | None = None) -> tuple[str, list[Linha]]:
     planilha = _ler_planilha(conteudo)
     relatorio, cabecalho, colunas = _mapear_cabecalho(planilha)
     linhas: list[Linha] = []
     for numero, bruta in enumerate(planilha[cabecalho + 1:], start=cabecalho + 2):
         valor = {campo: (bruta[i] if i < len(bruta) else None) for campo, i in colunas.items()}
         if all(v in (None, "") for v in valor.values()):
+            continue
+        if relatorio == "PLANILHA_OPERACOES":
+            valor.update((correcoes or {}).get(numero, {}))
+            dia = _data(valor.get("data"))
+            instituicao = str(valor.get("instituicao") or "").strip() or None
+            try:
+                qtd = _decimal(valor.get("quantidade")) or Decimal(0)
+            except ExtratoInvalido:
+                qtd = Decimal(0)
+            try:
+                preco = _decimal(valor.get("preco")) or Decimal(0)
+            except ExtratoInvalido:
+                preco = Decimal(0)
+            linha = _linha_planilha_operacoes(numero, dia, valor, qtd, preco, instituicao)
+            linha.campos = {
+                campo: _texto_campo(valor.get(campo))
+                for campo in (
+                    "ticker", "data", "evento", "quantidade", "preco", "taxas", "instituicao", "irrf", "moeda",
+                )
+            }
+            linhas.append(linha)
             continue
         dia = _data(valor["data"])
         if dia is None:
@@ -287,19 +319,17 @@ def _linha_planilha_operacoes(numero, dia, valor, qtd, preco, instituicao) -> Li
         instituicao=instituicao, moeda=moeda, origem=ORIGEM_PLANILHA_OPERACOES,
         evento_original=evento_bruto or None,
     )
-    campos_invalidos = [
-        nome
-        for campo, nome in (
-            ("qtd", "qtd"),
-            ("preco", "preco"),
-            ("taxas", "taxas"),
-            ("irrf", "irrf"),
-        )
-        if valor.get(campo) not in (None, "") and _decimal(valor.get(campo)) is None
-    ]
+    campos_invalidos = []
+    for campo, nome in (("quantidade", "qtd"), ("preco", "preco"), ("taxas", "taxas"), ("irrf", "irrf")):
+        if valor.get(campo) in (None, ""):
+            continue
+        try:
+            _decimal(valor.get(campo))
+        except ExtratoInvalido:
+            campos_invalidos.append(nome)
     if dia is None:
         linha.status, linha.motivo = "ignorado", f"Linha {numero}: data ausente ou inválida"
-    elif not re.fullmatch(r"[A-Z0-9]{4,16}", ticker):
+    elif not re.fullmatch(r"[A-Z0-9]{1,16}", ticker):
         linha.status, linha.motivo = "ignorado", f"Linha {numero}: ativo inválido ou ausente"
     elif not evento_bruto:
         linha.status, linha.motivo = "ignorado", f"Linha {numero}: coluna Evento vazia"
@@ -321,11 +351,6 @@ def _linha_planilha_operacoes(numero, dia, valor, qtd, preco, instituicao) -> Li
                 "ignorado",
                 f"Linha {numero}: evento '{evento_bruto}' não reconhecido. Corrija a coluna Evento.",
             )
-    elif moeda != "BRL":
-        linha.status, linha.motivo = (
-            "ignorado",
-            f"Linha {numero}: moeda '{moeda}' não suportada; use BRL.",
-        )
     else:
         taxas = (_decimal(valor.get("taxas")) or Decimal(0)).quantize(Decimal("0.01"))
         irrf = (_decimal(valor.get("irrf")) or Decimal(0)).quantize(Decimal("0.01"))
@@ -339,12 +364,12 @@ def _linha_planilha_operacoes(numero, dia, valor, qtd, preco, instituicao) -> Li
             quantidade_valida = qtd != 0
             preco_valido = preco > 0
         elif evento in ("C", "V"):
-            quantidade_valida = qtd > 0
+            quantidade_valida = qtd > 0 if evento == "C" else qtd != 0
             preco_valido = preco > 0
-            quantidade = qtd if evento == "C" else -qtd
+            quantidade = qtd if evento == "C" else -abs(qtd)
         elif evento == "BONIFICACAO":
             quantidade_valida = qtd > 0
-            preco_valido = preco == 0
+            preco_valido = preco > 0
         elif evento == "DESDOBRAMENTO":
             quantidade_valida = qtd != 0
             preco_valido = preco == 0
@@ -465,8 +490,10 @@ def _marcar_daytrade(linhas: list[Linha]) -> None:
                 lin.motivo = "Compra e venda no mesmo dia com quantidades diferentes: confira a parte em day trade"
 
 
-def analisar(sessao: Session, investidor_id: int, conteudo: bytes) -> Previa:
-    relatorio, linhas = ler(conteudo)
+def analisar(
+    sessao: Session, investidor_id: int, conteudo: bytes, correcoes: dict[int, dict[str, str]] | None = None,
+) -> Previa:
+    relatorio, linhas = ler(conteudo, correcoes)
     validas = [lin for lin in linhas if lin.tipo != "IGNORADA"]
 
     ocorrencias: dict[tuple, int] = defaultdict(int)
@@ -560,12 +587,13 @@ class Resultado:
 
 
 def importar(
-    sessao: Session, investidor_id: int, conteudo: bytes, incluir: set[int], arquivo: str | None = None
+    sessao: Session, investidor_id: int, conteudo: bytes, incluir: set[int], arquivo: str | None = None,
+    correcoes: dict[int, dict[str, str]] | None = None,
 ) -> Resultado:
     """Grava as linhas "novo" e as "verificar" cujo número está em `incluir`, num lote que pode ser desfeito."""
     if sessao.get(Investidor, investidor_id) is None:
         raise ExtratoInvalido("Investidor não encontrado")
-    previa = analisar(sessao, investidor_id, conteudo)
+    previa = analisar(sessao, investidor_id, conteudo, correcoes)
     resultado = Resultado()
     ativos = {a.ticker: a for a in sessao.scalars(select(Ativo))}
     corretoras = {_normalizar(c.nome).upper(): c for c in sessao.scalars(select(Corretora))}
@@ -582,7 +610,7 @@ def importar(
         if linha.ticker not in ativos:
             novo = Ativo(
                 ticker=linha.ticker, nome=linha.nome_produto, classe=previa.ativos_novos.get(linha.ticker, "AÇÃO"),
-                moeda="BRL", mercado="BVMF", cotacao_automatica=True,
+                moeda=linha.moeda, mercado="BVMF", cotacao_automatica=True,
             )
             sessao.add(novo)
             ativos[linha.ticker] = novo

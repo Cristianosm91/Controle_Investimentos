@@ -46,6 +46,26 @@ def test_operacoes_filtradas_por_classe(cliente, ids):
     assert resultado["itens"][0]["ticker"] == "HGLG11"
 
 
+def test_filtro_de_operacoes_aceita_varios_tickers(cliente, ids):
+    vale = cliente.post("/api/ativos", json={"ticker": "VALE3"}).json()["id"]
+    for ativo_id in (ids["ativo_id"], vale):
+        assert cliente.post(
+            "/api/operacoes",
+            json={
+                "investidor_id": ids["investidor_id"],
+                "ativo_id": ativo_id,
+                "data": "2026-01-05",
+                "evento": "C",
+                "quantidade": 1,
+                "preco": 10,
+            },
+        ).status_code == 201
+
+    resultado = cliente.get("/api/operacoes", params={"ticker": "petr4, VALE3"}).json()
+    assert resultado["total"] == 2
+    assert {item["ticker"] for item in resultado["itens"]} == {"PETR4", "VALE3"}
+
+
 def test_filtro_de_operacoes_aplicado_antes_da_paginacao(cliente, ids):
     fii = cliente.post("/api/ativos", json={"ticker": "HGLG11", "classe": "FII"}).json()["id"]
     acoes = cliente.post("/api/ativos", json={"ticker": "VALE3", "classe": "AÇÃO"}).json()["id"]

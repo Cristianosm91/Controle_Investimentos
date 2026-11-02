@@ -397,6 +397,8 @@ export interface LinhaExtrato {
   quantidade: number;
   preco: number;
   valor: number;
+  moeda: string;
+  campos: Record<string, string>;
   instituicao: string | null;
   daytrade: boolean;
   status: StatusExtrato;
@@ -404,7 +406,7 @@ export interface LinhaExtrato {
 }
 
 export interface PreviaExtrato {
-  relatorio: "NEGOCIACAO" | "MOVIMENTACAO" | "PROVENTOS";
+  relatorio: "NEGOCIACAO" | "MOVIMENTACAO" | "PROVENTOS" | "PLANILHA_OPERACOES";
   linhas: LinhaExtrato[];
   ativos_novos: Record<string, string>;
   corretoras_novas: string[];

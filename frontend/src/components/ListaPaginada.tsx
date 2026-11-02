@@ -9,6 +9,7 @@ import { useFonteExportacao } from "./Exportacao";
 
 const POR_PAGINA = 100;
 const LOTE_EXPORTACAO = 1000;
+const TODAS_PAGINAS = "todas";
 
 export interface ColunaLista<T> {
   titulo: string;
@@ -54,6 +55,7 @@ export function ListaPaginada<T>({
   filtrosFixos,
 }: Props<T>) {
   const [ticker, setTicker] = useState("");
+  const [tamanhoPagina, setTamanhoPagina] = useState<number | typeof TODAS_PAGINAS>(POR_PAGINA);
   const [classe, setClasse] = useState("");
   const [inicio, setInicio] = useState("");
   const [fim, setFim] = useState("");
@@ -72,12 +74,22 @@ export function ListaPaginada<T>({
     ...(classes || classeFiltro !== undefined ? { classe: classeSelecionada } : {}),
     inicio,
     fim,
-    limite: POR_PAGINA,
-    deslocamento: pagina * POR_PAGINA,
+    limite: tamanhoPagina === TODAS_PAGINAS ? LOTE_EXPORTACAO : tamanhoPagina,
+    deslocamento: tamanhoPagina === TODAS_PAGINAS ? 0 : pagina * tamanhoPagina,
   };
-  const { data, isLoading, isFetching, error } = useQuery({
+  const { data, isFetching, error } = useQuery({
     queryKey: [recurso, params],
-    queryFn: () => api.get<Pagina<T>>(`/${recurso}${query(params)}`),
+    queryFn: async () => {
+      const primeira = await api.get<Pagina<T>>(`/${recurso}${query(params)}`);
+      if (tamanhoPagina !== TODAS_PAGINAS || primeira.itens.length >= primeira.total) return primeira;
+      const itens = [...primeira.itens];
+      while (itens.length < primeira.total) {
+        const proxima = await api.get<Pagina<T>>(`/${recurso}${query({ ...params, deslocamento: itens.length })}`);
+        if (!proxima.itens.length) break;
+        itens.push(...proxima.itens);
+      }
+      return { ...primeira, itens };
+    },
     placeholderData: (anterior) => anterior,
   });
   const excluirSelecionados = useMutation({
@@ -144,7 +156,7 @@ export function ListaPaginada<T>({
   });
 
   const total = data?.total ?? 0;
-  const paginas = Math.max(1, Math.ceil(total / POR_PAGINA));
+  const paginas = tamanhoPagina === TODAS_PAGINAS ? 1 : Math.max(1, Math.ceil(total / tamanhoPagina));
   const filtrar = (f: () => void) => {
     f();
     setPagina(0);
@@ -198,7 +210,12 @@ export function ListaPaginada<T>({
         <h1>{titulo}</h1>
         <div className="acoes filtros">
           {filtroTicker && (
-            <input placeholder="Ticker" value={ticker} onChange={(e) => filtrar(() => setTicker(e.target.value.toUpperCase()))} />
+            <input
+              placeholder="Ativos (ex.: PETR4, VALE3)"
+              aria-label="Filtrar por um ou mais ativos"
+              value={ticker}
+              onChange={(e) => filtrar(() => setTicker(e.target.value.toUpperCase()))}
+            />
           )}
           {classes && (
             <select
@@ -249,7 +266,7 @@ export function ListaPaginada<T>({
         </div>
       )}
       {erroExclusao && <div className="erro">{erroExclusao}</div>}
-      {isLoading && <p>Carregando…</p>}
+      {isFetching && <p>Carregando…</p>}
 
       {data && (
         <>
@@ -300,15 +317,36 @@ export function ListaPaginada<T>({
             </table>
           </div>
           <div className="paginacao">
-            <button disabled={pagina === 0} onClick={() => setPagina(pagina - 1)}>
-              ‹ Anterior
-            </button>
-            <span>
-              Página {pagina + 1} de {paginas} · {total} registros
-            </span>
-            <button disabled={pagina + 1 >= paginas} onClick={() => setPagina(pagina + 1)}>
-              Próxima ›
-            </button>
+            <label>
+              Linhas por página
+              <select
+                aria-label="Linhas por página"
+                value={tamanhoPagina}
+                onChange={(e) => {
+                  setTamanhoPagina(e.target.value === TODAS_PAGINAS ? TODAS_PAGINAS : Number(e.target.value));
+                  setPagina(0);
+                  setSelecionados(new Set());
+                }}
+              >
+                <option value={100}>100</option>
+                <option value={TODAS_PAGINAS}>Todas</option>
+              </select>
+            </label>
+            {tamanhoPagina !== TODAS_PAGINAS ? (
+              <>
+                <button disabled={pagina === 0} onClick={() => setPagina(pagina - 1)}>
+                  ‹ Anterior
+                </button>
+                <span>
+                  Página {pagina + 1} de {paginas} · {total} registros
+                </span>
+                <button disabled={pagina + 1 >= paginas} onClick={() => setPagina(pagina + 1)}>
+                  Próxima ›
+                </button>
+              </>
+            ) : (
+              <span>{total} registros</span>
+            )}
           </div>
         </>
       )}

@@ -661,6 +661,8 @@ class LinhaExtratoOut(BaseModel):
     quantidade: Num
     preco: Num
     valor: Num
+    moeda: str
+    campos: dict[str, str] = Field(default_factory=dict)
     instituicao: str | None
     daytrade: bool
     status: Literal["novo", "duplicado", "verificar", "ignorado"]

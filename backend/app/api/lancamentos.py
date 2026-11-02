@@ -63,7 +63,8 @@ def _listar(
     if (ticker or classe) and hasattr(modelo, "ativo_id"):
         base = base.join(Ativo, Ativo.id == modelo.ativo_id)
         if ticker:
-            base = base.where(Ativo.ticker == ticker.strip().upper())
+            tickers = {valor.upper() for valor in re.split(r"[,;\s]+", ticker) if valor}
+            base = base.where(Ativo.ticker == next(iter(tickers))) if len(tickers) == 1 else base.where(Ativo.ticker.in_(tickers))
         if classe:
             base = base.where(Ativo.classe == classe)
     if inicio:
