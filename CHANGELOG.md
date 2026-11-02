@@ -6,6 +6,8 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 
 ## [Não lançado]
 
+## [1.1.0] - 2026-11-02
+
 ### Adicionado
 - Valuation: campo de ticker livre — qualquer ticker B3 digitado é cadastrado e já recebe cotação e fundamentos.
 - Valuations salvos: nova tela com o último preço justo de cada ativo calculado e os dois cálculos anteriores
@@ -89,5 +91,6 @@ Primeira versão estável: substitui a planilha de controle de investimentos (Fa
 - Arquivos da B3 com dimensão declarada como `A1` eram lidos só até a primeira linha.
 - Quantidades em texto pt-BR com ponto de milhar (`1.350`) eram lidas como decimais.
 
-[Não lançado]: https://github.com/Cristianosm91/Controle_Investimentos/compare/v1.0.0...HEAD
+[Não lançado]: https://github.com/Cristianosm91/Controle_Investimentos/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/Cristianosm91/Controle_Investimentos/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/Cristianosm91/Controle_Investimentos/releases/tag/v1.0.0
