@@ -37,6 +37,7 @@ def test_siglas_operacionais_normalizam_para_eventos_do_dominio():
         ("TC", "-10", "10", "TRANSFERENCIA", Decimal("-10"), False),
         ("AT", "10", "10", "TRANSFERENCIA", Decimal("10"), False),
         ("V.SUB", "3", "2", "VENDA_SUBSCRICAO", Decimal("-3"), False),
+        ("V.SUB", "-3", "2", "VENDA_SUBSCRICAO", Decimal("-3"), False),
         ("CISAO", "10", "-1", "CISAO", Decimal("10"), False),
     ]
 

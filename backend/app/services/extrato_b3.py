@@ -382,6 +382,10 @@ def _linha_planilha_operacoes(numero, dia, valor, qtd, preco, instituicao) -> Li
         elif evento == "CISAO":
             quantidade_valida = qtd > 0
             preco_valido = preco <= 0
+        elif evento == "VENDA_SUBSCRICAO":
+            quantidade_valida = qtd != 0
+            preco_valido = preco >= 0
+            quantidade = -abs(qtd)
         else:
             quantidade_valida = qtd > 0
             preco_valido = preco >= 0

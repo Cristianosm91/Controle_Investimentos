@@ -80,13 +80,13 @@ MODELOS: dict[str, Modelo] = {
             ("PETR4", date(2026, 3, 24), "AT", 10, 10, 0, "XP", 0, "BRL"),
             ("PETR4", date(2026, 3, 25), "AM", 10, -0.5, 0, "XP", 0, "BRL"),
             ("PETR4", date(2026, 3, 26), "CISAO", 10, -1, 0, "XP", 0, "BRL"),
-            ("PETR4", date(2026, 3, 27), "V.SUB", 3, 2, 0, "XP", 0, "BRL"),
+            ("PETR4", date(2026, 3, 27), "V.SUB", -3, 2, 0, "XP", 0, "BRL"),
         ),
         (
             "Modelo personalizado para importar operações e eventos; preencha Evento com uma sigla válida da lista.",
             (
                 "C, IPO, SUB, BN e CISAO usam quantidade positiva. V aceita quantidade negativa e é armazenada como saída; "
-                "V.SUB usa quantidade positiva e é convertida em saída. "
+                "V.SUB aceita quantidade positiva ou negativa e é armazenada como saída. "
                 "SUB deve informar no preço unitário o custo total por ativo, incluindo eventual custo do direito. "
                 "BN mantém o preço informado para calcular o novo PM, sem somá-lo ao capital investido. DT usa quantidade positiva para compra e negativa "
                 "para venda, marcando day trade."

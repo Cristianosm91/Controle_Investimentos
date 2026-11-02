@@ -10,6 +10,7 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 
 ### Corrigido
 - Operações: exibe o IRRF como coluna própria ao lado das taxas.
+- Planilha de operações: V.SUB aceita quantidade positiva ou negativa e sempre registra saída.
 
 ## [1.2.0] - 2026-11-02
 
