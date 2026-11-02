@@ -22,6 +22,7 @@ def _preenchido(nome: str) -> bytes:
 @pytest.mark.parametrize(
     ("nome", "relatorio", "esperado"),
     [
+        ("planilha-operacoes", "PLANILHA_OPERACOES", [("OPERACAO", "C", "PETR4", D(100)), ("OPERACAO", "V", "PETR4", D(-10))]),
         ("b3-negociacao", "NEGOCIACAO", [("OPERACAO", "C", "PETR4", D(100)), ("OPERACAO", "V", "PETR4", D(-10))]),
         ("b3-movimentacao", "MOVIMENTACAO", [("PROVENTO", "DIVIDENDO", "ITSA4", D(0)),
                                              ("PROVENTO", "RENDIMENTO", "HGLG11", D(0))]),
@@ -34,7 +35,7 @@ def test_modelos_b3_sao_lidos_pelo_importador(nome, relatorio, esperado):
     assert [(l.tipo, l.evento, l.ticker, l.quantidade) for l in linhas] == esperado
 
 
-@pytest.mark.parametrize("nome", ["b3-negociacao", "b3-movimentacao", "b3-proventos"])
+@pytest.mark.parametrize("nome", ["planilha-operacoes", "b3-negociacao", "b3-movimentacao", "b3-proventos"])
 def test_modelo_b3_vazio_tem_cabecalho_reconhecido(nome):
     _, conteudo = modelos.gerar(nome)
     with pytest.raises(extrato_b3.ExtratoInvalido, match="não tem lançamentos"):

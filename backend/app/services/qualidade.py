@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from ..models import Ativo, IndiceMensal, Investidor, MovCaixa, Operacao, Provento
 from . import configuracao, parametros
 from .carteira import carregar_posicoes, ultimas_cotacoes
-from .posicao import consolidar
+from .posicao import Carteira, Movimento, consolidar, ordenar
 
 _LIMITE_ITENS = 50
 
@@ -67,6 +67,137 @@ def verificar(sessao: Session, investidor_ids: Sequence[int] | None = None, hoje
             "/operacoes",
         ),
         [f"{t} em {d:%d/%m/%Y}" for t, d in cambio_zerado],
+    )
+
+    ops_moeda = sessao.scalars(
+        select(Operacao)
+        .join(Ativo, Ativo.id == Operacao.ativo_id)
+        .where(Operacao.moeda == "BRL", *_filtro(Operacao, investidor_ids))
+    ).all()
+    itens_moeda = []
+    for op in ops_moeda:
+        at = op.ativo
+        classe = (at.classe or "").strip().upper()
+        mercado = (at.mercado or "").strip().upper()
+        eh_bdr = classe == "BDR" or at.ticker.endswith(("31", "32", "33", "34", "35", "39"))
+        eh_ext = classe in ("STOCK", "REIT", "ETF_US") or mercado in ("NYSE", "NASDAQ")
+        if eh_ext and not eh_bdr:
+            itens_moeda.append(f"{at.ticker} em {op.data:%d/%m/%Y}: ativo internacional em BRL (esperado: USD com PTAX)")
+    adicionar(
+        Verificacao(
+            "moeda_incompativel", "Moeda incompatível com o ativo", "erro",
+            "Ativos no exterior (STOCK, REIT, ETF_US) devem ter lançamentos em USD com PTAX. "
+            "Lançamentos em BRL subestimam severamente o custo de aquisição.",
+            "/operacoes",
+        ),
+        itens_moeda,
+    )
+
+    todos_ativos = {a.id: a for a in sessao.scalars(select(Ativo))}
+    todas_ops = [
+        Movimento(r.investidor_id, r.ativo_id, r.data, r.evento, r.quantidade, r.preco, r.taxas, r.daytrade, r.id, r.cambio)
+        for r in sessao.execute(
+            select(Operacao.investidor_id, Operacao.ativo_id, Operacao.data, Operacao.evento, Operacao.quantidade,
+                   Operacao.preco, Operacao.taxas, Operacao.daytrade, Operacao.id, Operacao.cambio)
+            .where(*_filtro(Operacao, investidor_ids))
+        )
+    ]
+    carteira_audit = Carteira()
+    saidas_at = []
+    entradas_at = []
+    compras_c = []
+
+    for m in ordenar(todas_ops):
+        if m.evento == "TRANSFERENCIA":
+            if m.quantidade < 0:
+                p_ant = carteira_audit.posicoes.get((m.investidor_id, m.ativo_id))
+                pm_ant = p_ant.preco_medio if p_ant else Decimal(0)
+                custo_saida = abs(m.quantidade) * pm_ant
+                saidas_at.append({
+                    "id": m.ordem, "inv_id": m.investidor_id, "ativo_id": m.ativo_id,
+                    "data": m.data, "qtd": abs(m.quantidade), "custo": custo_saida,
+                    "volume": abs(m.quantidade * m.preco * m.cambio), "pareado": False,
+                })
+            else:
+                custo_entrada = m.quantidade * m.preco * m.cambio
+                entradas_at.append({
+                    "id": m.ordem, "inv_id": m.investidor_id, "ativo_id": m.ativo_id,
+                    "data": m.data, "qtd": m.quantidade, "custo": custo_entrada,
+                    "volume": abs(m.quantidade * m.preco * m.cambio), "pareado": False,
+                })
+        elif m.evento == "C" and not m.daytrade:
+            compras_c.append({
+                "id": m.ordem, "inv_id": m.investidor_id, "ativo_id": m.ativo_id,
+                "data": m.data, "volume": (m.quantidade * m.preco + m.taxas) * m.cambio,
+            })
+        carteira_audit.aplicar(m)
+
+    itens_custo_divergente = []
+    itens_compra_troca = []
+    itens_orfas = []
+
+    for ent in entradas_at:
+        candidatos = [
+            s for s in saidas_at
+            if s["inv_id"] == ent["inv_id"] and not s["pareado"] and abs((ent["data"] - s["data"]).days) <= 7
+        ]
+        if candidatos:
+            melhor = min(candidatos, key=lambda s: (abs(ent["custo"] - s["custo"]), abs((ent["data"] - s["data"]).days)))
+            melhor["pareado"] = True
+            ent["pareado"] = True
+            dif = abs(ent["custo"] - melhor["custo"])
+            if dif > Decimal("0.05"):
+                tik_saida = todos_ativos[melhor["ativo_id"]].ticker
+                tik_entrada = todos_ativos[ent["ativo_id"]].ticker
+                itens_custo_divergente.append(
+                    f"{tik_saida} → {tik_entrada} ({ent['data']:%d/%m/%Y}): custo de saída R$ {melhor['custo']:.2f} difere da entrada R$ {ent['custo']:.2f} (dif: R$ {dif:.2f})"
+                )
+
+    for sai in saidas_at:
+        if not sai["pareado"]:
+            c_cands = [
+                c for c in compras_c
+                if c["inv_id"] == sai["inv_id"] and abs((c["data"] - sai["data"]).days) <= 7 and abs(c["volume"] - sai["volume"]) <= Decimal("1.00")
+            ]
+            tik_saida = todos_ativos[sai["ativo_id"]].ticker
+            if c_cands:
+                melhor_c = min(c_cands, key=lambda c: abs((c["data"] - sai["data"]).days))
+                tik_c = todos_ativos[melhor_c["ativo_id"]].ticker
+                itens_compra_troca.append(
+                    f"Possível troca de ticker como compra: {tik_c} compra em {melhor_c['data']:%d/%m/%Y} (R$ {melhor_c['volume']:.2f}) coincide com saída de {tik_saida} em {sai['data']:%d/%m/%Y}. Use AT nas duas pontas para não duplicar fluxo."
+                )
+            else:
+                itens_orfas.append(f"{tik_saida} · saída AT de {sai['qtd']} em {sai['data']:%d/%m/%Y} sem entrada correspondente na janela")
+
+    for ent in entradas_at:
+        if not ent["pareado"]:
+            tik_entrada = todos_ativos[ent["ativo_id"]].ticker
+            itens_orfas.append(f"{tik_entrada} · entrada AT de {ent['qtd']} em {ent['data']:%d/%m/%Y} sem saída correspondente na janela")
+
+    adicionar(
+        Verificacao(
+            "transferencia_divergente", "Custo de transferência divergente", "erro",
+            "Na troca de ticker (AT), o custo herdado na entrada deve ser rigorosamente igual ao PM do ticker de origem vezes a quantidade. "
+            "Diferenças distorcem o preço médio e o valor investido.",
+            "/operacoes",
+        ),
+        itens_custo_divergente,
+    )
+    adicionar(
+        Verificacao(
+            "compra_no_lugar_de_troca", "Troca de ticker lançada como compra", "erro",
+            "Entrada do novo ticker lançada como Compra (C) em vez de Troca (AT): duplica indevidamente o fluxo de dinheiro que saiu do bolso.",
+            "/operacoes",
+        ),
+        itens_compra_troca,
+    )
+    adicionar(
+        Verificacao(
+            "transferencia_orfa", "Transferência (AT) sem contraparte", "aviso",
+            "Operação de transferência (AT) de saída ou entrada sem a contraparte pareada na janela de datas.",
+            "/operacoes",
+        ),
+        itens_orfas,
     )
 
     cotacoes = ultimas_cotacoes(sessao, set(abertas))

@@ -9,6 +9,7 @@ from ..models import LoteImportacao, MovCaixa, Operacao, Provento
 
 TIPOS = {
     "EXTRATO_B3": "Extrato B3",
+    "PLANILHA_OPERACOES": "Planilha de operações",
     "ALUGUEL": "Extrato de aluguel (BTC)",
 }
 

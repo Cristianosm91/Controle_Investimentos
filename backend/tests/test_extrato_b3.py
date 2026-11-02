@@ -14,6 +14,7 @@ CAB_MOVIMENTACAO = [
     "Entrada/Saída", "Data", "Movimentação", "Produto", "Instituição", "Quantidade", "Preço unitário",
     "Valor da Operação",
 ]
+CAB_PLANILHA_OPERACOES = ["ativo", "date", "evento", "qtd", "preco", "taxas", "corretora", "irrf", "moeda"]
 XP = "XP INVESTIMENTOS CCTVM S/A"
 INTER = "BANCO INTER S.A."
 
@@ -54,6 +55,12 @@ MOVIMENTACAO = xlsx(CAB_MOVIMENTACAO, [
     [None, None, None, None, None, None, None, None],
 ])
 
+PLANILHA_OPERACOES = xlsx(CAB_PLANILHA_OPERACOES, [
+    ["PETR4", datetime(2025, 2, 3), "C", 100, 38.5, 12.34, "XP", 0, "BRL"],
+    ["PETR4", datetime(2025, 2, 4), "V", 10, 40, 2.5, "XP", 0.01, "BRL"],
+    ["AAPL", datetime(2025, 2, 5), "C", 1, 200, 0, "XP", 0, "USD"],
+])
+
 
 def investidor(cliente, nome="Ana") -> int:
     return cliente.post("/api/investidores", json={"nome": nome, "cor": "#000000", "ativo": True}).json()["id"]
@@ -85,6 +92,24 @@ def test_previa_negociacao(cliente):
     assert linhas[10]["status"] == "ignorado" and "Termo" in linhas[10]["motivo"]
     assert previa["ativos_novos"] == {"PETR4": "AÇÃO", "HGLG11": "FII", "VALE3": "AÇÃO", "ITUB4": "AÇÃO", "PETRA400": "OPÇÃO"}
     assert sorted(previa["corretoras_novas"]) == ["INTER", "XP"]
+
+
+def test_planilha_operacoes_importa_taxas_e_irrf(cliente):
+    inv = investidor(cliente)
+    previa = enviar(cliente, "previa", PLANILHA_OPERACOES, investidor_id=inv).json()
+    assert previa["relatorio"] == "PLANILHA_OPERACOES"
+    linhas = por_numero(previa)
+    assert (linhas[2]["evento"], linhas[2]["quantidade"], linhas[2]["valor"]) == ("C", 100, 3850)
+    assert (linhas[3]["evento"], linhas[3]["quantidade"]) == ("V", -10)
+    assert linhas[4]["status"] == "ignorado" and "BRL" in linhas[4]["motivo"]
+
+    resultado = enviar(cliente, "importar", PLANILHA_OPERACOES, investidor_id=inv).json()
+    assert resultado["operacoes"] == 2
+    operacoes = cliente.get("/api/operacoes", params={"investidores": inv}).json()["itens"]
+    assert {(op["evento"], op["taxas"], op["irrf"], op["moeda"]) for op in operacoes} == {
+        ("C", 12.34, 0, "BRL"), ("V", 2.5, 0.01, "BRL"),
+    }
+    assert enviar(cliente, "importar", PLANILHA_OPERACOES, investidor_id=inv).json()["operacoes"] == 0
 
 
 def test_importar_negociacao_e_reimportar(cliente):

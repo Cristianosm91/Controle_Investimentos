@@ -662,7 +662,7 @@ class LinhaExtratoOut(BaseModel):
 
 
 class PreviaExtratoOut(BaseModel):
-    relatorio: Literal["NEGOCIACAO", "MOVIMENTACAO", "PROVENTOS"]
+    relatorio: Literal["NEGOCIACAO", "MOVIMENTACAO", "PROVENTOS", "PLANILHA_OPERACOES"]
     linhas: list[LinhaExtratoOut]
     ativos_novos: dict[str, str]
     corretoras_novas: list[str]

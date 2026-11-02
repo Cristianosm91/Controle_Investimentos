@@ -43,6 +43,29 @@ _INSTITUICAO = Coluna(
 )
 
 MODELOS: dict[str, Modelo] = {
+    "planilha-operacoes": Modelo(
+        "modelo-planilha-operacoes.xlsx", "Operações",
+        "Compras e vendas no layout simples de planilha do app.",
+        (
+            Coluna("ativo", "Ticker negociado (ex.: PETR4)", largura=14),
+            Coluna("date", "Data da operação", formato="data", largura=14),
+            Coluna("evento", "C/Compra ou V/Venda", opcoes=("C", "V"), largura=14),
+            Coluna("qtd", "Quantidade positiva, inclusive nas vendas", formato="numero", largura=12),
+            Coluna("preco", "Preço unitário em R$", formato="moeda", largura=12),
+            Coluna("taxas", "Corretagem e emolumentos, em R$", obrigatoria=False, formato="moeda", largura=12),
+            Coluna("corretora", "Nome da corretora", obrigatoria=False, largura=20),
+            Coluna("irrf", "IRRF da operação, em R$", obrigatoria=False, formato="moeda", largura=12),
+            Coluna("moeda", "Use BRL", opcoes=("BRL",), largura=12),
+        ),
+        (
+            ("PETR4", date(2026, 3, 2), "C", 100, 38.5, 12.34, "XP", 0, "BRL"),
+            ("PETR4", date(2026, 3, 9), "V", 10, 40, 2.5, "XP", 0.01, "BRL"),
+        ),
+        (
+            "Use quantidade positiva tanto para compra quanto para venda; o evento define o sinal.",
+            "Este modelo aceita apenas operações em BRL.",
+        ),
+    ),
     "b3-negociacao": Modelo(
         "modelo-b3-negociacao.xlsx", "Negociação",
         "Compras e vendas (mesmo layout do relatório Negociação da Área do Investidor da B3).",

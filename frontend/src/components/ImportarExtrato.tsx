@@ -15,7 +15,12 @@ const STATUS: Record<StatusExtrato, string> = {
   ignorado: "Não importado",
 };
 
-const RELATORIO = { NEGOCIACAO: "Negociação", MOVIMENTACAO: "Movimentação", PROVENTOS: "Proventos recebidos" };
+const RELATORIO = {
+  NEGOCIACAO: "Negociação",
+  MOVIMENTACAO: "Movimentação",
+  PROVENTOS: "Proventos recebidos",
+  PLANILHA_OPERACOES: "Planilha de operações",
+};
 
 export function ImportarExtrato({ aoFechar }: { aoFechar: () => void }) {
   const cliente = useQueryClient();
@@ -73,11 +78,13 @@ export function ImportarExtrato({ aoFechar }: { aoFechar: () => void }) {
         <p className="sutil">
           Na Área do Investidor da B3, exporte em Excel o relatório <strong>Negociação</strong> (compras e vendas),{" "}
           <strong>Movimentação</strong> (proventos, amortizações e desdobramentos) ou <strong>Proventos recebidos</strong>.
+          Também é aceito o modelo de planilha de operações em BRL. 
           Nada é gravado antes da confirmação;
           lançamentos que já existem são ignorados. A B3 não informa corretagem/emolumentos: as taxas entram zeradas.
         </p>
         <ModelosImportacao
           modelos={[
+            { nome: "planilha-operacoes", rotulo: "Planilha de operações" },
             { nome: "b3-negociacao", rotulo: "Negociação" },
             { nome: "b3-movimentacao", rotulo: "Movimentação" },
             { nome: "b3-proventos", rotulo: "Proventos recebidos" },

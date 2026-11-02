@@ -4,7 +4,11 @@ import { invalidarDerivados } from "../../cadastros";
 import { useInvestidor } from "../../InvestidorContext";
 import type { LoteImportacao } from "../../tipos";
 
-const TIPOS: Record<string, string> = { EXTRATO_B3: "Extrato B3", ALUGUEL: "Extrato de aluguel (BTC)" };
+const TIPOS: Record<string, string> = {
+  EXTRATO_B3: "Extrato B3",
+  PLANILHA_OPERACOES: "Planilha de operações",
+  ALUGUEL: "Extrato de aluguel (BTC)",
+};
 
 const dataHora = (iso: string) => new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
 

@@ -1,4 +1,4 @@
-"""Importação dos relatórios da Área do Investidor da B3 (Negociação e Movimentação, .xlsx).
+"""Importação de relatórios da B3 e de planilhas de operações (.xlsx).
 
 Fluxo: `analisar` monta a prévia (nada é gravado); `importar` reanalisa o mesmo arquivo e grava as linhas novas
 (e as "verificar" escolhidas). Duplicidade é conferida contra tudo o que já existe (planilha, digitação ou
@@ -25,7 +25,8 @@ from ..models import Ativo, Corretora, Investidor, LoteImportacao, Operacao, Pro
 from ..seguranca import LINHAS_MAXIMAS, tamanho_descompactado_excedido
 from . import lotes
 
-ORIGEM = "b3"
+ORIGEM_B3 = "b3"
+ORIGEM_PLANILHA_OPERACOES = "planilha_operacoes"
 TAMANHO_MAXIMO = 10 * 1024 * 1024
 _TOLERANCIA_VALOR = Decimal("0.05")
 
@@ -81,15 +82,20 @@ _COLUNAS_PROVENTOS = {
     "produto": "produto", "pagamento": "data", "tipo de evento": "movimentacao", "instituicao": "instituicao",
     "quantidade": "quantidade", "preco unitario": "preco", "valor liquido": "valor",
 }
+_COLUNAS_PLANILHA_OPERACOES = {
+    "ativo": "ticker", "date": "data", "evento": "evento", "qtd": "quantidade", "preco": "preco",
+    "taxas": "taxas", "corretora": "instituicao", "irrf": "irrf", "moeda": "moeda",
+}
 _RELATORIOS = (
     ("NEGOCIACAO", _COLUNAS_NEGOCIACAO), ("MOVIMENTACAO", _COLUNAS_MOVIMENTACAO), ("PROVENTOS", _COLUNAS_PROVENTOS),
+    ("PLANILHA_OPERACOES", _COLUNAS_PLANILHA_OPERACOES),
 )
 
 
 @dataclass
 class Linha:
     numero: int
-    relatorio: str  # NEGOCIACAO | MOVIMENTACAO | PROVENTOS
+    relatorio: str  # NEGOCIACAO | MOVIMENTACAO | PROVENTOS | PLANILHA_OPERACOES
     descricao: str
     data: date | None
     ticker: str | None
@@ -98,6 +104,10 @@ class Linha:
     quantidade: Decimal = Decimal(0)
     preco: Decimal = Decimal(0)
     valor: Decimal = Decimal(0)
+    taxas: Decimal = Decimal(0)
+    irrf: Decimal = Decimal(0)
+    moeda: str = "BRL"
+    origem: str = ORIGEM_B3
     instituicao: str | None = None
     nome_produto: str | None = None
     classe: str | None = None
@@ -183,7 +193,7 @@ def _mapear_cabecalho(linhas: list[tuple]) -> tuple[str, int, dict[str, int]]:
                 return relatorio, indice, {campo: nomes[nome] for nome, campo in colunas.items()}
     raise ExtratoInvalido(
         "Formato não reconhecido. Use os relatórios Negociação, Movimentação ou Proventos recebidos da Área do "
-        "Investidor da B3 (.xlsx)."
+        "Investidor da B3, ou a planilha de operações do app (.xlsx)."
     )
 
 
@@ -224,10 +234,12 @@ def ler(conteudo: bytes) -> tuple[str, list[Linha]]:
             continue  # rodapé/total
         qtd = _decimal(valor["quantidade"]) or Decimal(0)
         preco = _decimal(valor["preco"]) or Decimal(0)
-        total = _decimal(valor["valor"])
-        instituicao = str(valor["instituicao"] or "").strip() or None
+        total = _decimal(valor.get("valor"))
+        instituicao = str(valor.get("instituicao") or "").strip() or None
         if relatorio == "NEGOCIACAO":
             linhas.append(_linha_negociacao(numero, dia, valor, qtd, preco, total, instituicao))
+        elif relatorio == "PLANILHA_OPERACOES":
+            linhas.append(_linha_planilha_operacoes(numero, dia, valor, qtd, preco, instituicao))
         else:
             if relatorio == "PROVENTOS":
                 valor["sentido"] = "Credito"
@@ -258,6 +270,35 @@ def _linha_negociacao(numero, dia, valor, qtd, preco, total, instituicao) -> Lin
     linha.preco = preco
     linha.valor = total if total is not None else qtd * preco
     linha.classe = _classe_inferida(linha.ticker, None, mercado)
+    return linha
+
+
+def _linha_planilha_operacoes(numero, dia, valor, qtd, preco, instituicao) -> Linha:
+    """Lê o layout simples: ativo, date, evento, qtd, preco, taxas, corretora, irrf, moeda."""
+    ticker = str(valor["ticker"] or "").strip().upper()
+    evento_bruto = _normalizar(valor["evento"])
+    evento = {"c": "C", "compra": "C", "v": "V", "venda": "V"}.get(evento_bruto)
+    moeda = str(valor.get("moeda") or "BRL").strip().upper()
+    linha = Linha(
+        numero, "PLANILHA_OPERACOES", "Planilha de operações", dia, ticker or None, "IGNORADA",
+        instituicao=instituicao, moeda=moeda, origem=ORIGEM_PLANILHA_OPERACOES,
+    )
+    if not re.fullmatch(r"[A-Z0-9]{4,16}", ticker):
+        linha.status, linha.motivo = "ignorado", "Ativo inválido ou ausente"
+    elif evento is None:
+        linha.status, linha.motivo = "ignorado", "Evento inválido: use C/Compra ou V/Venda"
+    elif qtd <= 0 or preco <= 0:
+        linha.status, linha.motivo = "ignorado", "Quantidade ou preço ausente"
+    elif moeda != "BRL":
+        linha.status, linha.motivo = "ignorado", "Somente operações em BRL são aceitas neste modelo"
+    else:
+        linha.tipo, linha.evento = "OPERACAO", evento
+        linha.quantidade = qtd if evento == "C" else -qtd
+        linha.preco, linha.valor = preco, qtd * preco
+        # Taxas e IRRF são valores monetários em centavos; normaliza resíduos binários do Excel.
+        linha.taxas = (_decimal(valor.get("taxas")) or Decimal(0)).quantize(Decimal("0.01"))
+        linha.irrf = (_decimal(valor.get("irrf")) or Decimal(0)).quantize(Decimal("0.01"))
+        linha.classe = _classe_inferida(ticker, None)
     return linha
 
 
@@ -316,8 +357,9 @@ def _nome_corretora(instituicao: str) -> str:
 def _hash(investidor_id: int, linha: Linha, ocorrencia: int) -> str:
     base = "|".join(
         str(x) for x in (
-            ORIGEM, investidor_id, linha.relatorio, linha.data, linha.ticker, linha.evento,
-            linha.quantidade.normalize(), linha.preco.normalize(), linha.valor.normalize(), linha.instituicao, ocorrencia,
+            linha.origem, investidor_id, linha.relatorio, linha.data, linha.ticker, linha.evento,
+            linha.quantidade.normalize(), linha.preco.normalize(), linha.valor.normalize(), linha.taxas.normalize(),
+            linha.irrf.normalize(), linha.moeda, linha.instituicao, ocorrencia,
         )
     )
     return hashlib.sha256(base.encode()).hexdigest()
@@ -352,8 +394,9 @@ def analisar(sessao: Session, investidor_id: int, conteudo: bytes) -> Previa:
         ocorrencias[chave] += 1
         linha.hash = _hash(investidor_id, linha, ocorrencias[chave])
 
-    hashes = set(sessao.scalars(select(Operacao.hash_origem).where(Operacao.origem == ORIGEM)))
-    hashes |= set(sessao.scalars(select(Provento.hash_origem).where(Provento.origem == ORIGEM)))
+    origens = (ORIGEM_B3, ORIGEM_PLANILHA_OPERACOES)
+    hashes = set(sessao.scalars(select(Operacao.hash_origem).where(Operacao.origem.in_(origens))))
+    hashes |= set(sessao.scalars(select(Provento.hash_origem).where(Provento.origem.in_(origens))))
     for linha in validas:
         if linha.hash in hashes:
             linha.status, linha.motivo = "duplicado", "Já importado anteriormente"
@@ -450,7 +493,8 @@ def importar(
     def lote_id() -> int:
         nonlocal lote
         if lote is None:
-            lote = lotes.novo(sessao, "EXTRATO_B3", investidor_id, arquivo)
+            tipo_lote = "PLANILHA_OPERACOES" if previa.relatorio == "PLANILHA_OPERACOES" else "EXTRATO_B3"
+            lote = lotes.novo(sessao, tipo_lote, investidor_id, arquivo)
         return lote.id
 
     def ativo(linha: Linha) -> Ativo:
@@ -474,15 +518,16 @@ def importar(
             resultado.corretoras_criadas.append(nome)
         return corretoras[nome]
 
-    observacao = "Importado do extrato B3"
     for linha in previa.linhas:
         if linha.status != "novo" and not (linha.status == "verificar" and linha.numero in incluir):
             continue
         if linha.tipo == "OPERACAO":
             sessao.add(Operacao(
                 investidor_id=investidor_id, ativo=ativo(linha), corretora=corretora(linha), data=linha.data,
-                evento=linha.evento, quantidade=linha.quantidade, preco=linha.preco, taxas=Decimal(0), irrf=Decimal(0),
-                moeda="BRL", cambio=Decimal(1), daytrade=linha.daytrade, observacao=observacao, origem=ORIGEM,
+                evento=linha.evento, quantidade=linha.quantidade, preco=linha.preco, taxas=linha.taxas, irrf=linha.irrf,
+                moeda=linha.moeda, cambio=Decimal(1), daytrade=linha.daytrade,
+                observacao="Importado do extrato B3" if linha.origem == ORIGEM_B3 else "Importado de planilha de operações",
+                origem=linha.origem,
                 hash_origem=linha.hash, lote_id=lote_id(),
             ))
             resultado.operacoes += 1
@@ -490,7 +535,7 @@ def importar(
             sessao.add(Provento(
                 investidor_id=investidor_id, ativo=ativo(linha), corretora=corretora(linha),
                 data_pagamento=linha.data, evento=linha.evento, valor=linha.valor, irrf=Decimal(0), taxas=Decimal(0),
-                moeda="BRL", cambio=Decimal(1), observacao=observacao, origem=ORIGEM, hash_origem=linha.hash,
+                moeda="BRL", cambio=Decimal(1), observacao="Importado do extrato B3", origem=linha.origem, hash_origem=linha.hash,
                 lote_id=lote_id(),
             ))
             resultado.proventos += 1
