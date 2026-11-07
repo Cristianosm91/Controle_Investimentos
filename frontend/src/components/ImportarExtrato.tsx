@@ -19,7 +19,8 @@ const RELATORIO = {
   NEGOCIACAO: "Negociação",
   MOVIMENTACAO: "Movimentação",
   PROVENTOS: "Proventos recebidos",
-  PLANILHA_OPERACOES: "Planilha de operações",
+  PLANILHA_OPERACOES: "Modelo de operações personalizado",
+  PLANILHA_PROVENTOS: "Modelo de proventos personalizado",
 };
 
 export function ImportarExtrato({ aoFechar }: { aoFechar: () => void }) {
@@ -95,16 +96,17 @@ export function ImportarExtrato({ aoFechar }: { aoFechar: () => void }) {
         <p className="sutil">
           Na Área do Investidor da B3, exporte em Excel o relatório <strong>Negociação</strong> (compras e vendas),{" "}
           <strong>Movimentação</strong> (proventos, amortizações e desdobramentos) ou <strong>Proventos recebidos</strong>.
-          Também é aceito o modelo de planilha de operações em BRL, USD ou EUR.
+          Também são aceitos os modelos personalizados de operações e proventos em BRL, USD ou EUR.
           Nada é gravado antes da confirmação;
-          lançamentos que já existem são ignorados. A B3 não informa corretagem/emolumentos: as taxas entram zeradas.
+          lançamentos que já existem são ignorados. Nos relatórios B3, corretagem e emolumentos não são informados e as taxas entram zeradas.
         </p>
         <ModelosImportacao
           modelos={[
-            { nome: "planilha-operacoes", rotulo: "Planilha de operações" },
-            { nome: "b3-negociacao", rotulo: "Negociação" },
-            { nome: "b3-movimentacao", rotulo: "Movimentação" },
-            { nome: "b3-proventos", rotulo: "Proventos recebidos" },
+            { nome: "planilha-operacoes", rotulo: "Modelo de operações personalizado" },
+            { nome: "b3-negociacao", rotulo: "Modelo B3 de negociação" },
+            { nome: "b3-movimentacao", rotulo: "Modelo B3 de movimentação" },
+            { nome: "b3-proventos", rotulo: "Modelo B3 de proventos recebidos" },
+            { nome: "proventos-planilha-personalizada", rotulo: "Modelo de proventos personalizado" },
           ]}
         />
 

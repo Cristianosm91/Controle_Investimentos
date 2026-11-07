@@ -7,7 +7,8 @@ import type { LoteImportacao } from "../../tipos";
 
 const TIPOS: Record<string, string> = {
   EXTRATO_B3: "Extrato B3",
-  PLANILHA_OPERACOES: "Planilha de operações",
+  PLANILHA_OPERACOES: "Modelo de operações personalizado",
+  PLANILHA_PROVENTOS: "Modelo de proventos personalizado",
   ALUGUEL: "Extrato de aluguel (BTC)",
 };
 

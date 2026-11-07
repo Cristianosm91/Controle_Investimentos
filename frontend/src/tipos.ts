@@ -406,7 +406,7 @@ export interface LinhaExtrato {
 }
 
 export interface PreviaExtrato {
-  relatorio: "NEGOCIACAO" | "MOVIMENTACAO" | "PROVENTOS" | "PLANILHA_OPERACOES";
+  relatorio: "NEGOCIACAO" | "MOVIMENTACAO" | "PROVENTOS" | "PLANILHA_OPERACOES" | "PLANILHA_PROVENTOS";
   linhas: LinhaExtrato[];
   ativos_novos: Record<string, string>;
   corretoras_novas: string[];
