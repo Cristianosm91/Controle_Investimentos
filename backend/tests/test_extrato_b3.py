@@ -1,5 +1,5 @@
-import json
 import io
+import json
 import re
 import zipfile
 from datetime import datetime
@@ -111,6 +111,33 @@ def test_planilha_operacoes_importa_taxas_e_irrf(cliente):
         ("C", 12.34, 0, "BRL"), ("V", 2.5, 0.01, "BRL"), ("C", 0, 0, "USD"),
     }
     assert enviar(cliente, "importar", PLANILHA_OPERACOES, investidor_id=inv).json()["operacoes"] == 0
+
+
+def test_planilha_personalizada_importa_classe_informada_e_aceita_layout_antigo(cliente):
+    inv = investidor(cliente)
+    cabecalho = CAB_PLANILHA_OPERACOES + ["classe"]
+    planilha = xlsx(cabecalho, [
+        ["O", datetime(2025, 2, 5), "C", 1, 200, 0, "XP", 0, "USD", "STOCK"],
+        ["VNQ", datetime(2025, 2, 6), "C", 1, 80, 0, "XP", 0, "USD", "REIT"],
+        ["SPY", datetime(2025, 2, 7), "C", 1, 500, 0, "XP", 0, "USD", "ETF_US"],
+    ])
+    previa = enviar(cliente, "previa", planilha, investidor_id=inv)
+    assert previa.status_code == 200, previa.text
+    assert previa.json()["ativos_novos"] == {"O": "STOCK", "VNQ": "REIT", "SPY": "ETF_US"}
+
+    resultado = enviar(cliente, "importar", planilha, investidor_id=inv)
+    assert resultado.status_code == 200, resultado.text
+    ativos = {ativo["ticker"]: ativo["classe"] for ativo in cliente.get("/api/ativos").json()}
+    assert {ticker: ativos[ticker] for ticker in ("O", "VNQ", "SPY")} == {
+        "O": "STOCK", "VNQ": "REIT", "SPY": "ETF_US",
+    }
+
+    antiga = xlsx(CAB_PLANILHA_OPERACOES, [
+        ["MSFT", datetime(2025, 2, 8), "C", 1, 200, 0, "XP", 0, "USD"],
+    ])
+    previa_antiga = enviar(cliente, "previa", antiga, investidor_id=inv)
+    assert previa_antiga.status_code == 200, previa_antiga.text
+    assert previa_antiga.json()["ativos_novos"]["MSFT"] == "AÇÃO"
 
 
 def test_planilha_corrige_multiplas_linhas_na_previa_e_importa_sem_editar_arquivo(cliente):

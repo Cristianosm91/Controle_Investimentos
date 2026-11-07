@@ -6,6 +6,7 @@
 
 import base64
 import json
+import time
 from datetime import date, datetime
 from decimal import Decimal
 
@@ -45,14 +46,26 @@ def serie_sgs(serie: int, inicio: date, fim: date, cliente: httpx.Client | None 
         de = max(inicio, date(ano, 1, 1))
         ate = min(fim, date(ano + _ANOS_POR_CONSULTA - 1, 12, 31))
         params = {"formato": "json", "dataInicial": f"{de:%d/%m/%Y}", "dataFinal": f"{ate:%d/%m/%Y}"}
-        try:
-            r = (cliente or httpx).get(_SGS.format(serie=serie), params=params, timeout=60)
-            # Período sem dados devolve 404 com corpo de erro.
-            if r.status_code != 404:
-                r.raise_for_status()
-                resultado.update(interpretar_sgs(r.json()))
-        except (httpx.HTTPError, ValueError, KeyError) as erro:
-            raise ErroIndice(f"Falha ao consultar a série SGS {serie}: {erro}") from erro
+        for tentativa in range(3):
+            try:
+                r = (cliente or httpx).get(_SGS.format(serie=serie), params=params, timeout=60)
+                # Período sem dados devolve 404 com corpo de erro.
+                if r.status_code != 404:
+                    r.raise_for_status()
+                    resultado.update(interpretar_sgs(r.json()))
+                break
+            except httpx.HTTPStatusError as erro:
+                if tentativa < 2 and (erro.response.status_code == 429 or erro.response.status_code >= 500):
+                    time.sleep(2 ** tentativa)
+                    continue
+                raise ErroIndice(f"Falha ao consultar a série SGS {serie}: {erro}") from erro
+            except httpx.TransportError as erro:
+                if tentativa < 2:
+                    time.sleep(2 ** tentativa)
+                    continue
+                raise ErroIndice(f"Falha ao consultar a série SGS {serie}: {erro}") from erro
+            except (ValueError, KeyError) as erro:
+                raise ErroIndice(f"Falha ao consultar a série SGS {serie}: {erro}") from erro
         ano += _ANOS_POR_CONSULTA
     return resultado
 

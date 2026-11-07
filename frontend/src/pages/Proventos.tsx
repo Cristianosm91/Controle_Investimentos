@@ -6,7 +6,7 @@ import { FormProvento } from "../components/FormLancamentos";
 import { ImportarExtrato } from "../components/ImportarExtrato";
 import { ListaPaginada, type ColunaLista } from "../components/ListaPaginada";
 import { MatrizProventos } from "../components/MatrizProventos";
-import { useAtivos, useDominio } from "../cadastros";
+import { useAtivos, useCorretoras, useDominio } from "../cadastros";
 import { data, moeda } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
 import type { Provento } from "../tipos";
@@ -17,6 +17,7 @@ export function Proventos() {
   const { filtro, investidores } = useInvestidor();
   const { data: dominio } = useDominio();
   const { data: ativos = [] } = useAtivos();
+  const { data: corretoras } = useCorretoras();
   const [edicao, setEdicao] = useState<Provento | "novo" | null>(null);
   const [aba, setAba] = useState<"lancamentos" | "matriz" | "agenda">("lancamentos");
   const [classe, setClasse] = useState("");
@@ -88,6 +89,7 @@ export function Proventos() {
         colunas={colunas}
         classeFiltro={classe}
         aoMudarClasse={setClasse}
+        corretoras={corretoras}
         filtrosFixos={apontamento ? { apontamento } : undefined}
         chave={(p) => p.id}
         cabecalho={

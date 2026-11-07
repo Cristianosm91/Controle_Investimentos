@@ -45,7 +45,7 @@ def _validar_refs(sessao: Session, dados: BaseModel) -> None:
 
 def _listar(
     sessao: Session, modelo, campo_data, schema, investidores, ticker, inicio, fim, limite, deslocamento, evento=None,
-    classe=None, ids=None,
+    classe=None, ids=None, corretora_id=None,
 ):
     base = select(modelo)
     if investidores:
@@ -67,6 +67,8 @@ def _listar(
             base = base.where(Ativo.ticker == next(iter(tickers))) if len(tickers) == 1 else base.where(Ativo.ticker.in_(tickers))
         if classe:
             base = base.where(Ativo.classe == classe)
+    if corretora_id is not None:
+        base = base.where(modelo.corretora_id == corretora_id)
     if inicio:
         base = base.where(campo_data >= inicio)
     if fim:
@@ -135,6 +137,7 @@ def listar_operacoes(
     fim: date | None = None,
     ids: str | None = None,
     apontamento: str | None = None,
+    corretora_id: Annotated[int | None, Query(ge=1)] = None,
     limite: Limite = 200,
     deslocamento: Deslocamento = 0,
 ):
@@ -147,7 +150,7 @@ def listar_operacoes(
         ids = ",".join(str(id_) for id_ in ids_relacionados)
     return _listar(
         sessao, Operacao, Operacao.data, OperacaoOut, investidores, ticker, inicio, fim, limite, deslocamento,
-        classe=classe, ids=ids,
+        classe=classe, ids=ids, corretora_id=corretora_id,
     )
 
 
@@ -180,6 +183,7 @@ def listar_proventos(
     evento: Annotated[str | None, Query(max_length=20)] = None,
     classe: str | None = None,
     apontamento: str | None = None,
+    corretora_id: Annotated[int | None, Query(ge=1)] = None,
 ):
     ids = None
     if apontamento:
@@ -191,7 +195,7 @@ def listar_proventos(
         ids = ",".join(str(id_) for id_ in ids_relacionados)
     return _listar(
         sessao, Provento, Provento.data_pagamento, ProventoOut, investidores, ticker, inicio, fim, limite, deslocamento,
-        evento, classe=classe, ids=ids,
+        evento, classe=classe, ids=ids, corretora_id=corretora_id,
     )
 
 

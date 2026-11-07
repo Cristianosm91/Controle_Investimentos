@@ -1,5 +1,5 @@
-from dataclasses import asdict
 import json
+from dataclasses import asdict
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -33,7 +33,9 @@ def _correcoes(texto: str | None) -> dict[int, dict[str, str]]:
         bruto = json.loads(texto)
     except json.JSONDecodeError:
         raise HTTPException(422, "Correções de linhas inválidas") from None
-    campos_validos = {"ticker", "data", "evento", "quantidade", "preco", "taxas", "instituicao", "irrf", "moeda"}
+    campos_validos = {
+        "ticker", "classe", "data", "evento", "quantidade", "preco", "taxas", "instituicao", "irrf", "moeda",
+    }
     if not isinstance(bruto, dict):
         raise HTTPException(422, "Correções de linhas inválidas")
     resultado = {}
