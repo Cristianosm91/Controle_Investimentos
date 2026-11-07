@@ -4,7 +4,7 @@ import { AcoesLinha } from "../components/AcoesLinha";
 import { FormOperacao } from "../components/FormLancamentos";
 import { ImportarExtrato } from "../components/ImportarExtrato";
 import { ListaPaginada, type ColunaLista } from "../components/ListaPaginada";
-import { useAtivos, useDominio } from "../cadastros";
+import { useAtivos, useCorretoras, useDominio } from "../cadastros";
 import { classeSinal, data, moeda, numero } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
 import type { Operacao } from "../tipos";
@@ -25,6 +25,7 @@ export function Operacoes() {
   const { filtro, investidores } = useInvestidor();
   const { data: dominio } = useDominio();
   const { data: ativos } = useAtivos();
+  const { data: corretoras } = useCorretoras();
   const [edicao, setEdicao] = useState<Operacao | "nova" | null>(null);
   const [importando, setImportando] = useState(false);
   const idsQualidade = parametros.get("ids");
@@ -77,6 +78,7 @@ export function Operacoes() {
         filtroInvestidores={filtro}
         colunas={colunas}
         classes={classes}
+        corretoras={corretoras}
         filtrosFixos={
           apontamentoQualidade
             ? { apontamento: apontamentoQualidade }

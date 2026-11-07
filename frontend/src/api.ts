@@ -34,6 +34,7 @@ export const api = {
   get: <T>(caminho: string) => requisitar<T>("GET", caminho),
   post: <T>(caminho: string, corpo?: unknown) => requisitar<T>("POST", caminho, corpo ?? {}),
   put: <T>(caminho: string, corpo: unknown) => requisitar<T>("PUT", caminho, corpo),
+  patch: <T>(caminho: string, corpo: unknown) => requisitar<T>("PATCH", caminho, corpo),
   del: (caminho: string) => requisitar<void>("DELETE", caminho),
   enviar: <T>(caminho: string, arquivo: File) => requisitar<T>("POST", caminho, undefined, arquivo),
 };

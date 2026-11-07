@@ -91,7 +91,10 @@ TAREFAS: dict[str, Tarefa] = {
             "historico_complementar", "Histórico de índices, PTAX, ativos do exterior e criptos (completo)",
             historico.carregar_tudo, lambda r: r.resumo(),
         ),
-        Tarefa("fundamentos", "Fundamentos de ações e FIIs (Fundamentus)", fundamentos.atualizar, _resumo_fundamentos),
+        Tarefa(
+            "fundamentos", "Fundamentos B3 (Fundamentus) e ativos dos EUA (Yahoo Finance)",
+            fundamentos.atualizar, _resumo_fundamentos,
+        ),
         Tarefa("cripto", "Cripto (CoinGecko → Kraken) e câmbio PTAX", cripto.atualizar, lambda r: r.resumo()),
         Tarefa("backup", "Backup automático do banco (mantém os 10 últimos)", _backup_automatico, _resumo_backup),
     )

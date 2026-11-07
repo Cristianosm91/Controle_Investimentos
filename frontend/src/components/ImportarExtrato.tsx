@@ -51,6 +51,14 @@ export function ImportarExtrato({ aoFechar }: { aoFechar: () => void }) {
       invalidarDerivados(cliente);
     },
   });
+  const desfazer = useMutation({
+    mutationFn: (loteId: number) =>
+      api.post<{ operacoes: number; proventos: number; caixa: number }>(`/lotes/${loteId}/desfazer`),
+    onSuccess: () => {
+      for (const chave of ["lotes", "operacoes", "proventos", "caixa"]) cliente.invalidateQueries({ queryKey: [chave] });
+      invalidarDerivados(cliente);
+    },
+  });
 
   const linhas = previa.data?.linhas ?? [];
   const contagem = useMemo(() => {
@@ -60,6 +68,7 @@ export function ImportarExtrato({ aoFechar }: { aoFechar: () => void }) {
   }, [linhas]);
   const aImportar = contagem.novo + incluir.size;
   const visiveis = filtro ? linhas.filter((l) => l.status === filtro) : linhas;
+  const loteImportado = importar.data?.lote_id;
 
   const analisar = (f: File | null) => {
     setArquivo(f);
@@ -88,7 +97,7 @@ export function ImportarExtrato({ aoFechar }: { aoFechar: () => void }) {
 
   const evento = (l: LinhaExtrato) =>
     l.evento ? (l.tipo === "PROVENTO" ? dominio?.eventos_provento[l.evento] : dominio?.eventos_operacao[l.evento]) ?? l.evento : "";
-  const erro = previa.error ?? importar.error;
+  const erro = previa.error ?? importar.error ?? desfazer.error;
 
   return (
     <Modal titulo="Importar extrato da B3" aoFechar={aoFechar} largo>
@@ -149,14 +158,35 @@ export function ImportarExtrato({ aoFechar }: { aoFechar: () => void }) {
 
         {importar.data ? (
           <div className="aviso">
-            Importados: <strong>{importar.data.operacoes}</strong> operações e{" "}
-            <strong>{importar.data.proventos}</strong> proventos.
-            {importar.data.ativos_criados.length > 0 && (
-              <> Ativos cadastrados: {importar.data.ativos_criados.join(", ")} (confira a classe em Configurações).</>
+            {desfazer.data ? (
+              <>
+                Importação desfeita: <strong>{desfazer.data.operacoes}</strong> operação(ões),{" "}
+                <strong>{desfazer.data.proventos}</strong> provento(s) e{" "}
+                <strong>{desfazer.data.caixa}</strong> movimentação(ões) de caixa removidos.
+              </>
+            ) : (
+              <>
+                Importados: <strong>{importar.data.operacoes}</strong> operações e{" "}
+                <strong>{importar.data.proventos}</strong> proventos.
+                {importar.data.ativos_criados.length > 0 && (
+                  <> Ativos cadastrados: {importar.data.ativos_criados.join(", ")} (confira a classe em Configurações).</>
+                )}
+                {importar.data.corretoras_criadas.length > 0 && <> Corretoras: {importar.data.corretoras_criadas.join(", ")}.</>}
+              </>
             )}
-            {importar.data.corretoras_criadas.length > 0 && <> Corretoras: {importar.data.corretoras_criadas.join(", ")}.</>}
-            {importar.data.lote_id !== null && <> Para desfazer esta importação, use Configurações → Importações.</>}
             <div className="acoes">
+              {!desfazer.data && loteImportado != null && (
+                <button
+                  className="secundario"
+                  disabled={desfazer.isPending}
+                  onClick={() =>
+                    confirm("Desfazer esta importação e remover os lançamentos gravados por ela?") &&
+                    desfazer.mutate(loteImportado)
+                  }
+                >
+                  {desfazer.isPending ? "Desfazendo…" : "Desfazer esta importação"}
+                </button>
+              )}
               <button onClick={aoFechar}>Fechar</button>
             </div>
           </div>
@@ -245,6 +275,10 @@ export function ImportarExtrato({ aoFechar }: { aoFechar: () => void }) {
                               <label>
                                 Ativo
                                 <input value={correcoes[l.numero]?.ticker ?? l.campos.ticker ?? ""} onChange={(e) => editarCampo(l.numero, "ticker", e.target.value.toUpperCase())} />
+                              </label>
+                              <label>
+                                Classe
+                                <input value={correcoes[l.numero]?.classe ?? l.campos.classe ?? ""} onChange={(e) => editarCampo(l.numero, "classe", e.target.value.toUpperCase())} />
                               </label>
                               <label>
                                 Data

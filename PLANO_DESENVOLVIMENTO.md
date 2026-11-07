@@ -2,6 +2,7 @@
 
 > Base de análise: `Ref/Cris v7.0 DLP Gestão de Investimentos (Gratuita).xlsx` e a exportação HTML em `Ref/HTML/` (47 abas).
 > Objetivo: substituir a planilha do Google Sheets por uma aplicação web com as mesmas funcionalidades, sem depender de fórmulas `QUERY`/`IMPORTXML`/Apps Script.
+> Estado consolidado: **v1.3.0 — 07/11/2026**. As fases iniciais estão concluídas; a seção 8.1 registra evoluções posteriores e pendências de integração.
 
 ---
 
@@ -200,8 +201,10 @@ O plano gratuito da brapi é só para teste: 1 ativo por requisição, 15 mil re
 
 | Dado | Fonte principal | Fallback | Frequência |
 |---|---|---|---|
-| Cotações B3 (ações, FII, ETF, BDR) | **Yahoo Finance** (`yfinance`, sufixo `.SA`, vários tickers por chamada) | Google Sheets ponte | 15 min no pregão |
-| Cotações EUA (STOCK, REIT, ETF_US) | **Yahoo Finance** | Google Sheets ponte | 15 min / diário |
+| Cotações B3 (ações, FII, ETF, BDR) | **Yahoo Finance** (`yfinance`, sufixo `.SA`, vários tickers por chamada) | Google Sheets ponte (adiada) | 15 min no pregão |
+| Cotações EUA (STOCK, REIT, ETF_US) | **Yahoo Finance** | Google Sheets ponte (adiada) | 15 min / diário |
+| Fundamentos B3 | **Fundamentus**, tabelas de ações/FIIs | Sem conector secundário disponível | Semanal / manual |
+| Fundamentos básicos EUA | **Yahoo Finance**, cobertura variável por indicador | SEC EDGAR adiada | Semanal / manual |
 | Fechamento oficial e histórico B3 | **B3 COTAHIST** (arquivo oficial diário/anual, gratuito, todos os papéis) | Yahoo | Diário (após 20h) + carga histórica inicial |
 | Histórico (sparkline 180d, drawdown, 52 semanas) | Base local (`cotacao_diaria`, alimentada por COTAHIST/Yahoo) | — | Diário |
 | Desdobramentos/grupamentos (alerta) | Yahoo (`splits`) | Lançamento manual | Diário |
@@ -209,7 +212,8 @@ O plano gratuito da brapi é só para teste: 1 ativo por requisição, 15 mil re
 
 - Cada fonte implementa a mesma interface `ProvedorCotacao` (`cotacao_atual`, `historico`); a ordem de prioridade fica em Configurações e o app tenta a próxima quando uma falha.
 - Cada cotação grava a `fonte` e o horário, exibidos na interface ("Yahoo · 14:32").
-- `yfinance` não é API oficial do Yahoo e pode mudar — por isso a planilha-ponte e o COTAHIST existem como redes de segurança.
+- `yfinance` não é API oficial do Yahoo e pode mudar; seu uso deve respeitar os termos de uso pessoal da fonte.
+  A planilha-ponte continua adiada; COTAHIST está implementado para o histórico B3, não como substituto dos fundamentos.
 - Proventos **não dependem de API**: vêm do lançamento manual e da importação do extrato da B3 (Área do Investidor), como na planilha atual.
 
 | Dado | Fonte | Frequência |
@@ -303,6 +307,20 @@ Requisitos: cache local, retry com backoff, timeout, log de falhas, nunca bloque
 - [x] Migrações no SQLite desligam `foreign_keys` ao recriar tabelas (a migração de cripto falhava em bancos com operações) e conferem `PRAGMA foreign_key_check` ao final
 - [ ] (Opcional) autenticação (se sair do computador local), relatório diário por e-mail, PWA/mobile
 
+### 8.1 Evoluções consolidadas após as fases iniciais — v1.3.0
+
+- [x] Modelos personalizados de operações e proventos, separados dos modelos da B3; proventos incluem IRRF, taxas, moeda, data-com e observação.
+- [x] Classe opcional no modelo de operações, compatível com arquivos antigos; classe explícita somente para ativos novos.
+- [x] Configurações → Classes dos ativos: altera classe e/ou bolsa de posições abertas com confirmação, preservando moeda e lançamentos; o cadastro é compartilhado entre investidores.
+- [x] Desfazer o lote recém-importado pelo diálogo, mantendo a opção em Configurações → Importações.
+- [x] Seleção de intervalos com Shift, seleção individual e exclusão múltipla; filtros por corretora em Operações e Proventos.
+- [x] Fundamentos do Yahoo Finance para ativos cadastrados nas bolsas dos EUA, gravados em snapshots com fonte própria; indicadores ausentes não são inventados.
+- [x] Resultado da coleta distingue mercado sem suporte, ticker ausente, falha da fonte, incompatibilidade detectável de classe e códigos históricos BRDT3/VIIA3; sugestões não alteram cadastros.
+- [x] Tentativas limitadas para falhas transitórias do SGS do Banco Central.
+- [ ] Validar coleta real de fundamentos Yahoo no ambiente de uso: consulta nesta sessão encontrou erro de certificado e HTTP 401.
+- [ ] SEC EDGAR: integração adiada por decisão do usuário; requer identificação de contato, ticker → CIK, interpretação dos períodos/unidades XBRL e testes.
+- [ ] FFO/AFFO de REITs e métricas específicas de ETFs: fora da cobertura atual; sem fallback fictício.
+
 ---
 
 ## 9. Decisões
@@ -312,7 +330,7 @@ Requisitos: cache local, retry com backoff, timeout, log de falhas, nunca bloque
 | D1 | Onde roda | ✅ Decidido | Local, em um computador (`127.0.0.1`), SQLite |
 | D2 | Formato | ✅ Decidido | React + TypeScript (Vite) com backend FastAPI |
 | D3 | Usuários | ✅ Decidido | Vários investidores (§4.1), sem login |
-| D4 | Fonte de cotações | ✅ Decidido | Gratuitas: Yahoo → Google Sheets ponte (GOOGLEFINANCE) + B3 COTAHIST; cripto CoinGecko → Kraken; brapi descartada (§6) |
+| D4 | Fontes de dados | ✅ Decidido | Yahoo para preços e fundamentos básicos EUA; B3 COTAHIST e Fundamentus para B3; cripto CoinGecko → Kraken. Google Sheets ponte e SEC EDGAR adiadas; brapi descartada (§6) |
 | D5 | Página Cripto | ✅ Decidido | Página própria (P13) |
 | D6 | BTC (Página117) | ✅ Decidido | Provento do tipo "Aluguel de ações (BTC)", importado do extrato |
 | D7 | Planilha em paralelo | ✅ Decidido | Reimportação idempotente (hash por linha) até estabilizar |

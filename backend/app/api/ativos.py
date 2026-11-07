@@ -6,7 +6,7 @@ from sqlalchemy import exists, select
 from sqlalchemy.exc import IntegrityError
 
 from ..models import Ativo, Operacao, Provento
-from ..schemas import AtivoIn, AtivoOut, CotaOut, SaldoManualIn
+from ..schemas import AtivoIn, AtivoOut, ClasseAtivoIn, CotaOut, SaldoManualIn
 from ..services import renda_fixa
 from .deps import SessaoDep, obter_ou_404
 
@@ -68,6 +68,22 @@ def alterar_ativo(id_: int, dados: AtivoIn, sessao: SessaoDep):
     if era_calculado and not renda_fixa.calculado(obj):
         renda_fixa.remover_calculadas(sessao, obj)
     renda_fixa.atualizar(sessao, [obj])
+    return obj
+
+
+@router.patch("/{id_}/classe", response_model=AtivoOut)
+def alterar_classe_ativo(id_: int, dados: ClasseAtivoIn, sessao: SessaoDep):
+    obj = obter_ou_404(sessao, Ativo, id_)
+    if obj.coingecko_id is not None and dados.classe is not None and dados.classe != "CRIPTO":
+        raise HTTPException(409, "Não altere a classe de uma cripto vinculada")
+    if obj.coingecko_id is not None and "mercado" in dados.model_fields_set and dados.mercado is not None:
+        raise HTTPException(409, "Cripto vinculada não possui bolsa de valores")
+    if dados.classe is not None:
+        obj.classe = dados.classe
+    if "mercado" in dados.model_fields_set:
+        obj.mercado = dados.mercado
+    sessao.commit()
+    sessao.refresh(obj)
     return obj
 
 

@@ -1,7 +1,9 @@
 from datetime import date
 from decimal import Decimal as D
 
+import httpx
 import pandas as pd
+import pytest
 
 from app.providers import indices
 from app.providers.yahoo import desfazer_ajuste_de_splits
@@ -10,6 +12,46 @@ from app.providers.yahoo import desfazer_ajuste_de_splits
 def test_interpreta_sgs_em_pontos_percentuais():
     r = indices.interpretar_sgs([{"data": "01/07/2026", "valor": "1.22"}, {"data": "01/08/2026", "valor": ""}])
     assert r == {date(2026, 7, 1): D("1.22")}
+
+
+@pytest.mark.parametrize("status", [429, 503])
+def test_serie_sgs_repete_apos_falha_temporaria(status, monkeypatch):
+    respostas = iter([
+        httpx.Response(status, request=httpx.Request("GET", "https://bcb.test")),
+        httpx.Response(
+            200,
+            json=[{"data": "01/07/2026", "valor": "5.42"}],
+            request=httpx.Request("GET", "https://bcb.test"),
+        ),
+    ])
+    esperas = []
+    monkeypatch.setattr(indices.time, "sleep", esperas.append)
+
+    class Cliente:
+        def get(self, *args, **kwargs):
+            return next(respostas)
+
+    resultado = indices.serie_sgs(1, date(2026, 7, 1), date(2026, 7, 31), Cliente())
+
+    assert resultado == {date(2026, 7, 1): D("5.42")}
+    assert esperas == [1]
+
+
+def test_serie_sgs_nao_repete_erro_de_resposta_invalida(monkeypatch):
+    chamadas = []
+    monkeypatch.setattr(indices.time, "sleep", lambda _: pytest.fail("não deve repetir resposta inválida"))
+
+    class Cliente:
+        def get(self, *args, **kwargs):
+            chamadas.append(1)
+            return httpx.Response(
+                200, json=[{"data": "data-inválida", "valor": "5.42"}],
+                request=httpx.Request("GET", "https://bcb.test"),
+            )
+
+    with pytest.raises(indices.ErroIndice, match="série SGS 1"):
+        indices.serie_sgs(1, date(2026, 7, 1), date(2026, 7, 31), Cliente())
+    assert chamadas == [1]
 
 
 def test_interpreta_b3_e_fecha_o_mes_no_ultimo_dia_com_valor():

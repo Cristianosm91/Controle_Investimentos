@@ -85,9 +85,10 @@ _COLUNAS_PROVENTOS = {
     "quantidade": "quantidade", "preco unitario": "preco", "valor liquido": "valor",
 }
 _COLUNAS_PLANILHA_OPERACOES = {
-    "ativo": "ticker", "date": "data", "evento": "evento", "qtd": "quantidade", "preco": "preco",
-    "taxas": "taxas", "corretora": "instituicao", "irrf": "irrf", "moeda": "moeda",
+    "ativo": "ticker", "classe": "classe", "date": "data", "evento": "evento", "qtd": "quantidade",
+    "preco": "preco", "taxas": "taxas", "corretora": "instituicao", "irrf": "irrf", "moeda": "moeda",
 }
+_COLUNAS_OPCIONAIS = {"classe"}
 _COLUNAS_PLANILHA_PROVENTOS = {
     "ativo": "ticker", "date": "data", "evento": "evento", "valor": "valor", "irrf": "irrf",
     "taxas": "taxas", "moeda": "moeda", "corretora": "instituicao", "date_com": "data_com",
@@ -211,8 +212,10 @@ def _mapear_cabecalho(linhas: list[tuple]) -> tuple[str, int, dict[str, int]]:
     for indice, linha in enumerate(linhas[:20]):
         nomes = {_normalizar(c): i for i, c in enumerate(linha) if c is not None}
         for relatorio, colunas in _RELATORIOS:
-            if all(nome in nomes for nome in colunas):
-                return relatorio, indice, {campo: nomes[nome] for nome, campo in colunas.items()}
+            if all(nome in nomes for nome in colunas if nome not in _COLUNAS_OPCIONAIS):
+                return relatorio, indice, {
+                    campo: nomes[nome] for nome, campo in colunas.items() if nome in nomes
+                }
     raise ExtratoInvalido(
         "Formato não reconhecido. Use os relatórios Negociação, Movimentação ou Proventos recebidos da Área do "
         "Investidor da B3, ou a planilha de operações do app (.xlsx)."
@@ -277,7 +280,8 @@ def ler(conteudo: bytes, correcoes: dict[int, dict[str, str]] | None = None) -> 
             linha.campos = {
                 campo: _texto_campo(valor.get(campo))
                 for campo in (
-                    "ticker", "data", "evento", "quantidade", "preco", "taxas", "instituicao", "irrf", "moeda",
+                    "ticker", "classe", "data", "evento", "quantidade", "preco", "taxas", "instituicao", "irrf",
+                    "moeda",
                 )
             }
             linhas.append(linha)
@@ -334,6 +338,7 @@ def _linha_planilha_operacoes(numero, dia, valor, qtd, preco, instituicao) -> Li
     from ..dominio import EVENTOS_PLANILHA_NAO_SUPORTADOS, EVENTOS_PLANILHA_OPERACOES
 
     ticker = str(valor["ticker"] or "").strip().upper()
+    classe = str(valor.get("classe") or "").strip().upper()
     evento_bruto = str(valor.get("evento") or "").strip().upper()
     evento = EVENTOS_PLANILHA_OPERACOES.get(evento_bruto)
     moeda = str(valor.get("moeda") or "BRL").strip().upper()
@@ -354,6 +359,8 @@ def _linha_planilha_operacoes(numero, dia, valor, qtd, preco, instituicao) -> Li
         linha.status, linha.motivo = "ignorado", f"Linha {numero}: data ausente ou inválida"
     elif not re.fullmatch(r"[A-Z0-9]{1,16}", ticker):
         linha.status, linha.motivo = "ignorado", f"Linha {numero}: ativo inválido ou ausente"
+    elif len(classe) > 20:
+        linha.status, linha.motivo = "ignorado", f"Linha {numero}: classe deve ter até 20 caracteres"
     elif not evento_bruto:
         linha.status, linha.motivo = "ignorado", f"Linha {numero}: coluna Evento vazia"
     elif campos_invalidos:
@@ -431,7 +438,7 @@ def _linha_planilha_operacoes(numero, dia, valor, qtd, preco, instituicao) -> Li
             linha.preco, linha.valor = preco, abs(qtd * preco)
             linha.taxas, linha.irrf = taxas, irrf
             linha.daytrade = daytrade
-            linha.classe = _classe_inferida(ticker, None)
+            linha.classe = classe or _classe_inferida(ticker, None)
     return linha
 
 
