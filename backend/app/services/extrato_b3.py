@@ -21,12 +21,14 @@ from openpyxl import load_workbook
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ..dominio import MOEDAS
 from ..models import Ativo, Corretora, Investidor, LoteImportacao, Operacao, Provento
 from ..seguranca import LINHAS_MAXIMAS, tamanho_descompactado_excedido
 from . import lotes
 
 ORIGEM_B3 = "b3"
 ORIGEM_PLANILHA_OPERACOES = "planilha_operacoes"
+ORIGEM_PLANILHA_PROVENTOS = "planilha_proventos"
 TAMANHO_MAXIMO = 10 * 1024 * 1024
 _TOLERANCIA_VALOR = Decimal("0.05")
 
@@ -86,10 +88,26 @@ _COLUNAS_PLANILHA_OPERACOES = {
     "ativo": "ticker", "date": "data", "evento": "evento", "qtd": "quantidade", "preco": "preco",
     "taxas": "taxas", "corretora": "instituicao", "irrf": "irrf", "moeda": "moeda",
 }
+_COLUNAS_PLANILHA_PROVENTOS = {
+    "ativo": "ticker", "date": "data", "evento": "evento", "valor": "valor", "irrf": "irrf",
+    "taxas": "taxas", "moeda": "moeda", "corretora": "instituicao", "date_com": "data_com",
+    "observacao": "observacao",
+}
 _RELATORIOS = (
     ("NEGOCIACAO", _COLUNAS_NEGOCIACAO), ("MOVIMENTACAO", _COLUNAS_MOVIMENTACAO), ("PROVENTOS", _COLUNAS_PROVENTOS),
-    ("PLANILHA_OPERACOES", _COLUNAS_PLANILHA_OPERACOES),
+    ("PLANILHA_OPERACOES", _COLUNAS_PLANILHA_OPERACOES), ("PLANILHA_PROVENTOS", _COLUNAS_PLANILHA_PROVENTOS),
 )
+_EVENTOS_PLANILHA_PROVENTOS = {
+    "dividendo": "DIVIDENDO",
+    "jscp": "JSCP",
+    "rendimento": "RENDIMENTO",
+    "bonificacao": "BONIFICACAO",
+    "btc": "ALUGUEL",
+    "v.sob(bn)": "VENDA_BONIFICACAO",
+    "reembolso": "REEMBOLSO",
+    "cred.nao pago( jscp)": "CREDITO_NAO_PAGO_JSCP",
+    "v.fracao": "VENDA_FRACAO",
+}
 
 
 @dataclass
@@ -117,6 +135,8 @@ class Linha:
     hash: str | None = None
     evento_original: str | None = None
     campos: dict[str, str] = field(default_factory=dict)
+    data_com: date | None = None
+    observacao: str | None = None
 
 
 @dataclass
@@ -261,6 +281,9 @@ def ler(conteudo: bytes, correcoes: dict[int, dict[str, str]] | None = None) -> 
                 )
             }
             linhas.append(linha)
+            continue
+        if relatorio == "PLANILHA_PROVENTOS":
+            linhas.append(_linha_planilha_proventos(numero, valor))
             continue
         dia = _data(valor["data"])
         if dia is None:
@@ -412,6 +435,50 @@ def _linha_planilha_operacoes(numero, dia, valor, qtd, preco, instituicao) -> Li
     return linha
 
 
+def _linha_planilha_proventos(numero: int, valor: dict) -> Linha:
+    ticker = str(valor.get("ticker") or "").strip().upper()
+    evento_bruto = str(valor.get("evento") or "").strip()
+    evento = _EVENTOS_PLANILHA_PROVENTOS.get(_normalizar(evento_bruto))
+    dia = _data(valor.get("data"))
+    data_com_bruta = valor.get("data_com")
+    data_com = _data(data_com_bruta)
+    instituicao = str(valor.get("instituicao") or "").strip() or None
+    moeda = str(valor.get("moeda") or "BRL").strip().upper()
+    observacao = str(valor.get("observacao") or "").strip() or None
+    linha = Linha(
+        numero, "PLANILHA_PROVENTOS", f"Provento · {evento_bruto or 'sem tipo'}", dia, ticker or None,
+        "IGNORADA", instituicao=instituicao, moeda=moeda, origem=ORIGEM_PLANILHA_PROVENTOS,
+        evento_original=evento_bruto or None, data_com=data_com, observacao=observacao,
+    )
+    try:
+        total = _decimal(valor.get("valor"))
+        irrf = _decimal(valor.get("irrf")) or Decimal(0)
+        taxas = _decimal(valor.get("taxas")) or Decimal(0)
+    except ExtratoInvalido:
+        linha.status, linha.motivo = "ignorado", f"Linha {numero}: valor, IRRF ou taxas inválidos"
+        return linha
+
+    if dia is None:
+        linha.status, linha.motivo = "ignorado", f"Linha {numero}: data ausente ou inválida"
+    elif not re.fullmatch(r"[A-Z0-9]{1,16}", ticker):
+        linha.status, linha.motivo = "ignorado", f"Linha {numero}: ativo inválido ou ausente"
+    elif evento is None:
+        linha.status, linha.motivo = "ignorado", f"Linha {numero}: tipo de provento não reconhecido ({evento_bruto})"
+    elif total is None or total <= 0:
+        linha.status, linha.motivo = "ignorado", f"Linha {numero}: valor do provento deve ser maior que zero"
+    elif data_com_bruta not in (None, "") and data_com is None:
+        linha.status, linha.motivo = "ignorado", f"Linha {numero}: data-com inválida"
+    elif irrf < 0 or taxas < 0:
+        linha.status, linha.motivo = "ignorado", f"Linha {numero}: IRRF e taxas não podem ser negativos"
+    elif moeda not in MOEDAS:
+        linha.status, linha.motivo = "ignorado", f"Linha {numero}: moeda deve ser BRL, USD ou EUR"
+    else:
+        linha.tipo, linha.evento = "PROVENTO", evento
+        linha.valor, linha.irrf, linha.taxas = total, irrf, taxas
+        linha.classe = _classe_inferida(ticker, None)
+    return linha
+
+
 def _linha_movimentacao(numero, dia, valor, qtd, preco, total, instituicao, relatorio="MOVIMENTACAO") -> Linha:
     movimentacao = _normalizar(valor["movimentacao"])
     produto = str(valor["produto"] or "").strip()
@@ -469,7 +536,7 @@ def _hash(investidor_id: int, linha: Linha, ocorrencia: int) -> str:
         str(x) for x in (
             linha.origem, investidor_id, linha.relatorio, linha.data, linha.ticker, linha.evento,
             linha.quantidade.normalize(), linha.preco.normalize(), linha.valor.normalize(), linha.taxas.normalize(),
-            linha.irrf.normalize(), linha.moeda, linha.instituicao, ocorrencia,
+            linha.irrf.normalize(), linha.moeda, linha.instituicao, linha.data_com, linha.observacao, ocorrencia,
         )
     )
     return hashlib.sha256(base.encode()).hexdigest()
@@ -506,7 +573,7 @@ def analisar(
         ocorrencias[chave] += 1
         linha.hash = _hash(investidor_id, linha, ocorrencias[chave])
 
-    origens = (ORIGEM_B3, ORIGEM_PLANILHA_OPERACOES)
+    origens = (ORIGEM_B3, ORIGEM_PLANILHA_OPERACOES, ORIGEM_PLANILHA_PROVENTOS)
     hashes = set(sessao.scalars(select(Operacao.hash_origem).where(Operacao.origem.in_(origens))))
     hashes |= set(sessao.scalars(select(Provento.hash_origem).where(Provento.origem.in_(origens))))
     for linha in validas:
@@ -606,7 +673,10 @@ def importar(
     def lote_id() -> int:
         nonlocal lote
         if lote is None:
-            tipo_lote = "PLANILHA_OPERACOES" if previa.relatorio == "PLANILHA_OPERACOES" else "EXTRATO_B3"
+            tipo_lote = {
+                "PLANILHA_OPERACOES": "PLANILHA_OPERACOES",
+                "PLANILHA_PROVENTOS": "PLANILHA_PROVENTOS",
+            }.get(previa.relatorio, "EXTRATO_B3")
             lote = lotes.novo(sessao, tipo_lote, investidor_id, arquivo)
         return lote.id
 
@@ -652,10 +722,16 @@ def importar(
             ))
             resultado.operacoes += 1
         elif linha.tipo == "PROVENTO":
+            observacao = "Importado do extrato B3"
+            if linha.origem == ORIGEM_PLANILHA_PROVENTOS:
+                observacao = f"Tipo informado: {linha.evento_original or linha.evento}"
+                if linha.observacao:
+                    observacao += f" · {linha.observacao}"
             sessao.add(Provento(
                 investidor_id=investidor_id, ativo=ativo(linha), corretora=corretora(linha),
-                data_pagamento=linha.data, evento=linha.evento, valor=linha.valor, irrf=Decimal(0), taxas=Decimal(0),
-                moeda="BRL", cambio=Decimal(1), observacao="Importado do extrato B3", origem=linha.origem, hash_origem=linha.hash,
+                data_pagamento=linha.data, data_com=linha.data_com, evento=linha.evento, valor=linha.valor,
+                irrf=linha.irrf, taxas=linha.taxas, moeda=linha.moeda, cambio=Decimal(1),
+                observacao=observacao[:200], origem=linha.origem, hash_origem=linha.hash,
                 lote_id=lote_id(),
             ))
             resultado.proventos += 1

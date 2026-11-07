@@ -6,6 +6,10 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 
 ## [Não lançado]
 
+### Adicionado
+- Modelo personalizado de proventos com os tipos da planilha de referência e importação de IRRF, taxas, moeda, data-com e observação.
+- Nomes explícitos para modelos personalizados e modelos da B3 na importação.
+
 ## [1.2.1] - 2026-11-02
 
 ### Corrigido
