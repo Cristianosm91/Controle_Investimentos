@@ -76,7 +76,7 @@ def test_api_baixa_modelo(cliente):
 @pytest.mark.parametrize(
     ("nome", "arquivo", "relatorio"),
     [
-        ("planilha-operacoes", "modelo-planilha-operacoes.xlsx", "PLANILHA_OPERACOES"),
+        ("planilha-operacoes", "modelo-operacoes-personalizado.xlsx", "PLANILHA_OPERACOES"),
         ("b3-negociacao", "modelo-b3-negociacao.xlsx", "NEGOCIACAO"),
         ("b3-movimentacao", "modelo-b3-movimentacao.xlsx", "MOVIMENTACAO"),
         ("b3-proventos", "modelo-b3-proventos.xlsx", "PROVENTOS"),
@@ -113,3 +113,31 @@ def test_modelos_baixados_continuam_importaveis(cliente, nome, arquivo, relatori
             (op["evento"], op["taxas"], op["irrf"]) for op in operacoes
         }
         assert any(op["ticker"] == "O" and op["moeda"] == "USD" for op in operacoes)
+
+
+def test_importa_campos_da_planilha_personalizada_de_proventos(cliente):
+    investidor_id = cliente.post("/api/investidores", json={"nome": "Ana"}).json()["id"]
+    modelo = cliente.get("/api/modelos/proventos-planilha-personalizada")
+    assert modelo.status_code == 200
+    assert "modelo-proventos-personalizado.xlsx" in modelo.headers["content-disposition"]
+    conteudo = _preenchido("proventos-planilha-personalizada")
+    previa = cliente.post(
+        "/api/extratos/b3/previa", params={"investidor_id": investidor_id}, content=conteudo,
+        headers={"content-type": "application/octet-stream"},
+    )
+    assert previa.status_code == 200 and previa.json()["relatorio"] == "PLANILHA_PROVENTOS"
+    resposta = cliente.post(
+        "/api/extratos/b3/importar", params={"investidor_id": investidor_id}, content=conteudo,
+        headers={"content-type": "application/octet-stream"},
+    )
+    assert resposta.status_code == 200 and resposta.json()["proventos"] == 9
+    proventos = cliente.get("/api/proventos", params={"investidores": investidor_id}).json()["itens"]
+    jscp = next(p for p in proventos if p["evento"] == "JSCP")
+    assert (jscp["valor"], jscp["irrf"], jscp["taxas"], jscp["moeda"], jscp["data_com"]) == (
+        2, 0.3, 0.1, "BRL", "2026-03-03",
+    )
+    assert jscp["observacao"] == "Tipo informado: JSCP · exemplo de origem"
+    assert {p["evento"] for p in proventos} == {
+        "DIVIDENDO", "JSCP", "RENDIMENTO", "BONIFICACAO", "ALUGUEL", "VENDA_BONIFICACAO", "REEMBOLSO",
+        "CREDITO_NAO_PAGO_JSCP", "VENDA_FRACAO",
+    }

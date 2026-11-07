@@ -46,8 +46,8 @@ _INSTITUICAO = Coluna(
 
 MODELOS: dict[str, Modelo] = {
     "planilha-operacoes": Modelo(
-        "modelo-planilha-operacoes.xlsx", "Operações",
-        "Compras e vendas no layout simples de planilha do app.",
+        "modelo-operacoes-personalizado.xlsx", "Operações",
+        "Modelo de operações personalizado para importação no layout de planilha do app.",
         (
             Coluna("ativo", "Ticker negociado (ex.: PETR4)", largura=14),
             Coluna("date", "Data da operação", formato="data", largura=14),
@@ -115,7 +115,7 @@ MODELOS: dict[str, Modelo] = {
     ),
     "b3-negociacao": Modelo(
         "modelo-b3-negociacao.xlsx", "Negociação",
-        "Compras e vendas (mesmo layout do relatório Negociação da Área do Investidor da B3).",
+        "Modelo B3 de negociação para compras e vendas (layout do relatório da Área do Investidor).",
         (
             Coluna("Data do Negócio", "Data do pregão", formato="data", largura=14),
             Coluna("Tipo de Movimentação", "Compra ou Venda", opcoes=("Compra", "Venda"), largura=20),
@@ -149,7 +149,7 @@ MODELOS: dict[str, Modelo] = {
     ),
     "b3-movimentacao": Modelo(
         "modelo-b3-movimentacao.xlsx", "Movimentação",
-        "Proventos e eventos (mesmo layout do relatório Movimentação da Área do Investidor da B3).",
+        "Modelo B3 de movimentação para proventos e eventos (layout do relatório da Área do Investidor).",
         (
             Coluna("Entrada/Saída", "Credito ou Debito (só créditos geram lançamento)", opcoes=("Credito", "Debito"),
                    largura=14),
@@ -178,7 +178,7 @@ MODELOS: dict[str, Modelo] = {
     ),
     "b3-proventos": Modelo(
         "modelo-b3-proventos.xlsx", "Proventos recebidos",
-        "Proventos já pagos (mesmo layout do relatório Proventos recebidos da Área do Investidor da B3).",
+        "Modelo B3 de proventos recebidos (layout do relatório da Área do Investidor).",
         (
             Coluna("Produto", "Ticker - Nome do ativo (ex.: ITSA4 - ITAUSA S.A.)", largura=34),
             Coluna("Pagamento", "Data do pagamento", formato="data", largura=12),
@@ -194,6 +194,42 @@ MODELOS: dict[str, Modelo] = {
         (
             ("ITSA4 - ITAUSA S.A.", date(2026, 4, 1), "Juros Sobre Capital Próprio", "XP INVESTIMENTOS CCTVM S/A",
              500, 0.017, 8.5),
+        ),
+    ),
+    "proventos-planilha-personalizada": Modelo(
+        "modelo-proventos-personalizado.xlsx", "Proventos",
+        "Modelo de proventos personalizado com os tipos de evento e campos financeiros do app.",
+        (
+            Coluna("ativo", "Ticker do ativo (ex.: PETR4)", largura=14),
+            Coluna("date", "Data do pagamento", formato="data", largura=14),
+            Coluna(
+                "evento", "Tipo de provento conforme a planilha de origem",
+                opcoes=("DIVIDENDO", "JSCP", "RENDIMENTO", "BONIFICACAO", "BTC", "V.SOB(BN)", "REEMBOLSO",
+                        "CRED.NAO PAGO( JSCP)", "V.FRACAO"),
+                largura=24,
+            ),
+            Coluna("valor", "Valor bruto do provento", formato="moeda", largura=14),
+            Coluna("irrf", "Imposto de renda retido na fonte", obrigatoria=False, formato="moeda", largura=12),
+            Coluna("taxas", "Taxas descontadas do provento", obrigatoria=False, formato="moeda", largura=12),
+            Coluna("moeda", "Moeda do valor", opcoes=("BRL", "USD", "EUR"), largura=10),
+            Coluna("corretora", "Nome da corretora", obrigatoria=False, largura=20),
+            Coluna("date_com", "Data-com (opcional)", obrigatoria=False, formato="data", largura=14),
+            Coluna("observacao", "Observação complementar", obrigatoria=False, largura=32),
+        ),
+        (
+            ("ABCP11", date(2026, 3, 2), "DIVIDENDO", 2.0, 0, 0, "BRL", "XP", date(2026, 3, 2), ""),
+            ("ITSA4", date(2026, 3, 3), "JSCP", 2.0, 0.3, 0.1, "BRL", "XP", date(2026, 3, 3), "exemplo de origem"),
+            ("HGLG11", date(2026, 3, 4), "RENDIMENTO", 2.0, 0, 0, "BRL", "XP", None, ""),
+            ("PETR4", date(2026, 3, 5), "BONIFICACAO", 2.0, 0, 0, "BRL", "XP", None, ""),
+            ("PETR4", date(2026, 3, 6), "BTC", 2.0, 0.3, 0, "BRL", "XP", None, ""),
+            ("PETR4", date(2026, 3, 9), "V.SOB(BN)", 2.0, 0, 0, "BRL", "XP", None, ""),
+            ("PETR4", date(2026, 3, 10), "REEMBOLSO", 2.0, 0, 0, "BRL", "XP", None, ""),
+            ("ITSA4", date(2026, 3, 11), "CRED.NAO PAGO( JSCP)", 2.0, 0, 0, "BRL", "XP", None, ""),
+            ("PETR4", date(2026, 3, 12), "V.FRACAO", 2.0, 0, 0, "BRL", "XP", None, ""),
+        ),
+        (
+            "A data deve ser a data de pagamento. Data-com, IRRF, taxas, corretora e observação são opcionais.",
+            "Os tipos BTC, V.SOB(BN), CRED.NAO PAGO( JSCP) e V.FRACAO ficam identificados em categorias próprias no app.",
         ),
     ),
     "aluguel": Modelo(

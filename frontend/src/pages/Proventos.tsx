@@ -37,9 +37,12 @@ export function Proventos() {
     { titulo: "Ativo", render: (p) => <strong>{p.ticker}</strong> },
     { titulo: "Evento", render: (p) => dominio?.eventos_provento[p.evento] ?? p.evento },
     { titulo: "Bruto", numerica: true, render: (p) => moeda(p.valor, p.moeda) },
-    { titulo: "IRRF", numerica: true, render: (p) => moeda(p.irrf, p.moeda) },
+    { titulo: "Moeda", render: (p) => p.moeda },
+    { titulo: "IRRF", numerica: true, render: (p) => p.irrf ? moeda(p.irrf, p.moeda) : "—" },
+    { titulo: "Taxas", numerica: true, render: (p) => p.taxas ? moeda(p.taxas, p.moeda) : "—" },
     { titulo: "Líquido (R$)", numerica: true, render: (p) => moeda((p.valor - p.irrf - p.taxas) * p.cambio) },
     { titulo: "Corretora", render: (p) => p.corretora ?? "—" },
+    { titulo: "Observação", render: (p) => <span className="quebra sutil">{p.observacao || "—"}</span> },
   ];
 
   const abas = (

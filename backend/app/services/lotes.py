@@ -9,7 +9,8 @@ from ..models import LoteImportacao, MovCaixa, Operacao, Provento
 
 TIPOS = {
     "EXTRATO_B3": "Extrato B3",
-    "PLANILHA_OPERACOES": "Planilha de operações",
+    "PLANILHA_OPERACOES": "Modelo de operações personalizado",
+    "PLANILHA_PROVENTOS": "Modelo de proventos personalizado",
     "ALUGUEL": "Extrato de aluguel (BTC)",
 }
 
