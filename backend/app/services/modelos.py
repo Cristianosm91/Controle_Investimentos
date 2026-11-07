@@ -50,6 +50,10 @@ MODELOS: dict[str, Modelo] = {
         "Modelo de operações personalizado para importação no layout de planilha do app.",
         (
             Coluna("ativo", "Ticker negociado (ex.: PETR4)", largura=14),
+            Coluna(
+                "classe", "Classe (ex.: AÇÃO, ETF, STOCK, REIT ou ETF_US); vazia usa inferência",
+                obrigatoria=False, largura=18,
+            ),
             Coluna("date", "Data da operação", formato="data", largura=14),
             Coluna(
                 "evento", "Sigla do evento",
@@ -65,22 +69,24 @@ MODELOS: dict[str, Modelo] = {
             Coluna("moeda", "Moeda da operação", opcoes=("BRL", "USD", "EUR"), largura=12),
         ),
         (
-            ("PETR4", date(2026, 3, 2), "C", 100, 38.5, 12.34, "XP", 0, "BRL"),
-            ("PETR4", date(2026, 3, 9), "V", 10, 40, 2.5, "XP", 0.01, "BRL"),
-            ("O", date(2026, 3, 10), "C", 1, 200, 0, "XP", 0, "USD"),
-            ("PETR4", date(2026, 3, 11), "DT", 2, 39, 0, "XP", 0, "BRL"),
-            ("PETR4", date(2026, 3, 12), "IPO", 10, 10, 0, "XP", 0, "BRL"),
-            ("PETR4", date(2026, 3, 13), "SUB", 10, 2, 0, "XP", 0, "BRL"),
-            ("PETR4", date(2026, 3, 16), "BN", 5, 4.96, 0, "XP", 0, "BRL"),
-            ("PETR4", date(2026, 3, 17), "S/I", 100, 0, 0, "XP", 0, "BRL"),
-            ("PETR4", date(2026, 3, 18), "S/I", -100, 0, 0, "XP", 0, "BRL"),
-            ("PETR4", date(2026, 3, 19), "DESDOBRAMENTO", 100, 0, 0, "XP", 0, "BRL"),
-            ("PETR4", date(2026, 3, 20), "GRUPAMENTO", -100, 0, 0, "XP", 0, "BRL"),
-            ("PETR4", date(2026, 3, 23), "TC", -10, 10, 0, "XP", 0, "BRL"),
-            ("PETR4", date(2026, 3, 24), "AT", 10, 10, 0, "XP", 0, "BRL"),
-            ("PETR4", date(2026, 3, 25), "AM", 10, -0.5, 0, "XP", 0, "BRL"),
-            ("PETR4", date(2026, 3, 26), "CISAO", 10, -1, 0, "XP", 0, "BRL"),
-            ("PETR4", date(2026, 3, 27), "V.SUB", -3, 2, 0, "XP", 0, "BRL"),
+            ("PETR4", "AÇÃO", date(2026, 3, 2), "C", 100, 38.5, 12.34, "XP", 0, "BRL"),
+            ("PETR4", "AÇÃO", date(2026, 3, 9), "V", 10, 40, 2.5, "XP", 0.01, "BRL"),
+            ("O", "REIT", date(2026, 3, 10), "C", 1, 200, 0, "XP", 0, "USD"),
+            ("PETR4", "AÇÃO", date(2026, 3, 11), "DT", 2, 39, 0, "XP", 0, "BRL"),
+            ("PETR4", "AÇÃO", date(2026, 3, 12), "IPO", 10, 10, 0, "XP", 0, "BRL"),
+            ("PETR4", "AÇÃO", date(2026, 3, 13), "SUB", 10, 2, 0, "XP", 0, "BRL"),
+            ("PETR4", "AÇÃO", date(2026, 3, 16), "BN", 5, 4.96, 0, "XP", 0, "BRL"),
+            ("PETR4", "AÇÃO", date(2026, 3, 17), "S/I", 100, 0, 0, "XP", 0, "BRL"),
+            ("PETR4", "AÇÃO", date(2026, 3, 18), "S/I", -100, 0, 0, "XP", 0, "BRL"),
+            ("PETR4", "AÇÃO", date(2026, 3, 19), "DESDOBRAMENTO", 100, 0, 0, "XP", 0, "BRL"),
+            ("PETR4", "AÇÃO", date(2026, 3, 20), "GRUPAMENTO", -100, 0, 0, "XP", 0, "BRL"),
+            ("PETR4", "AÇÃO", date(2026, 3, 23), "TC", -10, 10, 0, "XP", 0, "BRL"),
+            ("PETR4", "AÇÃO", date(2026, 3, 24), "AT", 10, 10, 0, "XP", 0, "BRL"),
+            ("PETR4", "AÇÃO", date(2026, 3, 25), "AM", 10, -0.5, 0, "XP", 0, "BRL"),
+            ("PETR4", "AÇÃO", date(2026, 3, 26), "CISAO", 10, -1, 0, "XP", 0, "BRL"),
+            ("PETR4", "AÇÃO", date(2026, 3, 27), "V.SUB", -3, 2, 0, "XP", 0, "BRL"),
+            ("AMZN", "STOCK", date(2026, 3, 30), "C", 1, 200, 0, "XP", 0, "USD"),
+            ("VOO", "ETF_US", date(2026, 3, 31), "C", 1, 500, 0, "XP", 0, "USD"),
         ),
         (
             "Modelo personalizado para importar operações e eventos; preencha Evento com uma sigla válida da lista.",
@@ -88,8 +94,8 @@ MODELOS: dict[str, Modelo] = {
                 "C, IPO, SUB, BN e CISAO usam quantidade positiva. V aceita quantidade negativa e é armazenada como saída; "
                 "V.SUB aceita quantidade positiva ou negativa e é armazenada como saída. "
                 "SUB deve informar no preço unitário o custo total por ativo, incluindo eventual custo do direito. "
-                "BN mantém o preço informado para calcular o novo PM, sem somá-lo ao capital investido. DT usa quantidade positiva para compra e negativa "
-                "para venda, marcando day trade."
+                "BN mantém o preço informado para calcular o novo PM, sem somá-lo ao capital investido. "
+                "DT usa quantidade positiva para compra e negativa para venda, marcando day trade."
             ),
             (
                 "S/I aceita quantidade positiva para Desdobramento (Split) e negativa para Grupamento (Inplit).",
@@ -106,6 +112,10 @@ MODELOS: dict[str, Modelo] = {
                 "Informe a moeda da operação (BRL, USD ou EUR); os valores são importados na moeda informada. "
                 "Proventos (DIVIDENDO, JSCP, RENDIMENTO, BTC/ALUGUEL, "
                 "entre outros) devem ser importados pelo modelo de Proventos."
+            ),
+            (
+                "Para ativos no exterior, use as classes STOCK, REIT ou ETF_US e informe USD na coluna moeda. "
+                "A classe informada é aplicada somente a ativos novos; ativos já cadastrados mantêm a classe atual."
             ),
             (
                 "BAIXA, R.CAP, EX.OPC, TERMO, AJ.POS, ISENTO, TAXA e C.COTA são reconhecidos como códigos "

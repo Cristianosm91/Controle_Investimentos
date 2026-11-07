@@ -145,6 +145,27 @@ class AtivoIn(BaseModel):
         return self
 
 
+class ClasseAtivoIn(BaseModel):
+    classe: str | None = Field(default=None, min_length=1, max_length=20)
+    mercado: Literal["BVMF", "NASDAQ", "NYSE", "NYSEARCA", "NYSEAMERICAN", "BATS"] | None = None
+
+    @field_validator("classe")
+    @classmethod
+    def _classe(cls, valor: str | None) -> str:
+        if valor is None:
+            raise ValueError("Informe a classe do ativo")
+        classe = valor.strip().upper()
+        if not classe:
+            raise ValueError("Informe a classe do ativo")
+        return classe
+
+    @model_validator(mode="after")
+    def _campos(self) -> "ClasseAtivoIn":
+        if not self.model_fields_set & {"classe", "mercado"}:
+            raise ValueError("Informe a classe ou a bolsa do ativo")
+        return self
+
+
 class AtivoOut(_Saida):
     id: int
     ticker: str

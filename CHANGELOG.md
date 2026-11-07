@@ -6,9 +6,29 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 
 ## [Não lançado]
 
+## [1.3.0] - 2026-11-07
+
 ### Adicionado
 - Modelo personalizado de proventos com os tipos da planilha de referência e importação de IRRF, taxas, moeda, data-com e observação.
 - Nomes explícitos para modelos personalizados e modelos da B3 na importação.
+- Coluna opcional de classe no modelo personalizado de operações; arquivos antigos continuam aceitos e ativos já cadastrados preservam a classe.
+- Configurações → Classes dos ativos: edição confirmada de classe e bolsa das posições abertas, preservando moeda e lançamentos.
+- Botão para desfazer o lote recém-importado diretamente no resultado da importação.
+- Operações e Proventos: filtro por corretora e seleção de intervalos com Shift, mantendo seleção individual e exclusão múltipla.
+- Fundamentos básicos via Yahoo Finance para ações e outros ativos listados nos mercados dos EUA; a disponibilidade dos indicadores varia por ativo.
+
+### Corrigido
+- Fundamentos: resultado da atualização diferencia ativos fora dos mercados cobertos, tickers ausentes na fonte, falhas de consulta, classe incompatível e códigos históricos conhecidos; sugestões de ticker não alteram cadastros.
+- Respostas vazias do Yahoo são sinalizadas como falhas de consulta; os dados disponíveis de outros ativos são preservados.
+- Consulta SGS do Banco Central repete até três vezes em falhas transitórias de transporte, HTTP 429 ou 5xx.
+
+### Alterado
+- Versão do backend e metadados do frontend sincronizados em 1.3.0, consolidando também o modelo personalizado de proventos integrado após 1.2.1 sem incremento anterior.
+- Documentação de importação, seleção, classificação, fontes de fundamentos e API atualizada. Integração SEC EDGAR permanece adiada.
+
+### Limitações conhecidas
+- O Yahoo Finance tem cobertura variável e termos de uso pessoal; FFO/AFFO de REITs e métricas próprias de ETFs não são calculados nem substituídos por indicadores de ações.
+- A consulta real ao Yahoo neste ambiente retornou erros de certificado e HTTP 401; sucesso de coleta externa ainda não foi validado, embora os testes automatizados passem.
 
 ## [1.2.1] - 2026-11-02
 

@@ -6,6 +6,7 @@ import { AtivosPersonalizados } from "../components/config/AtivosPersonalizados"
 import { useExclusaoEmLote } from "../components/ExclusaoEmLote";
 import { BackupConfig } from "../components/config/Backup";
 import { Carteiras } from "../components/config/Carteiras";
+import { ClassesAtivos } from "../components/config/ClassesAtivos";
 import { EstrategiasBooks } from "../components/config/EstrategiasBooks";
 import { Importacoes } from "../components/config/Importacoes";
 import { ImpostoRendaConfig } from "../components/config/ImpostoRenda";
@@ -20,6 +21,7 @@ const SECOES = [
   { id: "estrategias", rotulo: "Estratégias & Books" },
   { id: "carteiras", rotulo: "Carteiras" },
   { id: "ativos", rotulo: "Ativos personalizados" },
+  { id: "classes-ativos", rotulo: "Classes dos ativos" },
   { id: "parametros", rotulo: "Parâmetros" },
   { id: "ir", rotulo: "Imposto de renda" },
   { id: "qualidade", rotulo: "Qualidade dos dados" },
@@ -222,6 +224,7 @@ export function Configuracoes() {
     estrategias: <EstrategiasBooks />,
     carteiras: <Carteiras />,
     ativos: <AtivosPersonalizados />,
+    "classes-ativos": <ClassesAtivos />,
     parametros: <Parametros />,
     ir: <ImpostoRendaConfig />,
     qualidade: <QualidadeDados />,

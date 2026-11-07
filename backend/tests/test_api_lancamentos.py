@@ -46,6 +46,93 @@ def test_operacoes_filtradas_por_classe(cliente, ids):
     assert resultado["itens"][0]["ticker"] == "HGLG11"
 
 
+def test_alterar_classe_do_ativo_reflete_nos_lancamentos_existentes(cliente, ids):
+    operacao = cliente.post(
+        "/api/operacoes",
+        json={**ids, "data": "2026-01-05", "evento": "C", "quantidade": 1, "preco": 10},
+    ).json()
+    provento = cliente.post(
+        "/api/proventos",
+        json={**ids, "data_pagamento": "2026-02-10", "evento": "DIVIDENDO", "valor": 5},
+    ).json()
+    resposta = cliente.patch(f"/api/ativos/{ids['ativo_id']}/classe", json={"classe": "REIT"})
+    assert resposta.status_code == 200, resposta.text
+    assert resposta.json()["classe"] == "REIT"
+
+    ops = cliente.get("/api/operacoes", params={"classe": "REIT"}).json()["itens"]
+    proventos = cliente.get("/api/proventos", params={"classe": "REIT"}).json()["itens"]
+    assert [item["id"] for item in ops] == [operacao["id"]]
+    assert [item["id"] for item in proventos] == [provento["id"]]
+
+
+def test_editar_bolsa_preserva_classe_e_corrige_simbolo_yahoo(cliente):
+    from app.providers.base import AtivoRef
+    from app.providers.yahoo import simbolo_yahoo
+
+    ativo = cliente.post("/api/ativos", json={
+        "ticker": "MSFT", "classe": "STOCK", "moeda": "USD", "mercado": "BVMF",
+        "setor": "Tecnologia", "cnpj": "12345678000199",
+    }).json()
+    assert simbolo_yahoo(AtivoRef(ativo["ticker"], ativo["mercado"], ativo["moeda"])) == "MSFT.SA"
+    resposta = cliente.patch(f"/api/ativos/{ativo['id']}/classe", json={"mercado": "NASDAQ"})
+    assert resposta.status_code == 200, resposta.text
+    atualizado = resposta.json()
+    assert atualizado == {**ativo, "mercado": "NASDAQ"}
+    assert simbolo_yahoo(AtivoRef(atualizado["ticker"], atualizado["mercado"], atualizado["moeda"])) == "MSFT"
+    classe = cliente.patch(f"/api/ativos/{ativo['id']}/classe", json={"classe": "ETF_US"})
+    assert classe.status_code == 200
+    assert classe.json()["mercado"] == "NASDAQ"
+    sem_bolsa = cliente.patch(f"/api/ativos/{ativo['id']}/classe", json={"mercado": None})
+    assert sem_bolsa.status_code == 200
+    assert sem_bolsa.json()["mercado"] is None
+
+
+@pytest.mark.parametrize("corpo", [{}, {"classe": None}, {"classe": " "}, {"mercado": "INVALIDA"}])
+def test_edicao_classe_bolsa_rejeita_entrada_invalida(cliente, ids, corpo):
+    resposta = cliente.patch(f"/api/ativos/{ids['ativo_id']}/classe", json=corpo)
+    assert resposta.status_code == 422
+
+
+def test_edicao_bolsa_preserva_protecao_de_cripto_vinculada(cliente):
+    ativo = cliente.post("/api/ativos", json={
+        "ticker": "BTC", "classe": "CRIPTO", "moeda": "USD",
+        "mercado": None, "coingecko_id": "bitcoin",
+    }).json()
+    rota = f"/api/ativos/{ativo['id']}/classe"
+    assert cliente.patch(rota, json={"mercado": "NASDAQ"}).status_code == 409
+    assert cliente.patch(rota, json={"classe": "STOCK", "mercado": "NASDAQ"}).status_code == 409
+    resposta = cliente.patch(rota, json={"mercado": None})
+    assert resposta.status_code == 200
+    assert resposta.json() == ativo
+
+
+def test_filtro_por_corretora_em_operacoes_e_proventos(cliente, ids):
+    outra_corretora = cliente.post("/api/corretoras", json={"nome": "Inter"}).json()["id"]
+    for corretora_id in (ids["corretora_id"], outra_corretora):
+        corpo = {
+            **ids,
+            "corretora_id": corretora_id,
+            "data": "2026-01-05",
+            "evento": "C",
+            "quantidade": 1,
+            "preco": 10,
+        }
+        assert cliente.post("/api/operacoes", json=corpo).status_code == 201
+        provento = {
+            **ids,
+            "corretora_id": corretora_id,
+            "data_pagamento": "2026-02-10",
+            "evento": "DIVIDENDO",
+            "valor": 10,
+        }
+        assert cliente.post("/api/proventos", json=provento).status_code == 201
+
+    operacoes = cliente.get("/api/operacoes", params={"corretora_id": ids["corretora_id"]}).json()
+    proventos = cliente.get("/api/proventos", params={"corretora_id": ids["corretora_id"]}).json()
+    assert operacoes["total"] == proventos["total"] == 1
+    assert operacoes["itens"][0]["corretora"] == proventos["itens"][0]["corretora"] == "XP"
+
+
 def test_filtro_de_operacoes_aceita_varios_tickers(cliente, ids):
     vale = cliente.post("/api/ativos", json={"ticker": "VALE3"}).json()["id"]
     for ativo_id in (ids["ativo_id"], vale):

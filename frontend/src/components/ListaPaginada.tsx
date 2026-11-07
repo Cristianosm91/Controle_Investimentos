@@ -32,6 +32,7 @@ interface Props<T> {
   linhaClasse?: (item: T) => string | undefined;
   filtroTicker?: boolean;
   classes?: { valor: string; rotulo: string }[];
+  corretoras?: { id: number; nome: string }[];
   classeFiltro?: string;
   aoMudarClasse?: (valor: string) => void;
   /** Parâmetros fixos da consulta (ex.: { evento: "ALUGUEL" }). */
@@ -50,6 +51,7 @@ export function ListaPaginada<T>({
   linhaClasse,
   filtroTicker = true,
   classes,
+  corretoras,
   classeFiltro,
   aoMudarClasse,
   filtrosFixos,
@@ -57,6 +59,7 @@ export function ListaPaginada<T>({
   const [ticker, setTicker] = useState("");
   const [tamanhoPagina, setTamanhoPagina] = useState<number | typeof TODAS_PAGINAS>(POR_PAGINA);
   const [classe, setClasse] = useState("");
+  const [corretoraId, setCorretoraId] = useState("");
   const [inicio, setInicio] = useState("");
   const [fim, setFim] = useState("");
   const [pagina, setPagina] = useState(0);
@@ -64,6 +67,8 @@ export function ListaPaginada<T>({
   const [erroExclusao, setErroExclusao] = useState<string | null>(null);
   const [carregandoTodos, setCarregandoTodos] = useState(false);
   const [resultadoExclusao, setResultadoExclusao] = useState<string | null>(null);
+  const ultimaSelecao = useRef<number | null>(null);
+  const cliqueComShift = useRef(false);
   const cliente = useQueryClient();
   const classeSelecionada = classeFiltro ?? classe;
 
@@ -72,6 +77,7 @@ export function ListaPaginada<T>({
     investidores: filtroInvestidores,
     ticker,
     ...(classes || classeFiltro !== undefined ? { classe: classeSelecionada } : {}),
+    corretora_id: corretoraId || undefined,
     inicio,
     fim,
     limite: tamanhoPagina === TODAS_PAGINAS ? LOTE_EXPORTACAO : tamanhoPagina,
@@ -110,6 +116,7 @@ export function ListaPaginada<T>({
       cliente.invalidateQueries({ queryKey: [recurso] });
       invalidarDerivados(cliente);
       setSelecionados(new Set());
+      ultimaSelecao.current = null;
       setResultadoExclusao(
         falhas.length
           ? `${excluidos} registro(s) excluído(s); ${falhas.length} falha(s): ${falhas.join("; ")}`
@@ -132,6 +139,7 @@ export function ListaPaginada<T>({
   useEffect(() => {
     setPagina(0);
     setSelecionados(new Set());
+    ultimaSelecao.current = null;
     setResultadoExclusao(null);
   }, [classeFiltro, filtroInvestidores]);
   useFonteExportacao(async () => {
@@ -161,6 +169,8 @@ export function ListaPaginada<T>({
     f();
     setPagina(0);
     setSelecionados(new Set());
+    ultimaSelecao.current = null;
+    cliqueComShift.current = false;
     setResultadoExclusao(null);
   };
   const alternarSelecao = (id: number) =>
@@ -170,8 +180,24 @@ export function ListaPaginada<T>({
       else proxima.add(id);
       return proxima;
     });
+  const selecionar = (id: number) => {
+    const idsPagina = data?.itens.map(chave) ?? [];
+    const ancora = ultimaSelecao.current;
+    const inicioIntervalo = ancora === null ? -1 : idsPagina.indexOf(ancora);
+    const fimIntervalo = idsPagina.indexOf(id);
+    if (cliqueComShift.current && inicioIntervalo >= 0 && fimIntervalo >= 0) {
+      const primeiro = Math.min(inicioIntervalo, fimIntervalo);
+      const ultimo = Math.max(inicioIntervalo, fimIntervalo);
+      setSelecionados((atual) => new Set([...atual, ...idsPagina.slice(primeiro, ultimo + 1)]));
+    } else {
+      alternarSelecao(id);
+    }
+    cliqueComShift.current = false;
+    ultimaSelecao.current = id;
+  };
   const selecionarPagina = () => {
     const idsPagina = data?.itens.map(chave) ?? [];
+    ultimaSelecao.current = null;
     setSelecionados((atual) =>
       idsPagina.every((id) => atual.has(id))
         ? new Set([...atual].filter((id) => !idsPagina.includes(id)))
@@ -233,6 +259,23 @@ export function ListaPaginada<T>({
               ))}
             </select>
           )}
+          {corretoras && (
+            <label>
+              Corretora
+              <select
+                aria-label="Filtrar por corretora"
+                value={corretoraId}
+                onChange={(e) => filtrar(() => setCorretoraId(e.target.value))}
+              >
+                <option value="">Todas as corretoras</option>
+                {corretoras.map((corretora) => (
+                  <option key={corretora.id} value={corretora.id}>
+                    {corretora.nome}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <CampoData valor={inicio} aoMudar={(v) => filtrar(() => setInicio(v))} title="Data inicial" />
           <CampoData valor={fim} aoMudar={(v) => filtrar(() => setFim(v))} title="Data final" />
           {cabecalho}
@@ -244,6 +287,7 @@ export function ListaPaginada<T>({
       {acoes && (
         <div className="acoes">
           <span className="sutil">{selecionados.size} selecionado(s)</span>
+          <span className="sutil">Shift+clique seleciona intervalo; Ctrl/Cmd alterna linhas.</span>
           <button
             className="secundario"
             disabled={!selecionados.size || excluirSelecionados.isPending}
@@ -301,7 +345,10 @@ export function ListaPaginada<T>({
                           type="checkbox"
                           aria-label={`Selecionar registro ${chave(item)}`}
                           checked={selecionados.has(chave(item))}
-                          onChange={() => alternarSelecao(chave(item))}
+                          onClick={(e) => {
+                            cliqueComShift.current = e.shiftKey;
+                          }}
+                          onChange={() => selecionar(chave(item))}
                         />
                       </td>
                     )}
@@ -326,6 +373,7 @@ export function ListaPaginada<T>({
                   setTamanhoPagina(e.target.value === TODAS_PAGINAS ? TODAS_PAGINAS : Number(e.target.value));
                   setPagina(0);
                   setSelecionados(new Set());
+                  ultimaSelecao.current = null;
                 }}
               >
                 <option value={100}>100</option>
@@ -334,13 +382,25 @@ export function ListaPaginada<T>({
             </label>
             {tamanhoPagina !== TODAS_PAGINAS ? (
               <>
-                <button disabled={pagina === 0} onClick={() => setPagina(pagina - 1)}>
+                <button
+                  disabled={pagina === 0}
+                  onClick={() => {
+                    setPagina(pagina - 1);
+                    ultimaSelecao.current = null;
+                  }}
+                >
                   ‹ Anterior
                 </button>
                 <span>
                   Página {pagina + 1} de {paginas} · {total} registros
                 </span>
-                <button disabled={pagina + 1 >= paginas} onClick={() => setPagina(pagina + 1)}>
+                <button
+                  disabled={pagina + 1 >= paginas}
+                  onClick={() => {
+                    setPagina(pagina + 1);
+                    ultimaSelecao.current = null;
+                  }}
+                >
                   Próxima ›
                 </button>
               </>
