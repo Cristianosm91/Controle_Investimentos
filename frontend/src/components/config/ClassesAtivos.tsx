@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, query } from "../../api";
 import { invalidarDerivados, useAtivos } from "../../cadastros";
@@ -12,6 +13,8 @@ const BOLSAS = ["BVMF", "NASDAQ", "NYSE", "NYSEARCA", "NYSEAMERICAN", "BATS"];
 export function ClassesAtivos() {
   const cliente = useQueryClient();
   const { filtro } = useInvestidor();
+  const [mostrarTodos, setMostrarTodos] = useState(false);
+  const [busca, setBusca] = useState("");
   const cadastros = useAtivos();
   const { data: ativos = [], isLoading, error } = useQuery({
     queryKey: ["posicoes", "classes", filtro],
@@ -37,8 +40,27 @@ export function ClassesAtivos() {
     },
   });
   const classes = [...new Set([...classesDisponiveis, ...CLASSES_CONHECIDAS])].sort();
+  const idsAbertos = new Set(ativos.map((ativo) => ativo.ativo_id));
+  const buscaNormalizada = busca.trim().toUpperCase();
+  const itens = mostrarTodos
+    ? (cadastros.data ?? [])
+        .filter((ativo) => !buscaNormalizada || ativo.ticker.includes(buscaNormalizada))
+        .map((ativo) => ({
+          id: ativo.id,
+          ticker: ativo.ticker,
+          classe: ativo.classe,
+          mercado: ativo.mercado,
+          aberta: error ? null : idsAbertos.has(ativo.id),
+        }))
+    : ativos.map((ativo) => ({
+        id: ativo.ativo_id,
+        ticker: ativo.ticker,
+        classe: ativo.classe,
+        mercado: cadastros.data?.find((cadastro) => cadastro.id === ativo.ativo_id)?.mercado ?? null,
+        aberta: true,
+      }));
 
-  const selecionarClasse = (ativo: Pick<Posicao, "ativo_id" | "ticker" | "classe">, classe: string) => {
+  const selecionarClasse = (ativo: { id: number; ticker: string; classe: string }, classe: string) => {
     if (
       classe !== ativo.classe &&
       confirm(
@@ -46,7 +68,7 @@ export function ClassesAtivos() {
           "A alteração afeta o histórico do ativo em operações, proventos e cálculos.",
       )
     ) {
-      alterarClasse.mutate({ id: ativo.ativo_id, classe });
+      alterarClasse.mutate({ id: ativo.id, classe });
     }
   };
 
@@ -55,7 +77,24 @@ export function ClassesAtivos() {
       {error && <div className="erro">{error.message}</div>}
       {cadastros.error && <div className="erro">{cadastros.error.message}</div>}
       {alterarClasse.error && <div className="erro">{alterarClasse.error.message}</div>}
-      {isLoading ? (
+      <div className="acoes">
+        <label>
+          Exibir
+          <select value={mostrarTodos ? "todos" : "abertos"} onChange={(e) => setMostrarTodos(e.target.value === "todos")}>
+            <option value="abertos">Posições abertas</option>
+            <option value="todos">Todos os ativos</option>
+          </select>
+        </label>
+        {mostrarTodos && (
+          <input
+            aria-label="Buscar ativo por ticker"
+            placeholder="Buscar ticker"
+            value={busca}
+            onChange={(e) => setBusca(e.target.value.toUpperCase())}
+          />
+        )}
+      </div>
+      {isLoading || (mostrarTodos && cadastros.isLoading) ? (
         <p>Carregando…</p>
       ) : (
         <div className="tabela-container">
@@ -68,12 +107,19 @@ export function ClassesAtivos() {
               </tr>
             </thead>
             <tbody>
-              {ativos.map((ativo) => {
-                const cadastro = cadastros.data?.find((item) => item.id === ativo.ativo_id);
-                const bolsa = cadastro?.mercado ?? "";
+              {itens.map((ativo) => {
+                const bolsa = ativo.mercado ?? "";
                 return (
-                <tr key={ativo.ativo_id}>
-                  <td>{ativo.ticker}</td>
+                <tr key={ativo.id}>
+                  <td>
+                    {ativo.ticker}
+                    {ativo.aberta === false && (
+                      <span className="etiqueta" title="Para os investidores selecionados">
+                        Sem posição aberta
+                      </span>
+                    )}
+                    {ativo.aberta === null && <span className="etiqueta">Situação indisponível</span>}
+                  </td>
                   <td>
                     <select
                       aria-label={`Classe de ${ativo.ticker}`}
@@ -93,14 +139,14 @@ export function ClassesAtivos() {
                     <select
                       aria-label={`Bolsa de ${ativo.ticker}`}
                       value={bolsa}
-                      disabled={!cadastro || alterarClasse.isPending}
+                      disabled={alterarClasse.isPending}
                       onChange={(e) => {
                         const novaBolsa = e.target.value;
                         if (
                           novaBolsa !== bolsa &&
                           confirm(`Alterar a bolsa de ${ativo.ticker} para ${novaBolsa || "Sem bolsa"}?`)
                         ) {
-                          alterarClasse.mutate({ id: ativo.ativo_id, mercado: novaBolsa || null });
+                          alterarClasse.mutate({ id: ativo.id, mercado: novaBolsa || null });
                         }
                       }}
                     >
@@ -114,6 +160,11 @@ export function ClassesAtivos() {
                 </tr>
                 );
               })}
+              {!itens.length && (
+                <tr>
+                  <td colSpan={3}>Nenhum ativo encontrado.</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

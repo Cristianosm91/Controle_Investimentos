@@ -4,7 +4,7 @@
 
 **Controle de investimentos pessoal e multi-investidor — carteira, proventos, rentabilidade e imposto de renda, rodando localmente no seu computador.**
 
-![Versão](https://img.shields.io/badge/versão-1.3.0-2E7D32)
+![Versão](https://img.shields.io/badge/versão-1.4.0-2E7D32)
 ![Status](https://img.shields.io/badge/status-estável-2E7D32)
 ![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white)
@@ -36,7 +36,9 @@ O **InvestHub+** é uma aplicação web **local** que substitui planilhas de con
 
 Tudo roda em `127.0.0.1`: os dados ficam no seu computador, e as únicas chamadas externas são consultas públicas de cotações, câmbio, índices, fundamentos e catálogo de criptos.
 
-### Novidades da versão 1.3.0
+### Novidades da versão 1.4.0
+
+A barra lateral pode ser recolhida para ampliar a área de conteúdo, com preferência salva entre acessos e menu em drawer em telas menores.
 
 Modelos personalizados de operações e proventos, classe opcional na planilha de operações, edição de classe e bolsa,
 desfazer a importação recém-gravada, seleção com Shift e filtros por corretora. A coleta de fundamentos agora diferencia
@@ -148,7 +150,7 @@ Em **Configurações**:
 - **Estratégias & Books** — defina estratégias (ex.: *Dividendos*, *Crescimento*) e books, com o peso de cada um e o mapeamento classe → book (com exceções por ativo).
 - **Carteiras** — peso-alvo, preço-teto e ranking dos ativos.
 - **Ativos personalizados** — renda fixa com rendimento automático (CDI, SELIC, IPCA, IGP-M, prefixado) ou saldo manual.
-- **Classes dos ativos** — lista as posições abertas do filtro de investidores, identificadas pelo ticker, com classe e bolsa editáveis. Cada alteração modifica somente o campo escolhido no cadastro compartilhado do ativo, sem alterar moeda ou valores dos lançamentos. Para ativos internacionais, selecione a bolsa real (NASDAQ, NYSE, NYSEARCA, NYSEAMERICAN ou BATS); BVMF usa o sufixo `.SA` no Yahoo. Após salvar, execute as atualizações de cotações e fundamentos. O cadastro é compartilhado: a classe afeta o histórico, a alocação e a apuração fiscal de todos os investidores que usam esse ativo.
+- **Classes dos ativos** — lista as posições abertas do filtro de investidores por padrão; troque para **Todos os ativos** e busque pelo ticker para corrigir também ativos sem posição aberta. Classe e bolsa são editáveis. Cada alteração modifica somente o campo escolhido no cadastro compartilhado do ativo, sem alterar moeda ou valores dos lançamentos. Para ativos internacionais, selecione a bolsa real (NASDAQ, NYSE, NYSEARCA, NYSEAMERICAN ou BATS); BVMF usa o sufixo `.SA` no Yahoo. Após salvar, execute as atualizações de cotações e fundamentos. O cadastro é compartilhado: a classe afeta o histórico, a alocação e a apuração fiscal de todos os investidores que usam esse ativo.
 - **Parâmetros** e **Imposto de renda** — data de início do caixa automático, regras fiscais com vigência e prejuízo inicial.
 
 ### 5. Acompanhe no dia a dia
@@ -213,7 +215,7 @@ Em **🧾 Imposto de Renda**, escolha o CPF e o ano: a tela mostra a apuração 
 | **Resumo** | Patrimônio, lucro aberto/total, TIR, proventos e YoC dos últimos 12 meses, rentabilidade (TWR) no mês/ano/12 meses/desde o início comparada a IBOV, IFIX, CDI e IPCA, retorno real (descontado o IPCA), maiores altas e baixas do dia. |
 | **Rentabilidade** | TWR acumulado × referências, retorno real no período e série "Carteira real", evolução patrimonial (mercado × investido), resultado mensal e mapa de calor ano × mês, com seletor de período. |
 | **Portfólio** | Posições abertas com quantidade, preço médio, cotação, valor investido/mercado, lucro do dia, lucro aberto, proventos e peso. Tabela ordenável, agrupamento por estratégia, book, carteira, classe, setor ou moeda com subtotais, gráficos de exposição (book, classe, setor, moeda, ativo e corretora), visão consolidada ou separada por investidor e, opcionalmente, saldo em caixa somado ao patrimônio. Filtro de classes (só uma, algumas ou todas exceto uma) e colunas opcionais com o preço justo do último valuation salvo (mediana, um modelo ou todos), com detalhe por ativo ao clicar. |
-| **Operações** | Lançamento, edição e exclusão pela interface; histórico com filtros por ticker, classe, corretora e período; seleção individual ou por intervalo com Shift e exclusão múltipla. Compra, venda, day trade e eventos societários; IRRF em coluna própria. Câmbio preenchido automaticamente pela PTAX; em ativos personalizados, o preço vem da cota da data. |
+| **Operações** | Lançamento, edição e exclusão pela interface; histórico com filtros por ticker, classe, evento, corretora e período; seleção individual ou por intervalo com Shift e exclusão múltipla. Trocas de ticker podem criar e vincular as pernas de saída/entrada em conjunto ou ser lançadas individualmente e vinculadas depois. Compra, venda, day trade e eventos societários; IRRF em coluna própria. Câmbio preenchido automaticamente pela PTAX; em ativos personalizados, o preço vem da cota da data. |
 | **Proventos** | Lançamento, edição e exclusão de dividendos, JCP, rendimentos, bonificações e amortizações, com IRRF e conversão cambial; filtros por ticker, classe, corretora e período, seleção com Shift e exclusão múltipla. Matriz mensal ano × mês e ativo × mês. **Agenda e projeção**: pagamentos lançados a receber e projeção dos próximos 12 meses (valor por cota na data-com × quantidade atual), com YoC projetado por ativo. |
 | **Renda fixa** | Para ativos personalizados: valor bruto, IOF e IR regressivo por aplicação (resgates PEPS), valor líquido hoje, próximos vencimentos e líquido projetado no vencimento; marcação de isentos (LCI, LCA, CRI, CRA, poupança). |
 | **Metas** | Objetivos de patrimônio ou de renda mensal de proventos, por investidor ou grupo: progresso, projeção com aportes e rentabilidade real em três cenários, data estimada para atingir e aporte necessário para o prazo. |
@@ -650,7 +652,8 @@ Principais recursos:
 | `GET` | `/api/saude` | Status e versão da aplicação |
 | `GET` | `/api/posicoes?investidores=1,2&agrupar=ativo` | Carteira consolidada ou por investidor |
 | `POST` | `/api/cotacoes/atualizar` | Atualiza cotações e câmbio agora |
-| `GET/POST/PUT/DELETE` | `/api/operacoes` | Operações paginadas; listagem aceita investidores, ticker, classe, período e `corretora_id` |
+| `GET/POST/PUT/DELETE` | `/api/operacoes` | Operações paginadas; listagem aceita investidores, ticker, classe, evento, período e `corretora_id` |
+| `POST` · `POST/DELETE` | `/api/operacoes/troca-ticker` · `/api/operacoes/{id}/vinculo-transferencia` | Cria as duas pernas vinculadas ou vincula/desvincula operações de transferência existentes |
 | `GET/POST/PUT/DELETE` | `/api/proventos` | Proventos paginados; listagem aceita investidores, ticker, classe, período e `corretora_id` |
 | `GET/POST/PUT/DELETE` | `/api/caixa` | Movimentações de caixa (entrada > 0, saída < 0) |
 | `GET` | `/api/caixa/saldos` | Saldo por corretora e moeda |
