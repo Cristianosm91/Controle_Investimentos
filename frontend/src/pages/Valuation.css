@@ -80,7 +80,7 @@
 
 .valuation-campos {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(145px, 100%), 1fr));
   gap: 0.75rem;
   margin: 1rem 0;
 }
@@ -102,6 +102,7 @@
 
 .valuation .valuation-ajuda-premissa {
   position: relative;
+  flex-shrink: 0;
   min-width: 1.1rem;
   min-height: 1.1rem;
   padding: 0;
@@ -144,6 +145,7 @@
 }
 
 .valuation-unidade {
+  margin-top: auto;
   color: var(--sutil);
   font-size: 0.75rem;
   font-weight: 400;
@@ -191,7 +193,7 @@
   gap: 0.35rem;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1000px) {
   .valuation-colunas {
     grid-template-columns: 1fr;
   }

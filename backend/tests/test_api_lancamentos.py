@@ -1,5 +1,7 @@
 import pytest
 
+from app.dominio import EVENTOS_OPERACAO
+
 
 @pytest.fixture
 def ids(cliente):
@@ -22,6 +24,28 @@ def test_operacao_crud(cliente, ids):
     assert cliente.get("/api/operacoes", params={"ticker": "petr4"}).json()["total"] == 1
     assert cliente.delete(f"/api/operacoes/{op['id']}").status_code == 204
     assert cliente.get("/api/operacoes").json()["total"] == 0
+
+
+@pytest.mark.parametrize("evento", EVENTOS_OPERACAO)
+def test_filtro_operacoes_por_todos_os_eventos(cliente, ids, evento):
+    for codigo in EVENTOS_OPERACAO:
+        resposta = cliente.post(
+            "/api/operacoes",
+            json={
+                **ids,
+                "data": "2026-01-05",
+                "evento": codigo,
+                "quantidade": -10 if codigo in ("V", "VENDA_SUBSCRICAO") else 10,
+                "preco": 0,
+            },
+        )
+        assert resposta.status_code == 201, resposta.text
+
+    resposta = cliente.get("/api/operacoes", params={"evento": evento})
+    assert resposta.status_code == 200
+    assert resposta.json()["total"] == 1
+    assert [item["evento"] for item in resposta.json()["itens"]] == [evento]
+    assert cliente.get("/api/operacoes").json()["total"] == len(EVENTOS_OPERACAO)
 
 
 def test_troca_ticker_cria_e_vincula_as_duas_pernas(cliente, ids):
