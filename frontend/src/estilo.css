@@ -487,6 +487,13 @@ select {
   flex-direction: row;
 }
 
+.campos-cadastro-ativo {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
 .linha-form {
   display: flex;
   gap: 0.5rem;

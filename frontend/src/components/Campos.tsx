@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { api } from "../api";
 import { useAtivos, useCorretoras, useDominio, usePtax } from "../cadastros";
 import { data as fmtData, numero } from "../formato";
@@ -63,12 +63,20 @@ export function CampoEvento({ valor, aoMudar, tipo }: Selecao & { tipo: "eventos
   );
 }
 
-/** Ticker digitado com sugestões; se não existir, oferece cadastro rápido (B3, BRL). */
+const CLASSES_CADASTRO_ATIVO = ["AÇÃO", "BDR", "ETF", "ETF_US", "FII", "FIAGRO", "OPÇÃO", "REIT", "STOCK"];
+const MERCADOS_CADASTRO_ATIVO = ["BVMF", "NASDAQ", "NYSE", "NYSEARCA", "NYSEAMERICAN", "BATS"];
+
+/** Ticker digitado com sugestões e cadastro rápido com classe, mercado e moeda explícitos. */
 export function CampoAtivo({ ativoId, aoMudar }: { ativoId: string; aoMudar: (ativo: Ativo | undefined) => void }) {
   const { data: ativos = [] } = useAtivos();
   const cliente = useQueryClient();
+  const listaId = useId();
   const atual = ativos.find((a) => String(a.id) === ativoId);
   const [texto, setTexto] = useState(atual?.ticker ?? "");
+  const [mostrarCadastro, setMostrarCadastro] = useState(false);
+  const [classe, setClasse] = useState("");
+  const [mercado, setMercado] = useState("");
+  const [moeda, setMoeda] = useState("BRL");
 
   useEffect(() => {
     if (atual) setTexto(atual.ticker);
@@ -78,43 +86,98 @@ export function CampoAtivo({ ativoId, aoMudar }: { ativoId: string; aoMudar: (at
   const encontrado = ativos.find((a) => a.ticker === ticker);
 
   const cadastrar = useMutation({
-    mutationFn: () => api.post<Ativo>("/ativos", { ticker, mercado: "BVMF", moeda: "BRL" }),
+    mutationFn: () =>
+      api.post<Ativo>("/ativos", {
+        ticker,
+        classe,
+        mercado: mercado || null,
+        moeda,
+      }),
     onSuccess: (novo) => {
       cliente.setQueryData<Ativo[]>(["ativos"], (lista = []) => [...lista, novo]);
       aoMudar(novo);
+      setMostrarCadastro(false);
     },
   });
 
   return (
-    <label>
-      Ativo
-      <input
-        required
-        list="lista-ativos"
-        value={texto}
-        onChange={(e) => {
-          const valor = e.target.value.toUpperCase();
-          setTexto(valor);
-          aoMudar(ativos.find((a) => a.ticker === valor.trim()));
-        }}
-      />
-      <datalist id="lista-ativos">
-        {ativos.map((a) => (
-          <option key={a.id} value={a.ticker}>
-            {a.nome ?? ""}
-          </option>
-        ))}
-      </datalist>
+    <div className="campo-ativo">
+      <label>
+        Ativo
+        <input
+          required
+          list={listaId}
+          value={texto}
+          onChange={(e) => {
+            const valor = e.target.value.toUpperCase();
+            setTexto(valor);
+            setMostrarCadastro(false);
+            cadastrar.reset();
+            aoMudar(ativos.find((a) => a.ticker === valor.trim()));
+          }}
+        />
+        <datalist id={listaId}>
+          {ativos.map((a) => (
+            <option key={a.id} value={a.ticker}>
+              {a.nome ?? ""}
+            </option>
+          ))}
+        </datalist>
+      </label>
       {ticker && !encontrado && (
-        <small>
-          Não cadastrado.{" "}
-          <button type="button" className="link" disabled={cadastrar.isPending} onClick={() => cadastrar.mutate()}>
-            Cadastrar {ticker} (B3)
-          </button>
-          {cadastrar.error && <span className="negativo"> {(cadastrar.error as Error).message}</span>}
-        </small>
+        <div>
+          <small>
+            Ativo não cadastrado.{" "}
+            {!mostrarCadastro && (
+              <button type="button" className="link" onClick={() => setMostrarCadastro(true)}>
+                Cadastrar ativo…
+              </button>
+            )}
+            {cadastrar.error && <span className="negativo"> {(cadastrar.error as Error).message}</span>}
+          </small>
+          {mostrarCadastro && (
+            <div className="campos-cadastro-ativo">
+              <label>
+                Classe
+                <select required value={classe} onChange={(e) => setClasse(e.target.value)}>
+                  <option value="">Selecione</option>
+                  {CLASSES_CADASTRO_ATIVO.map((opcao) => (
+                    <option key={opcao} value={opcao}>{opcao}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Mercado
+                <select value={mercado} onChange={(e) => setMercado(e.target.value)}>
+                  <option value="">Sem bolsa</option>
+                  {MERCADOS_CADASTRO_ATIVO.map((opcao) => (
+                    <option key={opcao} value={opcao}>{opcao}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Moeda
+                <select value={moeda} onChange={(e) => setMoeda(e.target.value)}>
+                  <option value="BRL">BRL</option>
+                  <option value="USD">USD</option>
+                  <option value="EUR">EUR</option>
+                </select>
+              </label>
+              <button
+                type="button"
+                disabled={!classe || cadastrar.isPending}
+                onClick={() => cadastrar.mutate()}
+              >
+                {cadastrar.isPending ? "Cadastrando…" : `Cadastrar ${ticker}`}
+              </button>
+              <button type="button" className="secundario" onClick={() => setMostrarCadastro(false)}>
+                Cancelar
+              </button>
+            </div>
+          )}
+        </div>
       )}
-    </label>
+    </div>
   );
 }
 

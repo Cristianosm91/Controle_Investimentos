@@ -14,6 +14,23 @@ type BuscaPremissas = { premissas: PremissasValuation; avisos: string[] };
 
 const CAMPOS_AUTOMATICOS: CampoPremissa[] = ["lpa", "vpa", "dividendo_anual", "roe", "payout", "g"];
 
+const AJUDA_PREMISSAS: Record<CampoPremissa, string> = {
+  lpa: "Lucro líquido por ação. Exemplo: lucro atribuível de R$ 1 bilhão dividido por 200 milhões de ações = R$ 5 por ação.",
+  vpa: "Patrimônio líquido por ação. Exemplo: patrimônio líquido de R$ 4 bilhões dividido por 200 milhões de ações = R$ 20 por ação.",
+  dividendo_anual: "Soma dos dividendos por ação nos últimos 12 meses. Exemplo: quatro pagamentos de R$ 0,50 = R$ 2,00 por ação.",
+  roe: "Retorno sobre o patrimônio líquido, em percentual. Exemplo: ROE de 15% significa R$ 0,15 de lucro para cada R$ 1 de patrimônio.",
+  payout: "Parcela do lucro distribuída aos acionistas, em percentual. Exemplo: payout de 60% indica distribuição de R$ 0,60 a cada R$ 1 de lucro.",
+  g: "Crescimento anual perpétuo estimado depois do período projetado. Exemplo: 3% ao ano; use uma premissa conservadora.",
+  ke: "Taxa anual usada para descontar os fluxos de caixa ao valor presente. Exemplo: custo de capital próprio de 12% ao ano.",
+  pl_historico: "Múltiplo preço/lucro-alvo baseado no histórico da empresa. Exemplo: P/L-alvo de 10 significa preço igual a 10 vezes o lucro por ação.",
+  pl_setor: "Múltiplo preço/lucro-alvo de referência para o setor. Exemplo: P/L setorial de 12 significa preço igual a 12 vezes o lucro por ação.",
+  fcfe_1: "Fluxo de caixa livre para o acionista por ação no ano 1. Exemplo: R$ 2,00 por ação projetados para o próximo ano.",
+  fcfe_2: "Fluxo de caixa livre para o acionista por ação no ano 2. Exemplo: R$ 2,20 por ação projetados para daqui a dois anos.",
+  fcfe_3: "Fluxo de caixa livre para o acionista por ação no ano 3. Exemplo: R$ 2,40 por ação projetados para daqui a três anos.",
+  fcfe_4: "Fluxo de caixa livre para o acionista por ação no ano 4. Exemplo: R$ 2,60 por ação projetados para daqui a quatro anos.",
+  fcfe_5: "Fluxo de caixa livre para o acionista por ação no ano 5. Exemplo: R$ 2,80 por ação projetados para daqui a cinco anos.",
+};
+
 const CAMPOS: CampoConfiguracao[] = [
   { chave: "lpa", rotulo: "LPA", unidade: "por ação", passo: "any" },
   { chave: "vpa", rotulo: "VPA", unidade: "por ação", passo: "any" },
@@ -255,7 +272,17 @@ export function Valuation() {
               <div className="valuation-campos">
                 {CAMPOS.map(({ chave, rotulo, unidade, passo }) => (
                   <label key={chave}>
-                    {rotulo}
+                    <span className="valuation-campo-titulo">
+                      {rotulo}
+                      <button
+                        type="button"
+                        className="valuation-ajuda-premissa"
+                        data-tooltip={AJUDA_PREMISSAS[chave]}
+                        aria-label={`Ajuda sobre ${rotulo}: ${AJUDA_PREMISSAS[chave]}`}
+                      >
+                        ?
+                      </button>
+                    </span>
                     <span className="valuation-unidade">{unidade}</span>
                     <input
                       type="number"
