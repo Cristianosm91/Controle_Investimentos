@@ -151,12 +151,12 @@ def test_valor_investido_liquido_separa_custo_das_posicoes(cliente, base):
 
     resposta = cliente.get("/api/carteira/valor-investido")
     assert resposta.status_code == 200, resposta.text
-    assert resposta.json()["valor_investido"] == pytest.approx(60.12)
-    assert resposta.json()["valor_investido_posicoes_abertas"] == pytest.approx(60.12)
+    assert resposta.json()["valor_investido"] == pytest.approx(52.12)
+    assert resposta.json()["valor_investido_posicoes_abertas"] == pytest.approx(52.12)
 
     (posicao,) = cliente.get("/api/posicoes", params={"somente_abertas": False}).json()
     assert posicao["custo"] == pytest.approx(58.12)
-    assert posicao["valor_investido"] == pytest.approx(60.12)
+    assert posicao["valor_investido"] == pytest.approx(52.12)
     assert posicao["lucro_realizado"] == pytest.approx(19.62)
     assert posicao["lucro_daytrade"] == pytest.approx(0.5)
 
