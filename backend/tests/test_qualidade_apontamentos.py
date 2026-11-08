@@ -186,6 +186,42 @@ def test_tratamento_persiste_sem_alterar_operacao_e_novo_apontamento_nao_herda_s
     engine.dispose()
 
 
+def test_corrigir_operacao_mantem_lista_com_pendencias_restantes_da_mesma_regra():
+    engine = _banco()
+    with Session(engine) as session:
+        investidor = Investidor(nome="Investidor teste")
+        session.add(investidor)
+        session.flush()
+        corrigida = _venda(session, investidor, "PETR4")
+        restante = _venda(session, investidor, "VALE3")
+        apontamento = next(
+            v for v in qualidade.verificar(session) if v.codigo == "posicao_negativa"
+        )
+        corrigida.evento = "C"
+        corrigida.quantidade = Decimal("1")
+        session.commit()
+
+        def listar(codigo):
+            return listar_operacoes(
+                sessao=session,
+                investidores=[investidor.id],
+                ticker=None,
+                classe=None,
+                inicio=None,
+                fim=None,
+                ids=None,
+                apontamento=apontamento.fingerprint,
+                codigo=codigo,
+                limite=200,
+                deslocamento=0,
+            )
+
+        assert listar(None).total == 0
+        pagina = listar("posicao_negativa")
+        assert [item.id for item in pagina.itens] == [restante.id]
+    engine.dispose()
+
+
 def test_apontamento_aberto_com_operacao_excluida_retorna_lista_vazia():
     engine = _banco()
     with Session(engine) as session:

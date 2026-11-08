@@ -6,6 +6,11 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 
 ## [Não lançado]
 
+## [1.4.1] - 2026-11-08
+
+### Corrigido
+- Qualidade de Dados: após corrigir uma operação, mantém na lista as demais operações ainda pendentes da mesma regra.
+
 ## [1.4.0] - 2026-11-08
 
 ### Adicionado
