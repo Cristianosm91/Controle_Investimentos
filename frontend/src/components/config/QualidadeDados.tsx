@@ -32,6 +32,7 @@ export function QualidadeDados() {
   const destinos = (v: Verificacao) => {
     const parametros = new URLSearchParams({
       apontamento: v.fingerprint,
+      codigo: v.codigo,
       regra: v.titulo,
       explicacao: v.descricao,
       retorno: `${localizacao.pathname}${localizacao.search}`,
