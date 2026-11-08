@@ -75,6 +75,7 @@ export function Operacoes() {
   };
   const idsQualidade = parametros.get("ids");
   const apontamentoQualidade = parametros.get("apontamento");
+  const codigoQualidade = parametros.get("codigo");
   const veioDaQualidade = Boolean(idsQualidade || apontamentoQualidade);
   const idsRelacionados = new Set(
     (idsQualidade ?? "")
@@ -149,7 +150,7 @@ export function Operacoes() {
         eventos={eventos}
         filtrosFixos={
           apontamentoQualidade
-            ? { apontamento: apontamentoQualidade }
+            ? { apontamento: apontamentoQualidade, ...(codigoQualidade ? { codigo: codigoQualidade } : {}) }
             : idsQualidade
               ? { ids: idsQualidade }
               : undefined
