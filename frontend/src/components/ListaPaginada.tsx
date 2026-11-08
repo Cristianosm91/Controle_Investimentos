@@ -13,7 +13,9 @@ const TODAS_PAGINAS = "todas";
 
 export interface ColunaLista<T> {
   titulo: string;
+  cabecalho?: ReactNode;
   render: (item: T) => ReactNode;
+  renderExportacao?: (item: T) => ReactNode;
   numerica?: boolean;
 }
 
@@ -348,7 +350,7 @@ export function ListaPaginada<T>({
                   )}
                   {colunas.map((c) => (
                     <th key={c.titulo} className={c.numerica ? "num" : ""}>
-                      {c.titulo}
+                      {c.cabecalho ?? c.titulo}
                     </th>
                   ))}
                   {acoes && <th />}
@@ -443,7 +445,7 @@ export function ListaPaginada<T>({
               {completos.map((item) => (
                 <tr key={chave(item)}>
                   {colunas.map((c) => (
-                    <td key={c.titulo}>{c.render(item)}</td>
+                    <td key={c.titulo}>{(c.renderExportacao ?? c.render)(item)}</td>
                   ))}
                 </tr>
               ))}

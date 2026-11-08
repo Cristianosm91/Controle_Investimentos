@@ -5,6 +5,7 @@ import { AcoesLinha } from "../components/AcoesLinha";
 import { FormOperacao } from "../components/FormLancamentos";
 import { ImportarExtrato } from "../components/ImportarExtrato";
 import { ListaPaginada, type ColunaLista } from "../components/ListaPaginada";
+import { Modal } from "../components/Modal";
 import { VincularTransferencia } from "../components/VincularTransferencia";
 import { api } from "../api";
 import { useAtivos, useCorretoras, useDominio } from "../cadastros";
@@ -23,18 +24,36 @@ const NOMES_CLASSES: Record<string, string> = {
   "R.FIXA": "Renda fixa",
 };
 
+const EVENTOS_CURTOS: Record<string, string> = {
+  DESDOBRAMENTO: "Desd./Grup.",
+  TRANSFERENCIA: "Troca Ticker",
+  VENDA_SUBSCRICAO: "Venda subscr.",
+};
+
+const AJUDA_EVENTOS: Record<string, string> = {
+  C: "Entrada de ativos por compra, incluindo IPO e subscrição.",
+  V: "Saída de ativos por venda.",
+  BONIFICACAO: "Recebimento de ativos em bonificação.",
+  DESDOBRAMENTO: "Aumento (desdobramento) ou redução (grupamento) da quantidade, mantendo o custo total da posição.",
+  TRANSFERENCIA: "Saída e entrada por transferência, troca de ticker ou incorporação (AT/TC). As duas pernas podem ser vinculadas.",
+  AMORTIZACAO: "Redução do custo da posição por devolução de capital.",
+  CISAO: "Ajuste de custo decorrente de cisão da empresa.",
+  VENDA_SUBSCRICAO: "Venda de direitos de subscrição (V.SUB).",
+};
+
 export function Operacoes() {
   const [parametros] = useSearchParams();
   const localizacao = useLocation();
   const navegar = useNavigate();
   const cliente = useQueryClient();
   const { filtro, investidores } = useInvestidor();
-  const { data: dominio } = useDominio();
+  const { data: dominio, error: erroDominio } = useDominio();
   const { data: ativos } = useAtivos();
   const { data: corretoras } = useCorretoras();
   const [edicao, setEdicao] = useState<Operacao | "nova" | null>(null);
   const [vinculo, setVinculo] = useState<Operacao | null>(null);
   const [importando, setImportando] = useState(false);
+  const [ajudaEventos, setAjudaEventos] = useState(false);
   const localizacaoEdicao = useRef("/operacoes");
   const desvincular = useMutation({
     mutationFn: (id: number) => api.del(`/operacoes/${id}/vinculo-transferencia`),
@@ -73,28 +92,49 @@ export function Operacoes() {
       valor,
       rotulo: NOMES_CLASSES[valor] ?? valor.charAt(0) + valor.slice(1).toLowerCase(),
     }));
+  const eventos = Object.entries(dominio?.eventos_operacao ?? {}).map(([valor, rotulo]) => ({
+    valor,
+    rotulo,
+  }));
+  const renderEvento = (o: Operacao, abreviar = false) => (
+    <span className="operacoes-evento">
+      <span title={dominio?.eventos_operacao[o.evento] ?? o.evento}>
+        {(abreviar && EVENTOS_CURTOS[o.evento]) || dominio?.eventos_operacao[o.evento] || o.evento}
+      </span>
+      {o.ticker_transferencia && <span className="etiqueta">Ligada a {o.ticker_transferencia}</span>}
+      {o.daytrade && <span className="etiqueta">day trade</span>}
+    </span>
+  );
 
   const colunas: ColunaLista<Operacao>[] = [
     { titulo: "Data", render: (o) => data(o.data) },
-    { titulo: "Investidor", render: (o) => nome(o.investidor_id) },
+    { titulo: "Investidor", render: (o) => <span className="operacoes-texto">{nome(o.investidor_id)}</span> },
     { titulo: "Ativo", render: (o) => <strong>{o.ticker}</strong> },
     {
       titulo: "Evento",
-      render: (o) => (
-        <>
-          {dominio?.eventos_operacao[o.evento] ?? o.evento}
-          {o.ticker_transferencia && <span className="etiqueta">Ligada a {o.ticker_transferencia}</span>}
-          {o.daytrade && <span className="etiqueta">day trade</span>}
-        </>
+      cabecalho: (
+        <span className="operacoes-evento-cabecalho">
+          Evento
+          <button
+            type="button"
+            className="link operacoes-ajuda"
+            aria-label="Ajuda sobre os eventos de operações"
+            onClick={() => setAjudaEventos(true)}
+          >
+            ?
+          </button>
+        </span>
       ),
+      render: (o) => renderEvento(o, true),
+      renderExportacao: (o) => renderEvento(o),
     },
     { titulo: "Qtd", numerica: true, render: (o) => <span className={classeSinal(o.quantidade)}>{numero(o.quantidade, 8)}</span> },
     { titulo: "Preço", numerica: true, render: (o) => moeda(o.preco, o.moeda) },
     { titulo: "Taxas", numerica: true, render: (o) => moeda(o.taxas, o.moeda) },
     { titulo: "IRRF", numerica: true, render: (o) => moeda(o.irrf, o.moeda) },
     { titulo: "Total (R$)", numerica: true, render: (o) => moeda(Math.abs(o.quantidade * o.preco) * o.cambio) },
-    { titulo: "Corretora", render: (o) => o.corretora ?? "—" },
-    { titulo: "Obs.", render: (o) => <span className="sutil">{o.observacao}</span> },
+    { titulo: "Corretora", render: (o) => <span className="operacoes-texto">{o.corretora ?? "—"}</span> },
+    { titulo: "Obs.", render: (o) => <span className="sutil operacoes-observacao" title={o.observacao ?? undefined}>{o.observacao}</span> },
   ];
 
   return (
@@ -106,7 +146,7 @@ export function Operacoes() {
         colunas={colunas}
         classes={classes}
         corretoras={corretoras}
-        eventos={[{ valor: "TRANSFERENCIA", rotulo: "Transferência / troca de ticker (AT/TC)" }]}
+        eventos={eventos}
         filtrosFixos={
           apontamentoQualidade
             ? { apontamento: apontamentoQualidade }
@@ -155,7 +195,7 @@ export function Operacoes() {
           </>
         }
         acoes={(o) => (
-          <>
+          <span className="operacoes-acoes">
             <AcoesLinha
               recurso="operacoes"
               id={o.id}
@@ -183,9 +223,23 @@ export function Operacoes() {
                 {o.transferencia_pareada_id ? "Desvincular" : "Vincular"}
               </button>
             )}
-          </>
+          </span>
         )}
       />
+      {ajudaEventos && (
+        <Modal titulo="Eventos de operações" aoFechar={() => setAjudaEventos(false)}>
+          <dl className="operacoes-legenda">
+            {eventos.map(({ valor, rotulo }) => (
+              <div key={valor}>
+                <dt><strong>{EVENTOS_CURTOS[valor] ? `${EVENTOS_CURTOS[valor]} — ${rotulo}` : rotulo}</strong></dt>
+                <dd>{AJUDA_EVENTOS[valor] ?? rotulo}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className="sutil">Day trade identifica compra ou venda realizada no mesmo dia; não é um evento separado.</p>
+        </Modal>
+      )}
+      {erroDominio && <div className="erro">{erroDominio.message}</div>}
       {desvincular.error && <div className="erro">{(desvincular.error as Error).message}</div>}
       {edicao && <FormOperacao operacao={edicao === "nova" ? undefined : edicao} aoFechar={fecharEdicao} />}
       {vinculo && <VincularTransferencia operacao={vinculo} aoFechar={() => setVinculo(null)} />}
