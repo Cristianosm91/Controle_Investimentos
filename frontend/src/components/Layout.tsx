@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { api } from "../api";
 import { Alertas } from "./Alertas";
@@ -35,33 +35,92 @@ export function Layout() {
 
 function Estrutura() {
   const conteudo = useRef<HTMLElement>(null);
+  const [menuRecolhido, setMenuRecolhido] = useState(
+    () => localStorage.getItem("investhub:menu-recolhido") === "true",
+  );
+  const [drawerAberto, setDrawerAberto] = useState(false);
   const { data: saude } = useQuery({
     queryKey: ["saude"],
     queryFn: () => api.get<{ versao: string }>("/saude"),
     staleTime: Infinity,
   });
+
+  useEffect(() => {
+    localStorage.setItem("investhub:menu-recolhido", String(menuRecolhido));
+  }, [menuRecolhido]);
+
+  useEffect(() => {
+    if (!drawerAberto) return;
+    const fecharComEscape = (evento: KeyboardEvent) => {
+      if (evento.key === "Escape") setDrawerAberto(false);
+    };
+    window.addEventListener("keydown", fecharComEscape);
+    return () => window.removeEventListener("keydown", fecharComEscape);
+  }, [drawerAberto]);
+
   return (
-    <div className="app">
-      <aside className="menu">
+    <div className={`app${menuRecolhido ? " menu-recolhido" : ""}${drawerAberto ? " drawer-aberto" : ""}`}>
+      {drawerAberto && (
+        <button
+          className="menu-fundo"
+          type="button"
+          aria-label="Fechar menu"
+          onClick={() => setDrawerAberto(false)}
+        />
+      )}
+      <aside className="menu" id="navegacao-principal">
         <div className="marca">
-          InvestHub+
+          <span className="marca-titulo">InvestHub+</span>
           {saude?.versao && <small className="versao">v{saude.versao}</small>}
+          <button
+            className="menu-controle"
+            type="button"
+            aria-label={menuRecolhido ? "Expandir menu" : "Recolher menu"}
+            aria-expanded={!menuRecolhido}
+            aria-controls="navegacao-principal"
+            title={menuRecolhido ? "Expandir menu" : "Recolher menu"}
+            onClick={() => setMenuRecolhido((recolhido) => !recolhido)}
+          >
+            <span aria-hidden="true">{menuRecolhido ? "›" : "‹"}</span>
+          </button>
         </div>
         <nav>
           {PAGINAS.map((p) => (
-            <NavLink key={p.caminho} to={p.caminho} end={p.caminho === "/"} className="menu-item">
-              <span className="menu-icone">{p.icone}</span>
-              {p.rotulo}
+            <NavLink
+              key={p.caminho}
+              to={p.caminho}
+              end={p.caminho === "/"}
+              className="menu-item"
+              title={p.rotulo}
+              onClick={() => setDrawerAberto(false)}
+            >
+              <span className="menu-icone" aria-hidden="true">{p.icone}</span>
+              <span className="menu-rotulo">{p.rotulo}</span>
             </NavLink>
           ))}
         </nav>
-        <NavLink to="/configuracoes" className="menu-item menu-config">
-          <span className="menu-icone">⚙️</span>
-          Configurações
+        <NavLink
+          to="/configuracoes"
+          className="menu-item menu-config"
+          title="Configurações"
+          onClick={() => setDrawerAberto(false)}
+        >
+          <span className="menu-icone" aria-hidden="true">⚙️</span>
+          <span className="menu-rotulo">Configurações</span>
         </NavLink>
       </aside>
       <div className="principal">
         <header className="topo">
+          <button
+            className="menu-mobile-controle"
+            type="button"
+            aria-label="Abrir menu"
+            aria-expanded={drawerAberto}
+            aria-controls="navegacao-principal"
+            onClick={() => setDrawerAberto(true)}
+          >
+            <span aria-hidden="true">☰</span>
+          </button>
           <BotoesExportar alvo={conteudo} />
           <Alertas />
           <SeletorInvestidor />
