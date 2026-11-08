@@ -23,6 +23,7 @@ export function Proventos() {
   const [classe, setClasse] = useState("");
   const [importando, setImportando] = useState(false);
   const apontamento = parametros.get("apontamento");
+  const codigoQualidade = parametros.get("codigo");
   const regraQualidade = parametros.get("regra");
   const explicacaoQualidade = parametros.get("explicacao");
   const retornoQualidade = parametros.get("retorno");
@@ -90,7 +91,7 @@ export function Proventos() {
         classeFiltro={classe}
         aoMudarClasse={setClasse}
         corretoras={corretoras}
-        filtrosFixos={apontamento ? { apontamento } : undefined}
+        filtrosFixos={apontamento ? { apontamento, ...(codigoQualidade ? { codigo: codigoQualidade } : {}) } : undefined}
         chave={(p) => p.id}
         cabecalho={
           <>

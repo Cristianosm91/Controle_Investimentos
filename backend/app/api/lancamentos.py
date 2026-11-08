@@ -101,15 +101,17 @@ def _ids_apontamento(
     investidores: list[int],
     apontamento: str,
     campo: str,
+    codigo: str | None = None,
 ) -> list[int]:
     if not re.fullmatch(r"[a-f0-9]{64}", apontamento):
         raise HTTPException(422, "Identificador de apontamento inválido")
     from ..services import qualidade
 
-    verificacao = next(
-        (v for v in qualidade.verificar(sessao, investidores) if v.fingerprint == apontamento),
-        None,
-    )
+    verificacoes = qualidade.verificar(sessao, investidores)
+    verificacao = next((v for v in verificacoes if v.fingerprint == apontamento), None)
+    if verificacao is None and codigo:
+        # Corrigir um registro muda o fingerprint; a regra continua listando as pendências restantes.
+        verificacao = next((v for v in verificacoes if v.codigo == codigo), None)
     return getattr(verificacao, campo, []) if verificacao else []
 
 
@@ -154,13 +156,14 @@ def listar_operacoes(
     fim: date | None = None,
     ids: str | None = None,
     apontamento: str | None = None,
+    codigo: Annotated[str | None, Query(max_length=50)] = None,
     corretora_id: Annotated[int | None, Query(ge=1)] = None,
     limite: Limite = 200,
     deslocamento: Deslocamento = 0,
 ):
     if apontamento:
         ids_relacionados = _ids_apontamento(
-            sessao, investidores, apontamento, "operacao_ids"
+            sessao, investidores, apontamento, "operacao_ids", codigo
         )
         if not ids_relacionados:
             return Pagina[OperacaoOut](total=0, itens=[])
@@ -285,12 +288,13 @@ def listar_proventos(
     evento: Annotated[str | None, Query(max_length=20)] = None,
     classe: str | None = None,
     apontamento: str | None = None,
+    codigo: Annotated[str | None, Query(max_length=50)] = None,
     corretora_id: Annotated[int | None, Query(ge=1)] = None,
 ):
     ids = None
     if apontamento:
         ids_relacionados = _ids_apontamento(
-            sessao, investidores, apontamento, "provento_ids"
+            sessao, investidores, apontamento, "provento_ids", codigo
         )
         if not ids_relacionados:
             return Pagina[ProventoOut](total=0, itens=[])
@@ -327,11 +331,12 @@ def listar_caixa(
     limite: Limite = 200,
     deslocamento: Deslocamento = 0,
     apontamento: str | None = None,
+    codigo: Annotated[str | None, Query(max_length=50)] = None,
 ):
     ids = None
     if apontamento:
         ids_relacionados = _ids_apontamento(
-            sessao, investidores, apontamento, "caixa_ids"
+            sessao, investidores, apontamento, "caixa_ids", codigo
         )
         if not ids_relacionados:
             return Pagina[MovCaixaOut](total=0, itens=[])
