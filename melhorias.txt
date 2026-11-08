@@ -10,4 +10,18 @@ Rentabilidade:
 
 Valuation:
 
-Botão Salvar premissas laranja e não faz sentido
+Botão Salvar premissas laranja e não faz sentido.
+
+
+Corrija o comportamento da tela de listagem de Operações quando venho da Qualidade de Dados. O problema ocorre porque ao editar uma operação e salvá-la, os parâmetros de filtro da URL (como ?apontamento=...&regra=...) são perdidos, fazendo a tabela resetar os registros exibidos.
+
+Por favor, ajuste o fluxo de salvamento (seja no redirecionamento do backend ou na chamada AJAX/fetch) para que a aplicação preserve integralmente a query string (`window.location.search` ou `request.query_string`) ao recarregar ou redirecionar de volta para a rota de operações.
+
+uma posição encerrada que subiu com a classe de ativo errada, como corrigir?
+
+quando insiro um ativo que não é encontrado oferece para cadastrar na B3 mesmo sem ser b3 e sempre é cadastrado como ação mesmo sem ser
+
+na troca de ticker, quando eu for lançar um evento AT, já pedir para eu informar o novo ticker e a nova quantidade, assim todas as pernas ficam fechadas e toda troca de ticker identifica qual foi o novo. Mas em alguns casos, um ativo pode trocar de ticker para 2 outros ativos, então permitir eu escolher se quero informar junto ou se irei manter os lançamentos individuais.
+
+- As premissas em calculo de valuation pararam de serem preenchidas
+- no calculo de valuation, tem uma ? em cada premissa que ao passar o mouse em cima explique o que é e de exemplos.
