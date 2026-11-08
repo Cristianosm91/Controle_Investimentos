@@ -6,6 +6,11 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 
 ## [Não lançado]
 
+## [1.4.0] - 2026-11-08
+
+### Adicionado
+- Barra lateral recolhível com preferência persistida, identificação dos itens por tooltip e navegação em drawer em telas menores.
+
 ## [1.3.0] - 2026-11-07
 
 ### Adicionado
