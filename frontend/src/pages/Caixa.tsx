@@ -79,6 +79,7 @@ export function Caixa() {
   const { data: dominio } = useDominio();
   const [edicao, setEdicao] = useState<MovCaixa | "nova" | null>(null);
   const apontamento = parametros.get("apontamento");
+  const codigoQualidade = parametros.get("codigo");
   const regraQualidade = parametros.get("regra");
   const explicacaoQualidade = parametros.get("explicacao");
   const retornoQualidade = parametros.get("retorno");
@@ -100,7 +101,7 @@ export function Caixa() {
         recurso="caixa"
         filtroInvestidores={filtro}
         filtroTicker={false}
-        filtrosFixos={apontamento ? { apontamento } : undefined}
+        filtrosFixos={apontamento ? { apontamento, ...(codigoQualidade ? { codigo: codigoQualidade } : {}) } : undefined}
         colunas={colunas}
         chave={(m) => m.id}
         cabecalho={<button onClick={() => setEdicao("nova")}>+ Nova movimentação</button>}
