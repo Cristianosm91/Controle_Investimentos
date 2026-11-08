@@ -24,6 +24,121 @@ def test_operacao_crud(cliente, ids):
     assert cliente.get("/api/operacoes").json()["total"] == 0
 
 
+def test_troca_ticker_cria_e_vincula_as_duas_pernas(cliente, ids):
+    destino = cliente.post(
+        "/api/ativos",
+        json={"ticker": "NOVO3", "classe": "AÇÃO", "moeda": "BRL", "mercado": "BVMF"},
+    ).json()["id"]
+    resposta = cliente.post(
+        "/api/operacoes/troca-ticker",
+        json={
+            "investidor_id": ids["investidor_id"],
+            "ativo_origem_id": ids["ativo_id"],
+            "ativo_destino_id": destino,
+            "corretora_id": ids["corretora_id"],
+            "data": "2026-03-10",
+            "quantidade_origem": 50,
+            "quantidade_destino": 100,
+            "preco_origem": 20,
+            "moeda": "BRL",
+            "cambio": 1,
+        },
+    )
+
+    assert resposta.status_code == 201, resposta.text
+    saida, entrada = resposta.json()
+    assert (saida["ticker"], saida["quantidade"], saida["preco"]) == ("PETR4", -50, 20)
+    assert (entrada["ticker"], entrada["quantidade"], entrada["preco"]) == ("NOVO3", 100, 10)
+    assert saida["transferencia_pareada_id"] == entrada["id"]
+    assert entrada["transferencia_pareada_id"] == saida["id"]
+    assert saida["ticker_transferencia"] == "NOVO3"
+    assert entrada["ticker_transferencia"] == "PETR4"
+    assert saida["observacao"] == entrada["observacao"]
+
+
+def test_troca_ticker_rejeita_moeda_incompativel_sem_gravar_pernas(cliente, ids):
+    destino = cliente.post(
+        "/api/ativos",
+        json={"ticker": "USNEW", "classe": "STOCK", "moeda": "USD", "mercado": "NASDAQ"},
+    ).json()["id"]
+    resposta = cliente.post(
+        "/api/operacoes/troca-ticker",
+        json={
+            "investidor_id": ids["investidor_id"],
+            "ativo_origem_id": ids["ativo_id"],
+            "ativo_destino_id": destino,
+            "data": "2026-03-10",
+            "quantidade_origem": 1,
+            "quantidade_destino": 1,
+            "preco_origem": 20,
+        },
+    )
+    assert resposta.status_code == 422
+    assert cliente.get("/api/operacoes").json()["total"] == 0
+
+
+def test_vincular_e_desvincular_transferencias_individuais(cliente, ids):
+    destino = cliente.post("/api/ativos", json={"ticker": "NOVO3"}).json()["id"]
+    comum = {
+        "investidor_id": ids["investidor_id"],
+        "data": "2026-03-10",
+        "evento": "TRANSFERENCIA",
+        "preco": 20,
+    }
+    saida = cliente.post(
+        "/api/operacoes",
+        json={**comum, "ativo_id": ids["ativo_id"], "quantidade": -50},
+    ).json()
+    entrada = cliente.post(
+        "/api/operacoes",
+        json={**comum, "ativo_id": destino, "quantidade": 50},
+    ).json()
+
+    vinculadas = cliente.post(
+        f"/api/operacoes/{saida['id']}/vinculo-transferencia",
+        json={"operacao_id": entrada["id"]},
+    )
+    assert vinculadas.status_code == 200, vinculadas.text
+    assert {item["transferencia_pareada_id"] for item in vinculadas.json()} == {saida["id"], entrada["id"]}
+
+    listagem = cliente.get("/api/operacoes", params={"evento": "TRANSFERENCIA"}).json()
+    assert listagem["total"] == 2
+    assert {item["ticker_transferencia"] for item in listagem["itens"]} == {"PETR4", "NOVO3"}
+
+    assert cliente.delete(f"/api/operacoes/{entrada['id']}/vinculo-transferencia").status_code == 204
+    desvinculadas = cliente.get("/api/operacoes", params={"evento": "TRANSFERENCIA"}).json()["itens"]
+    assert all(item["transferencia_pareada_id"] is None for item in desvinculadas)
+
+
+def test_editar_perna_vinculada_exige_desfazer_vinculo(cliente, ids):
+    destino = cliente.post("/api/ativos", json={"ticker": "NOVO3"}).json()["id"]
+    comum = {
+        "investidor_id": ids["investidor_id"],
+        "data": "2026-03-10",
+        "evento": "TRANSFERENCIA",
+        "preco": 20,
+    }
+    saida = cliente.post(
+        "/api/operacoes",
+        json={**comum, "ativo_id": ids["ativo_id"], "quantidade": -50},
+    ).json()
+    entrada = cliente.post(
+        "/api/operacoes",
+        json={**comum, "ativo_id": destino, "quantidade": 50},
+    ).json()
+    cliente.post(
+        f"/api/operacoes/{saida['id']}/vinculo-transferencia",
+        json={"operacao_id": entrada["id"]},
+    )
+
+    resposta = cliente.put(
+        f"/api/operacoes/{saida['id']}",
+        json={**comum, "ativo_id": ids["ativo_id"], "quantidade": -25},
+    )
+    assert resposta.status_code == 409
+    assert resposta.json()["detail"] == "Desfaça o vínculo da transferência antes de alterar suas pernas"
+
+
 def test_operacoes_filtradas_por_classe(cliente, ids):
     fii = cliente.post("/api/ativos", json={"ticker": "HGLG11", "classe": "FII"}).json()["id"]
     cripto = cliente.post("/api/ativos", json={"ticker": "BTC", "classe": "CRIPTO"}).json()["id"]

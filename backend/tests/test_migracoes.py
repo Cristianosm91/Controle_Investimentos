@@ -36,5 +36,7 @@ def test_upgrade_preserva_dados_referenciados(tmp_path):
         assert con.execute("PRAGMA foreign_key_check").fetchall() == []
         colunas_valor_historico = {linha[1] for linha in con.execute("PRAGMA table_info('valuation_historico')")}
         assert {"premissa_lpa", "premissa_ke", "premissa_fcfe_5"} <= colunas_valor_historico
+        colunas_operacao = {linha[1] for linha in con.execute("PRAGMA table_info('operacao')")}
+        assert "transferencia_pareada_id" in colunas_operacao
         indices = con.execute("PRAGMA index_list('ativo')").fetchall()
         assert any(i[2] == 1 for i in indices)

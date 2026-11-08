@@ -405,6 +405,33 @@ class OperacaoIn(BaseModel):
         return self
 
 
+class TrocaTickerIn(BaseModel):
+    investidor_id: int = Field(gt=0)
+    ativo_origem_id: int = Field(gt=0)
+    ativo_destino_id: int = Field(gt=0)
+    corretora_id: int | None = Field(default=None, gt=0)
+    data: date
+    quantidade_origem: Decimal = Field(gt=0)
+    quantidade_destino: Decimal = Field(gt=0)
+    preco_origem: Decimal = Field(ge=0)
+    taxas: Decimal = Field(default=Decimal(0), ge=0)
+    irrf: Decimal = Field(default=Decimal(0), ge=0)
+    moeda: str = "BRL"
+    cambio: Decimal = Field(default=Decimal(1), gt=0)
+    observacao: str | None = Field(default=None, max_length=120)
+
+    @model_validator(mode="after")
+    def _validar(self) -> "TrocaTickerIn":
+        if self.ativo_origem_id == self.ativo_destino_id:
+            raise ValueError("Origem e destino devem ser ativos diferentes")
+        _validar_moeda(self.moeda, self.cambio)
+        return self
+
+
+class VinculoTransferenciaIn(BaseModel):
+    operacao_id: int = Field(gt=0)
+
+
 class OperacaoOut(_Saida):
     id: int
     investidor_id: int
@@ -423,6 +450,8 @@ class OperacaoOut(_Saida):
     daytrade: bool
     observacao: str | None
     origem: str
+    transferencia_pareada_id: int | None = None
+    ticker_transferencia: str | None = None
 
 
 # ---------- Proventos ----------

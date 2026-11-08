@@ -33,6 +33,7 @@ interface Props<T> {
   filtroTicker?: boolean;
   classes?: { valor: string; rotulo: string }[];
   corretoras?: { id: number; nome: string }[];
+  eventos?: { valor: string; rotulo: string }[];
   classeFiltro?: string;
   aoMudarClasse?: (valor: string) => void;
   /** Parâmetros fixos da consulta (ex.: { evento: "ALUGUEL" }). */
@@ -52,6 +53,7 @@ export function ListaPaginada<T>({
   filtroTicker = true,
   classes,
   corretoras,
+  eventos,
   classeFiltro,
   aoMudarClasse,
   filtrosFixos,
@@ -59,6 +61,7 @@ export function ListaPaginada<T>({
   const [ticker, setTicker] = useState("");
   const [tamanhoPagina, setTamanhoPagina] = useState<number | typeof TODAS_PAGINAS>(POR_PAGINA);
   const [classe, setClasse] = useState("");
+  const [evento, setEvento] = useState("");
   const [corretoraId, setCorretoraId] = useState("");
   const [inicio, setInicio] = useState("");
   const [fim, setFim] = useState("");
@@ -77,6 +80,7 @@ export function ListaPaginada<T>({
     investidores: filtroInvestidores,
     ticker,
     ...(classes || classeFiltro !== undefined ? { classe: classeSelecionada } : {}),
+    evento,
     corretora_id: corretoraId || undefined,
     inicio,
     fim,
@@ -253,6 +257,20 @@ export function ListaPaginada<T>({
             >
               <option value="">Todas as classes</option>
               {classes.map((opcao) => (
+                <option key={opcao.valor} value={opcao.valor}>
+                  {opcao.rotulo}
+                </option>
+              ))}
+            </select>
+          )}
+          {eventos && (
+            <select
+              aria-label="Filtrar por evento"
+              value={evento}
+              onChange={(e) => filtrar(() => setEvento(e.target.value))}
+            >
+              <option value="">Todos os eventos</option>
+              {eventos.map((opcao) => (
                 <option key={opcao.valor} value={opcao.valor}>
                   {opcao.rotulo}
                 </option>

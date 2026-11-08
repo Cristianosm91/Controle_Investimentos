@@ -117,10 +117,19 @@ class Operacao(Base):
     origem: Mapped[str] = mapped_column(String(20), default="manual")
     hash_origem: Mapped[str | None] = mapped_column(String(64), unique=True)
     lote_id: Mapped[int | None] = mapped_column(ForeignKey("lote_importacao.id", ondelete="SET NULL"), index=True)
+    transferencia_pareada_id: Mapped[int | None] = mapped_column(
+        ForeignKey("operacao.id", ondelete="SET NULL"), unique=True
+    )
 
     investidor: Mapped[Investidor] = relationship()
     ativo: Mapped[Ativo] = relationship()
     corretora: Mapped[Corretora | None] = relationship()
+    transferencia_pareada: Mapped["Operacao | None"] = relationship(
+        "Operacao",
+        remote_side="Operacao.id",
+        foreign_keys=[transferencia_pareada_id],
+        uselist=False,
+    )
 
 
 class TratamentoQualidade(Base):

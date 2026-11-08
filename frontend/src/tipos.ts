@@ -67,6 +67,8 @@ export interface Operacao {
   daytrade: boolean;
   observacao: string | null;
   origem: string;
+  transferencia_pareada_id: number | null;
+  ticker_transferencia: string | null;
 }
 
 export interface Provento {

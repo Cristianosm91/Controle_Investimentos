@@ -16,6 +16,8 @@ from ..schemas import (
     Pagina,
     ProventoIn,
     ProventoOut,
+    TrocaTickerIn,
+    VinculoTransferenciaIn,
 )
 from .deps import InvestidoresDep, SessaoDep, obter_ou_404
 
@@ -28,17 +30,25 @@ Lancamento = Operacao | Provento | MovCaixa
 
 
 def _saida(obj: Lancamento, schema: type[BaseModel]):
-    dados = {c: getattr(obj, c) for c in schema.model_fields if c not in ("ticker", "corretora")}
+    dados = {
+        c: getattr(obj, c)
+        for c in schema.model_fields
+        if c not in ("ticker", "corretora", "ticker_transferencia")
+    }
     if "ticker" in schema.model_fields:
         dados["ticker"] = obj.ativo.ticker
     dados["corretora"] = obj.corretora.nome if obj.corretora else None
+    if "transferencia_pareada_id" in schema.model_fields:
+        pareada = obj.transferencia_pareada
+        dados["ticker_transferencia"] = pareada.ativo.ticker if pareada else None
     return schema.model_validate(dados)
 
 
 def _validar_refs(sessao: Session, dados: BaseModel) -> None:
     obter_ou_404(sessao, Investidor, dados.investidor_id)
-    if getattr(dados, "ativo_id", None) is not None:
-        obter_ou_404(sessao, Ativo, dados.ativo_id)
+    ativo_id = getattr(dados, "ativo_id", getattr(dados, "ativo_origem_id", None))
+    if ativo_id is not None:
+        obter_ou_404(sessao, Ativo, ativo_id)
     if dados.corretora_id is not None:
         obter_ou_404(sessao, Corretora, dados.corretora_id)
 
@@ -78,6 +88,8 @@ def _listar(
     opcoes = [joinedload(modelo.corretora)]
     if hasattr(modelo, "ativo"):
         opcoes.append(joinedload(modelo.ativo))
+    if modelo is Operacao:
+        opcoes.append(joinedload(Operacao.transferencia_pareada).joinedload(Operacao.ativo))
     itens = sessao.scalars(
         base.options(*opcoes).order_by(campo_data.desc(), modelo.id.desc()).limit(limite).offset(deslocamento)
     ).all()
@@ -113,6 +125,10 @@ def _criar(sessao: Session, modelo, dados: BaseModel, schema):
 def _alterar(sessao: Session, modelo, id_: int, dados: BaseModel, schema):
     obj = obter_ou_404(sessao, modelo, id_)
     _validar_refs(sessao, dados)
+    if modelo is Operacao and obj.transferencia_pareada is not None:
+        campos_vinculados = ("investidor_id", "ativo_id", "data", "evento", "quantidade", "preco", "moeda", "cambio")
+        if any(getattr(dados, campo) != getattr(obj, campo) for campo in campos_vinculados):
+            raise HTTPException(409, "Desfaça o vínculo da transferência antes de alterar suas pernas")
     for campo, valor in dados.model_dump().items():
         setattr(obj, campo, valor)
     sessao.commit()
@@ -133,6 +149,7 @@ def listar_operacoes(
     investidores: InvestidoresDep,
     ticker: str | None = None,
     classe: str | None = None,
+    evento: Annotated[str | None, Query(max_length=20)] = None,
     inicio: date | None = None,
     fim: date | None = None,
     ids: str | None = None,
@@ -150,8 +167,93 @@ def listar_operacoes(
         ids = ",".join(str(id_) for id_ in ids_relacionados)
     return _listar(
         sessao, Operacao, Operacao.data, OperacaoOut, investidores, ticker, inicio, fim, limite, deslocamento,
-        classe=classe, ids=ids, corretora_id=corretora_id,
+        evento=evento, classe=classe, ids=ids, corretora_id=corretora_id,
     )
+
+
+@router.post("/operacoes/troca-ticker", response_model=list[OperacaoOut], status_code=201)
+def criar_troca_ticker(dados: TrocaTickerIn, sessao: SessaoDep):
+    origem = obter_ou_404(sessao, Ativo, dados.ativo_origem_id)
+    destino = obter_ou_404(sessao, Ativo, dados.ativo_destino_id)
+    if origem.moeda != dados.moeda or destino.moeda != dados.moeda:
+        raise HTTPException(422, "Origem e destino precisam usar a mesma moeda da operação")
+    _validar_refs(sessao, dados)
+
+    observacao = f"AT {origem.ticker}->{destino.ticker}"
+    if dados.observacao:
+        observacao = f"{observacao} | {dados.observacao}"
+    if len(observacao) > 200:
+        raise HTTPException(422, "Reduza a observação para identificar a troca de ticker")
+
+    saida = Operacao(
+        investidor_id=dados.investidor_id,
+        ativo_id=origem.id,
+        corretora_id=dados.corretora_id,
+        data=dados.data,
+        evento="TRANSFERENCIA",
+        quantidade=-dados.quantidade_origem,
+        preco=dados.preco_origem,
+        taxas=dados.taxas,
+        irrf=dados.irrf,
+        moeda=dados.moeda,
+        cambio=dados.cambio,
+        observacao=observacao,
+        origem="manual",
+    )
+    entrada = Operacao(
+        investidor_id=dados.investidor_id,
+        ativo_id=destino.id,
+        corretora_id=dados.corretora_id,
+        data=dados.data,
+        evento="TRANSFERENCIA",
+        quantidade=dados.quantidade_destino,
+        preco=dados.quantidade_origem * dados.preco_origem / dados.quantidade_destino,
+        moeda=dados.moeda,
+        cambio=dados.cambio,
+        observacao=observacao,
+        origem="manual",
+    )
+    sessao.add_all((saida, entrada))
+    sessao.flush()
+    saida.transferencia_pareada_id = entrada.id
+    entrada.transferencia_pareada_id = saida.id
+    sessao.commit()
+    sessao.refresh(saida)
+    sessao.refresh(entrada)
+    return [_saida(saida, OperacaoOut), _saida(entrada, OperacaoOut)]
+
+
+@router.post("/operacoes/{id_}/vinculo-transferencia", response_model=list[OperacaoOut])
+def vincular_transferencia(id_: int, dados: VinculoTransferenciaIn, sessao: SessaoDep):
+    primeira = obter_ou_404(sessao, Operacao, id_)
+    segunda = obter_ou_404(sessao, Operacao, dados.operacao_id)
+    if primeira.id == segunda.id:
+        raise HTTPException(422, "Selecione outra operação para vincular")
+    if primeira.evento != "TRANSFERENCIA" or segunda.evento != "TRANSFERENCIA":
+        raise HTTPException(422, "Somente operações de transferência podem ser vinculadas")
+    if primeira.investidor_id != segunda.investidor_id:
+        raise HTTPException(422, "As operações precisam pertencer ao mesmo investidor")
+    if primeira.ativo_id == segunda.ativo_id or primeira.quantidade * segunda.quantidade >= 0:
+        raise HTTPException(422, "Vincule uma saída a uma entrada de outro ativo")
+    if primeira.transferencia_pareada_id or segunda.transferencia_pareada_id:
+        raise HTTPException(409, "Uma das operações já está vinculada")
+
+    primeira.transferencia_pareada_id = segunda.id
+    segunda.transferencia_pareada_id = primeira.id
+    sessao.commit()
+    sessao.refresh(primeira)
+    sessao.refresh(segunda)
+    return [_saida(primeira, OperacaoOut), _saida(segunda, OperacaoOut)]
+
+
+@router.delete("/operacoes/{id_}/vinculo-transferencia", status_code=204)
+def desvincular_transferencia(id_: int, sessao: SessaoDep):
+    operacao = obter_ou_404(sessao, Operacao, id_)
+    pareada = operacao.transferencia_pareada
+    if pareada is not None:
+        operacao.transferencia_pareada_id = None
+        pareada.transferencia_pareada_id = None
+        sessao.commit()
 
 
 @router.post("/operacoes", response_model=OperacaoOut, status_code=201)
