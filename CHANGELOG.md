@@ -10,6 +10,13 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 
 ### Adicionado
 - Barra lateral recolhível com preferência persistida, identificação dos itens por tooltip e navegação em drawer em telas menores.
+- Operações: criação conjunta das pernas de saída e entrada em trocas de ticker, com vínculo entre os lançamentos; operações de transferência existentes também podem ser vinculadas ou desvinculadas.
+- Filtro por evento na listagem de operações e na API.
+- Configurações → Classes dos ativos: opção de listar todos os ativos e buscar por ticker, incluindo cadastros sem posição aberta.
+- Valuation: dicas explicativas para as premissas de cálculo.
+
+### Alterado
+- Cadastro rápido de ativos nos campos de ticker solicita classe, mercado e moeda explicitamente.
 
 ## [1.3.0] - 2026-11-07
 
