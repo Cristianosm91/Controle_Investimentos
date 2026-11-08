@@ -785,6 +785,53 @@ select {
   white-space: nowrap;
 }
 
+.operacoes-acoes {
+  display: inline-grid;
+  grid-template-columns: max-content max-content 6rem;
+  align-items: start;
+  text-align: left;
+}
+
+.operacoes-texto,
+.operacoes-evento {
+  display: block;
+  max-width: 8rem;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.operacoes-evento .etiqueta {
+  display: block;
+  margin: 0.2rem 0 0;
+  white-space: normal;
+}
+
+.operacoes-observacao {
+  display: block;
+  max-width: 10rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.operacoes-evento-cabecalho {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+button.operacoes-ajuda {
+  border: 1px solid var(--sutil);
+  border-radius: 50%;
+  width: 1.2rem;
+  height: 1.2rem;
+  padding: 0;
+  font-size: 0.75rem;
+}
+
+.operacoes-legenda dd {
+  margin: 0.25rem 0 0.8rem;
+}
+
 .quebra {
   white-space: normal !important;
   max-width: 360px;
