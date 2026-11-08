@@ -6,12 +6,6 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 
 ## [Não lançado]
 
-### Corrigido
-- Operações: ações Editar/Excluir alinhadas com ou sem vínculo de transferência; textos longos não ampliam as colunas.
-- Eventos compactos na tabela (Desd./Grup., Troca Ticker e Venda subscr.), com legenda no botão de ajuda do cabeçalho e nomes completos preservados na exportação.
-- Filtro de operações contempla todos os eventos do cadastro de domínio.
-- Valuation: unidades e campos das premissas alinhados mesmo quando os títulos ocupam mais de uma linha.
-
 ## [1.4.0] - 2026-11-08
 
 ### Adicionado
@@ -23,6 +17,12 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 
 ### Alterado
 - Cadastro rápido de ativos nos campos de ticker solicita classe, mercado e moeda explicitamente.
+
+### Corrigido
+- Operações: ações Editar/Excluir alinhadas com ou sem vínculo de transferência; textos longos não ampliam as colunas.
+- Eventos compactos na tabela (Desd./Grup., Troca Ticker e Venda subscr.), com legenda no botão de ajuda do cabeçalho e nomes completos preservados na exportação.
+- Filtro de operações contempla todos os eventos do cadastro de domínio.
+- Valuation: unidades e campos das premissas alinhados mesmo quando os títulos ocupam mais de uma linha.
 
 ## [1.3.0] - 2026-11-07
 
