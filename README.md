@@ -4,7 +4,7 @@
 
 **Controle de investimentos pessoal e multi-investidor — carteira, proventos, rentabilidade e imposto de renda, rodando localmente no seu computador.**
 
-![Versão](https://img.shields.io/badge/versão-1.3.0-2E7D32)
+![Versão](https://img.shields.io/badge/versão-1.4.0-2E7D32)
 ![Status](https://img.shields.io/badge/status-estável-2E7D32)
 ![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white)
@@ -36,7 +36,9 @@ O **InvestHub+** é uma aplicação web **local** que substitui planilhas de con
 
 Tudo roda em `127.0.0.1`: os dados ficam no seu computador, e as únicas chamadas externas são consultas públicas de cotações, câmbio, índices, fundamentos e catálogo de criptos.
 
-### Novidades da versão 1.3.0
+### Novidades da versão 1.4.0
+
+A barra lateral pode ser recolhida para ampliar a área de conteúdo, com preferência salva entre acessos e menu em drawer em telas menores.
 
 Modelos personalizados de operações e proventos, classe opcional na planilha de operações, edição de classe e bolsa,
 desfazer a importação recém-gravada, seleção com Shift e filtros por corretora. A coleta de fundamentos agora diferencia
