@@ -101,6 +101,9 @@ def calcular_investimento(movimentos: Iterable[Movimento]) -> ResultadoInvestime
             if not movimento.daytrade:
                 posicao.quantidade += quantidade
                 posicao.capital += desembolso
+        elif evento == "CISAO":
+            reducao = max(ZERO, quantidade * -movimento.preco * movimento.cambio)
+            posicao.capital = max(ZERO, posicao.capital - reducao)
         elif evento == "V" and not movimento.daytrade:
             reduzir(posicao, -quantidade)
         elif evento in ("BONIFICACAO", "DESDOBRAMENTO") and not movimento.daytrade:
