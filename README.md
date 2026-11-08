@@ -586,7 +586,7 @@ Custo, preço médio e lucro são apurados **em BRL**, convertendo cada moviment
 | Bonificação | Entra pela quantidade e custo atribuído |
 | Desdobramento / Grupamento | Altera só a quantidade; custo total mantido |
 | Transferência (troca de ticker, incorporação) | Sai sem lucro do ticker antigo; entra pelo custo no novo |
-| Amortização / Cisão | Reduz o custo sem alterar a quantidade |
+| Amortização / Cisão | Reduz o custo sem alterar a quantidade; a cisão também reduz o valor investido pelo montante informado |
 | Venda de direito de subscrição | Lucro integral, sem afetar a posição |
 | Day trade | Não altera a posição; lucro apurado separadamente |
 
