@@ -1,10 +1,14 @@
-import { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useRef, useState } from "react";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { AcoesLinha } from "../components/AcoesLinha";
 import { FormOperacao } from "../components/FormLancamentos";
 import { ImportarExtrato } from "../components/ImportarExtrato";
 import { ListaPaginada, type ColunaLista } from "../components/ListaPaginada";
+import { VincularTransferencia } from "../components/VincularTransferencia";
+import { api } from "../api";
 import { useAtivos, useCorretoras, useDominio } from "../cadastros";
+import { invalidarDerivados } from "../cadastros";
 import { classeSinal, data, moeda, numero } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
 import type { Operacao } from "../tipos";
@@ -21,13 +25,35 @@ const NOMES_CLASSES: Record<string, string> = {
 
 export function Operacoes() {
   const [parametros] = useSearchParams();
+  const localizacao = useLocation();
   const navegar = useNavigate();
+  const cliente = useQueryClient();
   const { filtro, investidores } = useInvestidor();
   const { data: dominio } = useDominio();
   const { data: ativos } = useAtivos();
   const { data: corretoras } = useCorretoras();
   const [edicao, setEdicao] = useState<Operacao | "nova" | null>(null);
+  const [vinculo, setVinculo] = useState<Operacao | null>(null);
   const [importando, setImportando] = useState(false);
+  const localizacaoEdicao = useRef("/operacoes");
+  const desvincular = useMutation({
+    mutationFn: (id: number) => api.del(`/operacoes/${id}/vinculo-transferencia`),
+    onSuccess: () => {
+      cliente.invalidateQueries({ queryKey: ["operacoes"] });
+      invalidarDerivados(cliente);
+    },
+  });
+  const abrirEdicao = (operacao: Operacao | "nova") => {
+    localizacaoEdicao.current = `${localizacao.pathname}${localizacao.search}`;
+    setEdicao(operacao);
+  };
+  const fecharEdicao = () => {
+    setEdicao(null);
+    const atual = `${window.location.pathname}${window.location.search}`;
+    if (atual !== localizacaoEdicao.current) {
+      navegar(localizacaoEdicao.current, { replace: true });
+    }
+  };
   const idsQualidade = parametros.get("ids");
   const apontamentoQualidade = parametros.get("apontamento");
   const veioDaQualidade = Boolean(idsQualidade || apontamentoQualidade);
@@ -57,6 +83,7 @@ export function Operacoes() {
       render: (o) => (
         <>
           {dominio?.eventos_operacao[o.evento] ?? o.evento}
+          {o.ticker_transferencia && <span className="etiqueta">Ligada a {o.ticker_transferencia}</span>}
           {o.daytrade && <span className="etiqueta">day trade</span>}
         </>
       ),
@@ -79,6 +106,7 @@ export function Operacoes() {
         colunas={colunas}
         classes={classes}
         corretoras={corretoras}
+        eventos={[{ valor: "TRANSFERENCIA", rotulo: "Transferência / troca de ticker (AT/TC)" }]}
         filtrosFixos={
           apontamentoQualidade
             ? { apontamento: apontamentoQualidade }
@@ -123,19 +151,44 @@ export function Operacoes() {
             <button className="secundario" onClick={() => setImportando(true)}>
               Importar extrato B3
             </button>
-            <button onClick={() => setEdicao("nova")}>+ Nova operação</button>
+            <button onClick={() => abrirEdicao("nova")}>+ Nova operação</button>
           </>
         }
         acoes={(o) => (
-          <AcoesLinha
-            recurso="operacoes"
-            id={o.id}
-            descricao={`${dominio?.eventos_operacao[o.evento] ?? o.evento} de ${o.ticker} em ${data(o.data)}`}
-            aoEditar={() => setEdicao(o)}
-          />
+          <>
+            <AcoesLinha
+              recurso="operacoes"
+              id={o.id}
+              descricao={`${dominio?.eventos_operacao[o.evento] ?? o.evento} de ${o.ticker} em ${data(o.data)}`}
+              aoEditar={() => abrirEdicao(o)}
+            />
+            {o.evento === "TRANSFERENCIA" && (
+              <button
+                className="link"
+                disabled={desvincular.isPending}
+                onClick={() => {
+                  if (o.transferencia_pareada_id) {
+                    if (
+                      confirm(
+                        `Desvincular ${o.ticker} de ${o.ticker_transferencia ?? "outra operação"}?`,
+                      )
+                    ) {
+                      desvincular.mutate(o.id);
+                    }
+                  } else {
+                    setVinculo(o);
+                  }
+                }}
+              >
+                {o.transferencia_pareada_id ? "Desvincular" : "Vincular"}
+              </button>
+            )}
+          </>
         )}
       />
-      {edicao && <FormOperacao operacao={edicao === "nova" ? undefined : edicao} aoFechar={() => setEdicao(null)} />}
+      {desvincular.error && <div className="erro">{(desvincular.error as Error).message}</div>}
+      {edicao && <FormOperacao operacao={edicao === "nova" ? undefined : edicao} aoFechar={fecharEdicao} />}
+      {vinculo && <VincularTransferencia operacao={vinculo} aoFechar={() => setVinculo(null)} />}
       {importando && <ImportarExtrato aoFechar={() => setImportando(false)} />}
     </>
   );
