@@ -33,7 +33,7 @@ from app.models import (
     PrejuizoInicial,
     Provento,
 )
-from app.services import aluguel
+from app.services import aluguel, corretoras
 from app.services.carteira import carregar_posicoes
 
 ORIGEM = "planilha"
@@ -151,7 +151,7 @@ class Importador:
         self.sessao = sessao
         self.investidor = investidor
         self.ativos = {a.ticker: a for a in sessao.scalars(select(Ativo))}
-        self.corretoras = {c.nome: c for c in sessao.scalars(select(Corretora))}
+        self.corretoras = corretoras.indice(sessao)
         self.hashes = {
             modelo: set(sessao.scalars(select(modelo.hash_origem).where(modelo.hash_origem.is_not(None))))
             for modelo in (Operacao, Provento, MovCaixa)
@@ -191,12 +191,12 @@ class Importador:
         nome = (texto(nome) or "").upper()
         if nome in CORRETORA_INDEFINIDA:
             return None
-        obj = self.corretoras.get(nome)
+        obj = corretoras.encontrar(self.corretoras, nome)
         if obj is None:
             obj = Corretora(nome=nome)
             self.sessao.add(obj)
             self.sessao.flush()
-            self.corretoras[nome] = obj
+            self.corretoras[corretoras.normalizar(nome)] = {obj.id: obj}
         return obj
 
     def _novo(self, modelo, hash_: str) -> bool:

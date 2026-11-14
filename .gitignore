@@ -22,7 +22,10 @@ security-report/
 Ref/
 
 # Material do ambiente de trabalho (não faz parte do app)
-.github/
-guia-skills/
 .vscode/
 frontend/*.tsbuildinfo
+
+# Testes E2E (Playwright): resultados, relatorio HTML e banco descartavel
+frontend/test-results/
+frontend/playwright-report/
+frontend/.e2e-dados/

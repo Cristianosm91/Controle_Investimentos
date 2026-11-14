@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse
 
 from ..config import settings
 from ..db import engine
-from ..schemas import BackupOut, BackupsOut, RestauracaoOut
+from ..schemas import BackupGeradoOut, BackupOut, BackupsOut, RestauracaoOut
 from ..services import backup, jobs
 from .deps import exigir_binario
 
@@ -38,6 +38,8 @@ def _restaurar(arquivo: Path) -> RestauracaoOut:
         raise HTTPException(409, str(erro)) from erro
     except backup.BackupInvalido as erro:
         raise HTTPException(422, str(erro)) from erro
+    except backup.RestauracaoIncompleta as erro:
+        raise HTTPException(500, str(erro)) from erro
     finally:
         # Conexões abertas antes da troca não podem reaproveitar cache/estado do banco antigo.
         engine.dispose()
@@ -56,14 +58,18 @@ def listar_backups():
     )
 
 
-@router.post("/backups", response_model=BackupOut, status_code=201)
+@router.post("/backups", response_model=BackupGeradoOut, status_code=201)
 def gerar_backup():
     banco = _banco()
+    avisos: list[str] = []
     try:
-        destino = backup.gerar(banco, "manual")
+        destino = backup.gerar(banco, "manual", avisos=avisos)
     except FileNotFoundError as erro:
         raise HTTPException(404, str(erro)) from erro
-    return next(BackupOut(**asdict(i)) for i in backup.listar(banco) if i.nome == destino.name)
+    except backup.BackupInvalido as erro:
+        raise HTTPException(500, f"{erro}. O arquivo foi descartado; tente novamente.") from erro
+    item = next(i for i in backup.listar(banco) if i.nome == destino.name)
+    return BackupGeradoOut(**asdict(item), aviso_copia="; ".join(avisos) or None)
 
 
 @router.get("/backups/{nome}")

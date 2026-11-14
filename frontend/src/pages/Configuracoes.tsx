@@ -6,8 +6,10 @@ import { AtivosPersonalizados } from "../components/config/AtivosPersonalizados"
 import { useExclusaoEmLote } from "../components/ExclusaoEmLote";
 import { BackupConfig } from "../components/config/Backup";
 import { Carteiras } from "../components/config/Carteiras";
+import { Corretoras } from "../components/config/Corretoras";
 import { ClassesAtivos } from "../components/config/ClassesAtivos";
 import { EstrategiasBooks } from "../components/config/EstrategiasBooks";
+import { ExclusaoInvestidor } from "../components/config/ExclusaoInvestidor";
 import { Importacoes } from "../components/config/Importacoes";
 import { ImpostoRendaConfig } from "../components/config/ImpostoRenda";
 import { Parametros } from "../components/config/Parametros";
@@ -18,6 +20,7 @@ import type { Investidor } from "../tipos";
 
 const SECOES = [
   { id: "investidores", rotulo: "Investidores" },
+  { id: "corretoras", rotulo: "Corretoras" },
   { id: "estrategias", rotulo: "Estratégias & Books" },
   { id: "carteiras", rotulo: "Carteiras" },
   { id: "ativos", rotulo: "Ativos personalizados" },
@@ -44,10 +47,12 @@ interface FormInvestidor {
 const VAZIO: FormInvestidor = { nome: "", cpf: "", grupo_id: "", cor: "#2563eb", ativo: true };
 
 function Investidores() {
-  const { investidores, grupos } = useInvestidor();
+  const { investidores, grupos, selecionados, setSelecionados } = useInvestidor();
   const cliente = useQueryClient();
   const [form, setForm] = useState<FormInvestidor>(VAZIO);
   const [novoGrupo, setNovoGrupo] = useState("");
+  const [excluindoCompleto, setExcluindoCompleto] = useState<Investidor | null>(null);
+  const [avisoExclusao, setAvisoExclusao] = useState<string | null>(null);
   const recarregar = () => {
     cliente.invalidateQueries({ queryKey: ["investidores"] });
     cliente.invalidateQueries({ queryKey: ["grupos"] });
@@ -106,6 +111,29 @@ function Investidores() {
         Cada investidor tem posições, preço médio e IR próprios (por CPF). O seletor no topo filtra todas as páginas.
       </p>
       {erro && <div className="erro">{(erro as Error).message}</div>}
+      {avisoExclusao && (
+        <div className="aviso" role="status">
+          {avisoExclusao}
+        </div>
+      )}
+      {excluindoCompleto && (
+        <ExclusaoInvestidor
+          investidor={excluindoCompleto}
+          aoFechar={() => setExcluindoCompleto(null)}
+          aoExcluir={(resultado) => {
+            const removido = excluindoCompleto;
+            setExcluindoCompleto(null);
+            if (form.id === removido.id) setForm(VAZIO);
+            setSelecionados(selecionados.filter((id) => id !== removido.id));
+            setAvisoExclusao(
+              `${removido.nome} foi excluído com todos os dados. Backup criado antes da exclusão: ${resultado.backup}`,
+            );
+            // A prévia do investidor removido responderia 404: descarta antes de recarregar o restante.
+            cliente.removeQueries({ queryKey: ["investidor-exclusao", removido.id] });
+            cliente.invalidateQueries();
+          }}
+        />
+      )}
       {selecaoInvestidores.acoes}
 
       <table className="tabela compacta">
@@ -138,6 +166,16 @@ function Investidores() {
                   onClick={() => confirm(`Excluir ${i.nome}?`) && excluir.mutate(i.id)}
                 >
                   Excluir
+                </button>
+                <button
+                  className="link perigo"
+                  title="Exclui o investidor e todos os lançamentos e dados vinculados, após criar um backup"
+                  onClick={() => {
+                    setAvisoExclusao(null);
+                    setExcluindoCompleto(i);
+                  }}
+                >
+                  Excluir com todos os dados
                 </button>
               </td>
             </tr>
@@ -194,7 +232,11 @@ function Investidores() {
           <span key={g.id} className="etiqueta">
             {selecaoGrupos.checkbox(g.id)}
             {g.nome}
-            <button className="link perigo" onClick={() => excluirGrupo.mutate(g.id)} aria-label={`Excluir ${g.nome}`}>
+            <button
+              className="link perigo"
+              onClick={() => confirm(`Excluir o grupo ${g.nome}?`) && excluirGrupo.mutate(g.id)}
+              aria-label={`Excluir ${g.nome}`}
+            >
               ×
             </button>
           </span>
@@ -207,7 +249,13 @@ function Investidores() {
           if (novoGrupo.trim()) criarGrupo.mutate(novoGrupo.trim());
         }}
       >
-        <input placeholder="Novo grupo" maxLength={60} value={novoGrupo} onChange={(e) => setNovoGrupo(e.target.value)} />
+        <input
+          placeholder="Novo grupo"
+          aria-label="Nome do novo grupo"
+          maxLength={60}
+          value={novoGrupo}
+          onChange={(e) => setNovoGrupo(e.target.value)}
+        />
         <button type="submit">Adicionar</button>
       </form>
     </>
@@ -215,12 +263,13 @@ function Investidores() {
 }
 
 export function Configuracoes() {
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const inicial = SECOES.find((s) => s.id === params.get("secao"))?.id ?? "investidores";
   const [secao, setSecao] = useState<SecaoId>(inicial);
   useEffect(() => setSecao(inicial), [inicial]);
   const conteudo: Record<SecaoId, JSX.Element> = {
     investidores: <Investidores />,
+    corretoras: <Corretoras />,
     estrategias: <EstrategiasBooks />,
     carteiras: <Carteiras />,
     ativos: <AtivosPersonalizados />,
@@ -238,7 +287,12 @@ export function Configuracoes() {
       <h1>Configurações</h1>
       <div className="abas">
         {SECOES.map((s) => (
-          <button key={s.id} className={s.id === secao ? "aba ativa" : "aba"} onClick={() => setSecao(s.id)}>
+          <button key={s.id} className={s.id === secao ? "aba ativa" : "aba"} onClick={() => {
+            setSecao(s.id);
+            const novos = new URLSearchParams(params);
+            novos.set("secao", s.id);
+            setParams(novos);
+          }}>
             {s.rotulo}
           </button>
         ))}

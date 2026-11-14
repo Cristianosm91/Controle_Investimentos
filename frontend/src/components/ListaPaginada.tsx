@@ -78,7 +78,6 @@ export function ListaPaginada<T>({
   const classeSelecionada = classeFiltro ?? classe;
 
   const params = {
-    ...filtrosFixos,
     investidores: filtroInvestidores,
     ticker,
     ...(classes || classeFiltro !== undefined ? { classe: classeSelecionada } : {}),
@@ -88,6 +87,7 @@ export function ListaPaginada<T>({
     fim,
     limite: tamanhoPagina === TODAS_PAGINAS ? LOTE_EXPORTACAO : tamanhoPagina,
     deslocamento: tamanhoPagina === TODAS_PAGINAS ? 0 : pagina * tamanhoPagina,
+    ...filtrosFixos,
   };
   const { data, isFetching, error } = useQuery({
     queryKey: [recurso, params],

@@ -89,6 +89,9 @@ class Settings(BaseSettings):
     cotacoes_intervalo_min: int = Field(default=15, ge=5)
     # Arquivo diário da B3 sai à noite; o job tenta a partir deste horário.
     cotahist_hora: int = Field(default=21, ge=0, le=23)
+    # Pasta adicional (outro disco, rede ou pasta sincronizada) que recebe uma cópia verificada de cada backup;
+    # vazia = só a pasta `backups` ao lado do banco.
+    backup_copia_dir: str = ""
 
     @property
     def db_url(self) -> str:

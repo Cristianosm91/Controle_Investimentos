@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { api, query } from "../api";
+import { AjudaIndicador } from "../components/AjudaIndicador";
 import { classeSinal, data, moeda, numero, percentual } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
 import type { Ativo, Book, Carteira, StatusAtivo as StatusAtivoTipo } from "../tipos";
@@ -105,26 +106,26 @@ export function StatusAtivo() {
         <>
           <div className="cards">
             <div className="card">
-              <span>Investido</span>
+              <span>Investido <AjudaIndicador titulo="Investido no escopo" texto="Valor investido considerado para o ativo, carteira ou book selecionado, respeitando o filtro de investidores." /></span>
               <strong>{moeda(status.data.investido)}</strong>
             </div>
             <div className="card">
-              <span>Valor de mercado</span>
+              <span>Valor de mercado <AjudaIndicador titulo="Valor de mercado no escopo" texto="Valor de mercado das posições do escopo selecionado, respeitando o filtro de investidores." /></span>
               <strong>{moeda(status.data.mercado)}</strong>
             </div>
             <div className="card">
-              <span>Lucro aberto</span>
+              <span>Lucro aberto <AjudaIndicador titulo="Lucro aberto no escopo" texto="Valor de mercado menos o investido considerado no escopo." /></span>
               <strong>
                 <Sinal valor={status.data.lucro_aberto}>{moeda(status.data.lucro_aberto)}</Sinal>
               </strong>
             </div>
             <div className="card">
-              <span>Proventos líquidos · últimos 12 meses</span>
+              <span>Proventos líquidos · últimos 12 meses <AjudaIndicador titulo="Proventos líquidos do escopo" texto="Proventos líquidos dos últimos 12 meses atribuídos ao escopo. O YoC divide esse valor pelo investido." /></span>
               <strong>{moeda(status.data.proventos_12m)}</strong>
               <small className="sutil">YoC {percentual(status.data.yoc_12m)}</small>
             </div>
             <div className="card">
-              <span>Lucro total calculado</span>
+              <span>Lucro total calculado <AjudaIndicador titulo="Lucro total do escopo" texto="Lucro aberto mais resultados de swing trade e day trade e proventos totais atribuídos ao escopo." /></span>
               <strong>
                 <Sinal valor={status.data.lucro_total}>{moeda(status.data.lucro_total)}</Sinal>
               </strong>

@@ -23,6 +23,7 @@ def rentabilidade_mensal(
     return [
         MesRentabilidadeOut(
             data=l.mes.data, investido=l.mes.investido, mercado=l.mes.mercado, proventos=l.mes.proventos,
+            aluguel=l.mes.aluguel,
             lucro_trades=l.mes.lucro_trades, lucro_daytrade=l.mes.lucro_daytrade, fluxo=l.mes.fluxo, lucro=l.mes.lucro,
             twr=l.mes.twr, twr_acumulado=l.twr_acumulado, sem_cotacao=len(l.mes.sem_cotacao),
             ibov=l.benchmark.ibov, ifix=l.benchmark.ifix, cdi=l.benchmark.cdi, ipca=l.benchmark.ipca,

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, query } from "../api";
+import { AjudaIndicador } from "../components/AjudaIndicador";
 import { useExclusaoEmLote } from "../components/ExclusaoEmLote";
 import { classeSinal, data, moeda, percentual } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
@@ -166,8 +167,16 @@ export function Radar() {
         </div>
         <p className="sutil radar-ajuda">
           Métricas de 60 dias e 52 semanas só aparecem quando o histórico armazenado cobre o período completo. Use a
-          tela <Link to="/configuracoes">Atualizações</Link> para carregar o histórico da B3.
+          tela <Link to="/configuracoes?secao=atualizacoes">Atualizações</Link> para carregar o histórico da B3.
         </p>
+        <div className="ajuda-metricas sutil">
+          <span>Variações <AjudaIndicador titulo="Variações do Radar" texto="Comparam a última cotação com a cotação histórica anterior para 1, 7 e 14 dias. A disponibilidade depende do histórico." /></span>
+          <span>Drawdown 60d <AjudaIndicador titulo="Drawdown de 60 dias" texto="Última cotação dividida pela maior cotação dos últimos 60 dias, menos um. Depende de histórico suficiente." /></span>
+          <span>Mín. / máx. 52s <AjudaIndicador titulo="Mínima e máxima de 52 semanas" texto="Menor e maior cotação observadas nos últimos 365 dias, quando há histórico suficiente." /></span>
+          <span>Graham / upside <AjudaIndicador titulo="Graham e upside" texto="Estimativa de Graham calculada com cotação, P/L e P/VP disponíveis; upside é o preço estimado dividido pela cotação menos um. Não é recomendação." /></span>
+          <span>Fundamentos <AjudaIndicador titulo="Fundamentos do Radar" texto="P/L, P/VP, dividend yield, ROE e FFO yield são indicadores do último registro de fundamentos disponível; a data aparece junto ao ativo." /></span>
+          <span>YoC 12m <AjudaIndicador titulo="YoC de 12 meses no Radar" texto="Proventos líquidos dos últimos 365 dias divididos pelo custo contábil das posições abertas do ativo." /></span>
+        </div>
       </div>
 
       {radar.isLoading ? (
@@ -252,7 +261,11 @@ export function Radar() {
                     <button
                       className="radar-remover"
                       disabled={remover.isPending}
-                      onClick={() => remover.mutate(item.ativo_id)}
+                      onClick={() =>
+                        confirm(
+                          `Remover ${item.ticker} do Radar?${item.preco_alvo !== null ? " O preço-alvo cadastrado também será removido." : ""}`,
+                        ) && remover.mutate(item.ativo_id)
+                      }
                     >
                       REMOVER
                     </button>

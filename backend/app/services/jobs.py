@@ -4,6 +4,7 @@ Cada tarefa tem uma trava própria: execução agendada e manual nunca rodam ao 
 """
 
 import logging
+import re
 import threading
 import time
 from collections.abc import Callable, Iterator
@@ -14,9 +15,12 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
+import httpx
+import requests
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from ..config import settings
@@ -40,6 +44,8 @@ class Tarefa:
     descricao: str
     funcao: Callable[[Session], Any]
     resumir: Callable[[Any], str]
+    # Falhas de fonte do resultado (job concluído, mas com dados faltando por erro do provedor).
+    falhas_de: Callable[[Any], list[str]] = field(default=lambda _r: [], repr=False)
     trava: threading.Lock = field(default_factory=threading.Lock, repr=False)
     em_execucao: bool = False
     inicio: datetime | None = None
@@ -47,11 +53,38 @@ class Tarefa:
     sucesso: bool | None = None
     mensagem: str | None = None
     duracao_s: float | None = None
+    # "ok" | "parcial" (concluída com falhas de fonte) | "falha" (exceção); None = ainda não executada.
+    status: str | None = None
+
+
+_URL = re.compile(r"https?://\S+", re.IGNORECASE)
+_PASTA_USUARIO = re.compile(r"(?i)\b([a-z]:[\\/]+users[\\/]+)[^\\/\s'\"]+")
+_DETALHE_SQL = re.compile(r"\s*\[(?:SQL|parameters):.*", re.DOTALL)
+
+
+def mensagem_segura(texto: str) -> str:
+    """Remove URLs, SQL/parâmetros e pastas de usuário do texto exibido na UI (o detalhe fica no log)."""
+    texto = _DETALHE_SQL.sub("", texto)
+    texto = _URL.sub("<fonte externa>", texto)
+    return _PASTA_USUARIO.sub(r"\1***", texto).strip()
+
+
+def mensagem_de_erro(erro: BaseException) -> str:
+    if isinstance(erro, SQLAlchemyError):
+        return "Falha ao acessar o banco de dados; detalhes no log"
+    if isinstance(erro, (httpx.HTTPError, requests.RequestException, ConnectionError, TimeoutError)):
+        return "Falha de comunicação com a fonte externa; detalhes no log"
+    return mensagem_segura(f"{type(erro).__name__}: {erro}")
+
+
+def _falhas_cotacoes(r) -> list[str]:
+    return list(dict.fromkeys(r.falhas_fonte))
 
 
 def _resumo_cotacoes(r) -> str:
     texto = f"{len(r.atualizados)} atualizados"
-    return texto + (f"; sem cotação: {', '.join(r.sem_cotacao)}" if r.sem_cotacao else "")
+    texto += f"; sem cotação: {', '.join(r.sem_cotacao)}" if r.sem_cotacao else ""
+    return texto + (f"; falha na fonte: {', '.join(_falhas_cotacoes(r))}" if r.falhas_fonte else "")
 
 
 def _resumo_cotahist(r: cotahist.ResultadoCarga) -> str:
@@ -80,22 +113,27 @@ def _resumo_backup(r: Path | None) -> str:
 TAREFAS: dict[str, Tarefa] = {
     t.nome: t
     for t in (
-        Tarefa("cotacoes", "Cotações (Yahoo) e câmbio (PTAX/BCB)", atualizar_cotacoes, _resumo_cotacoes),
+        Tarefa(
+            "cotacoes", "Cotações (Yahoo) e câmbio (PTAX/BCB)", atualizar_cotacoes, _resumo_cotacoes, _falhas_cotacoes,
+        ),
         Tarefa("cotahist_diario", "Fechamento oficial B3 (COTAHIST diário)", cotahist.carregar_pendentes, _resumo_cotahist),
         Tarefa("cotahist_historico", "Histórico B3 (COTAHIST anual)", cotahist.carregar_historico, _resumo_cotahist),
         Tarefa(
             "indices_diario", "Índices (CDI, IPCA, SELIC, IGP-M, IBOV, IFIX), PTAX, exterior e criptos — recentes",
-            historico.atualizar_recentes, lambda r: r.resumo(),
+            historico.atualizar_recentes, lambda r: r.resumo(), lambda r: r.falhas,
         ),
         Tarefa(
             "historico_complementar", "Histórico de índices, PTAX, ativos do exterior e criptos (completo)",
-            historico.carregar_tudo, lambda r: r.resumo(),
+            historico.carregar_tudo, lambda r: r.resumo(), lambda r: r.falhas,
         ),
         Tarefa(
             "fundamentos", "Fundamentos B3 (Fundamentus) e ativos dos EUA (Yahoo Finance)",
-            fundamentos.atualizar, _resumo_fundamentos,
+            fundamentos.atualizar, _resumo_fundamentos, lambda r: r.falhas,
         ),
-        Tarefa("cripto", "Cripto (CoinGecko → Kraken) e câmbio PTAX", cripto.atualizar, lambda r: r.resumo()),
+        Tarefa(
+            "cripto", "Cripto (CoinGecko → Kraken) e câmbio PTAX", cripto.atualizar, lambda r: r.resumo(),
+            lambda r: r.falhas,
+        ),
         Tarefa("backup", "Backup automático do banco (mantém os 10 últimos)", _backup_automatico, _resumo_backup),
     )
 }
@@ -127,11 +165,16 @@ def executar(nome: str) -> Any:
     try:
         with SessionLocal() as sessao:
             resultado = tarefa.funcao(sessao)
-        tarefa.sucesso, tarefa.mensagem = True, tarefa.resumir(resultado)
-        log.info("Tarefa %s concluída: %s", nome, tarefa.mensagem)
+        falhas = tarefa.falhas_de(resultado)
+        tarefa.sucesso, tarefa.mensagem = True, mensagem_segura(tarefa.resumir(resultado))
+        tarefa.status = "parcial" if falhas else "ok"
+        if falhas:
+            log.warning("Tarefa %s concluída com falhas de fonte: %s", nome, "; ".join(falhas))
+        else:
+            log.info("Tarefa %s concluída: %s", nome, tarefa.mensagem)
         return resultado
     except Exception as erro:
-        tarefa.sucesso, tarefa.mensagem = False, f"{type(erro).__name__}: {erro}"
+        tarefa.sucesso, tarefa.status, tarefa.mensagem = False, "falha", mensagem_de_erro(erro)
         log.exception("Tarefa %s falhou", nome)
         raise
     finally:

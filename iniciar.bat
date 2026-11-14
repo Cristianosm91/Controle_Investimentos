@@ -18,6 +18,8 @@ powershell -NoProfile -Command "$b = Get-Item 'frontend\dist\index.html' -ErrorA
 if errorlevel 1 call :compilar || goto :erro
 
 pushd backend
+rem Backup verificado do banco antes de aplicar migracoes pendentes; se falhar, nao migra nem sobe o app.
+"..\.venv\Scripts\python.exe" -m scripts.backup_antes_migrar || goto :erro
 "..\.venv\Scripts\python.exe" -m alembic upgrade head || goto :erro
 rem Abre o navegador so quando a API responder (o Uvicorn leva alguns segundos para subir).
 start "" /b powershell -NoProfile -Command "$u = 'http://127.0.0.1:8000'; for ($i = 0; $i -lt 120; $i++) { try { Invoke-WebRequest ($u + '/api/saude') -UseBasicParsing -TimeoutSec 2 | Out-Null; break } catch { Start-Sleep -Milliseconds 500 } }; Start-Process $u"

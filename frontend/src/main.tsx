@@ -3,6 +3,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Layout, PAGINAS } from "./components/Layout";
+import { LimiteErro } from "./components/LimiteErro";
 import { ProvedorInvestidor } from "./InvestidorContext";
 import { Alocacao } from "./pages/Alocacao";
 import { Aluguel } from "./pages/Aluguel";
@@ -49,24 +50,33 @@ const prontas: Record<string, JSX.Element> = {
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <QueryClientProvider client={cliente}>
-      <ProvedorInvestidor>
-        <BrowserRouter>
-          <Routes>
-            <Route element={<Layout />}>
-              {PAGINAS.map((p) => (
+    <LimiteErro>
+      <QueryClientProvider client={cliente}>
+        <ProvedorInvestidor>
+          <BrowserRouter>
+            <Routes>
+              <Route element={<Layout />}>
+                {PAGINAS.map((p) => (
+                  <Route
+                    key={p.caminho}
+                    path={p.caminho}
+                    element={<LimiteErro key={p.caminho}>{prontas[p.caminho] ?? <EmConstrucao titulo={p.rotulo} />}</LimiteErro>}
+                  />
+                ))}
                 <Route
-                  key={p.caminho}
-                  path={p.caminho}
-                  element={prontas[p.caminho] ?? <EmConstrucao titulo={p.rotulo} />}
+                  path="/configuracoes"
+                  element={
+                    <LimiteErro key="/configuracoes">
+                      <Configuracoes />
+                    </LimiteErro>
+                  }
                 />
-              ))}
-              <Route path="/configuracoes" element={<Configuracoes />} />
-              <Route path="*" element={<EmConstrucao titulo="Página não encontrada" />} />
-            </Route>
-          </Routes>
-        </BrowserRouter>
-      </ProvedorInvestidor>
-    </QueryClientProvider>
+                <Route path="*" element={<EmConstrucao titulo="Página não encontrada" />} />
+              </Route>
+            </Routes>
+          </BrowserRouter>
+        </ProvedorInvestidor>
+      </QueryClientProvider>
+    </LimiteErro>
   </StrictMode>,
 );

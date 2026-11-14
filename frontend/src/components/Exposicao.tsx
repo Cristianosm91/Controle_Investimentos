@@ -2,6 +2,7 @@ import { useState } from "react";
 import { moeda, percentual } from "../formato";
 import type { Posicao } from "../tipos";
 import { Dica, useDica } from "./Dica";
+import { AjudaIndicador } from "./AjudaIndicador";
 
 export type Dimensao = "classe" | "setor" | "ticker" | "estrategia" | "book" | "carteira" | "moeda";
 
@@ -83,7 +84,9 @@ function Barras({ titulo, itens, total }: { titulo: string; itens: [string, numb
 
   return (
     <div className="card exposicao">
-      <span>{titulo}</span>
+      <span>{titulo} <AjudaIndicador titulo={titulo} texto={titulo === "Exposição por corretora"
+        ? "Valor atribuído a cada corretora dividido pelo total atribuído às corretoras exibidas."
+        : "Soma do valor de mercado das posições do grupo dividida pelo total das posições. Quando falta cotação, usa o custo da posição."} /></span>
       {visiveis.map(([rotulo, valor]) => linha(rotulo, valor))}
       {resto > 0 && linha(`Outros (${ocultos}) ▸`, resto, () => setExpandido(true), `Outros (${ocultos})`)}
       {expandido && ocultos > 0 && (

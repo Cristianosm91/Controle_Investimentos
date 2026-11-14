@@ -137,7 +137,11 @@ def test_importa_campos_da_planilha_personalizada_de_proventos(cliente):
         2, 0.3, 0.1, "BRL", "2026-03-03",
     )
     assert jscp["observacao"] == "Tipo informado: JSCP · exemplo de origem"
+    alugueis = cliente.get(
+        "/api/proventos", params={"investidores": investidor_id, "evento": "ALUGUEL"}
+    ).json()["itens"]
     assert {p["evento"] for p in proventos} == {
-        "DIVIDENDO", "JSCP", "RENDIMENTO", "BONIFICACAO", "ALUGUEL", "VENDA_BONIFICACAO", "REEMBOLSO",
+        "DIVIDENDO", "JSCP", "RENDIMENTO", "BONIFICACAO", "VENDA_BONIFICACAO", "REEMBOLSO",
         "CREDITO_NAO_PAGO_JSCP", "VENDA_FRACAO",
     }
+    assert {p["evento"] for p in alugueis} == {"ALUGUEL"}

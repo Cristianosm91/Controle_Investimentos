@@ -130,7 +130,13 @@ export function Proventos() {
         )}
       />
       )}
-      {edicao && <FormProvento provento={edicao === "novo" ? undefined : edicao} aoFechar={() => setEdicao(null)} />}
+      {edicao && (
+        <FormProvento
+          provento={edicao === "novo" ? undefined : edicao}
+          ocultarAluguel
+          aoFechar={() => setEdicao(null)}
+        />
+      )}
       {importando && <ImportarExtrato aoFechar={() => setImportando(false)} />}
     </>
   );

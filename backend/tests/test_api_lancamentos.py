@@ -232,6 +232,13 @@ def test_edicao_classe_bolsa_rejeita_entrada_invalida(cliente, ids, corpo):
     assert resposta.status_code == 422
 
 
+def test_edicao_moeda_ativo(cliente):
+    ativo = cliente.post("/api/ativos", json={"ticker": "INTR", "classe": "STOCK"}).json()
+    resposta = cliente.patch(f"/api/ativos/{ativo['id']}/classe", json={"moeda": "USD"})
+    assert resposta.status_code == 200
+    assert resposta.json()["moeda"] == "USD"
+
+
 def test_edicao_bolsa_preserva_protecao_de_cripto_vinculada(cliente):
     ativo = cliente.post("/api/ativos", json={
         "ticker": "BTC", "classe": "CRIPTO", "moeda": "USD",

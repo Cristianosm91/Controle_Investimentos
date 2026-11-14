@@ -8,6 +8,7 @@ import type { Ativo, Cota, MovCaixa, Operacao, Provento } from "../tipos";
 import { CampoAtivo, CampoCorretora, CampoEvento, CampoInvestidor, CamposMoedaCambio } from "./Campos";
 import { CampoData } from "./CampoData";
 import { Modal } from "./Modal";
+import { AjudaIndicador } from "./AjudaIndicador";
 
 const hoje = () => new Date().toLocaleDateString("sv-SE"); // aaaa-mm-dd no fuso local
 const opcional = (v: string) => (v === "" ? null : Number(v));
@@ -300,7 +301,7 @@ export function FormOperacao({ operacao, aoFechar }: { operacao?: Operacao; aoFe
         <input type="number" step="any" min="0" value={f.taxas} onChange={(e) => mudar({ taxas: e.target.value })} />
       </label>
       <label>
-        IRRF
+        <span>IRRF <AjudaIndicador titulo="IRRF da operação" texto="IRRF é Imposto de Renda Retido na Fonte. Na bolsa, a retenção conhecida como dedo-duro costuma ser 0,005% sobre as vendas comuns ou 1% sobre o lucro do day trade. Informe o valor da nota, na moeda do lançamento. Reduz o lucro líquido da carteira; no fiscal é crédito do imposto, não despesa dedutível da base." /></span>
         <input type="number" step="any" min="0" value={f.irrf} onChange={(e) => mudar({ irrf: e.target.value })} />
       </label>
       <CamposMoedaCambio moeda={f.moeda} cambio={f.cambio} data={f.data} automatico={f.cambioAuto} aoMudar={mudarCambio} />
@@ -367,10 +368,12 @@ interface FormProv {
 export function FormProvento({
   provento: p,
   eventoInicial = "DIVIDENDO",
+  ocultarAluguel = false,
   aoFechar,
 }: {
   provento?: Provento;
   eventoInicial?: string;
+  ocultarAluguel?: boolean;
   aoFechar: () => void;
 }) {
   const investidorPadrao = useInvestidorPadrao();
@@ -425,7 +428,12 @@ export function FormProvento({
         ativoId={f.ativo_id}
         aoMudar={(a) => mudar(a ? { ativo_id: String(a.id), moeda: a.moeda, cambioAuto: true, ...(a.moeda === "BRL" && { cambio: "1" }) } : { ativo_id: "" })}
       />
-      <CampoEvento tipo="eventos_provento" valor={f.evento} aoMudar={(v) => mudar({ evento: v })} />
+      <CampoEvento
+        tipo="eventos_provento"
+        valor={f.evento}
+        aoMudar={(v) => mudar({ evento: v })}
+        excluir={ocultarAluguel ? ["ALUGUEL"] : undefined}
+      />
       <label>
         Pagamento
         <CampoData required valor={f.data_pagamento} aoMudar={(v) => mudar({ data_pagamento: v, cambioAuto: true })} />
@@ -439,7 +447,7 @@ export function FormProvento({
         <input required type="number" step="any" min="0" value={f.valor} onChange={(e) => mudar({ valor: e.target.value })} />
       </label>
       <label>
-        IRRF
+        <span>IRRF <AjudaIndicador titulo="IRRF do provento" texto="Imposto de Renda Retido na Fonte sobre o rendimento, informado na moeda do lançamento. É descontado do valor bruto para chegar ao líquido. As alíquotas e o tratamento dependem do tipo de rendimento; não é necessariamente a retenção dedo-duro da bolsa." /></span>
         <input type="number" step="any" min="0" value={f.irrf} onChange={(e) => mudar({ irrf: e.target.value })} />
       </label>
       <label>

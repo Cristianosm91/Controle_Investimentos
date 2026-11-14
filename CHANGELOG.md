@@ -6,6 +6,37 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 
 ## [Não lançado]
 
+### Adicionado
+- Correção explícita de moeda na edição do ativo: confirmação, backup verificado e PTAX histórica para operações/proventos, sem converter preços ou valores e sem alterar movimentos de caixa não vinculados.
+- Apuração de IR: lucro líquido após IRRF conciliado com a carteira, separado da base fiscal; valores retidos, compensados e acumulados, com ajuda “?” sobre o dedo-duro.
+- CDI diário oficial (SGS 12), capitalização por data publicada e taxa adicional em base 252; migração de cache sem alterar lançamentos existentes.
+- Correção datada de saldo bruto em ativos automáticos, preservada nas atualizações e usada como referência para os próximos rendimentos.
+- Ajuda contextual em quadros, gráficos e indicadores de Resumo, Portfólio, Rentabilidade, Proventos, Aluguel, Caixa, Cripto, Metas, Alocação, Radar, Renda fixa, Status do ativo, Imposto de Renda e Valuation; acessível também por foco no teclado.
+- Configurações → Corretoras: edição e união manual com transferência de lançamentos, preservação de apelidos e proteção contra CNPJs conflitantes.
+- Qualidade dos dados: avisos globais de possíveis duplicidades de corretoras, com acesso ao cadastro.
+- Configurações → Investidores: **Excluir com todos os dados**, com contagem do que será apagado, confirmação digitando o nome e backup verificado obrigatório antes da exclusão (`GET /api/investidores/{id}/exclusao`, `DELETE /api/investidores/{id}/completo`).
+- Backup automático verificado antes de aplicar migrações pendentes no `iniciar.bat`.
+- Cópia opcional de cada backup para outra pasta (`INVESTHUB_BACKUP_COPIA_DIR`).
+- Log em arquivo com rotação (`investhub.log`, 5 MB × 5) e identificador de requisição (`X-Request-ID`).
+- Status das atualizações com o estado **Concluída com falhas** quando alguma fonte falha ou responde vazio.
+- Portfólio e Resumo: selo "Cotação de dd/mm" e aviso de ativos com cotação desatualizada.
+- Gráficos com descrição acessível e tabela "Ver dados do gráfico"; link "Pular para o conteúdo", título da aba por página e tela de erro com "Recarregar" no lugar de página em branco.
+- Testes de limites do IR (R$ 20 mil, R$ 35 mil, DARF mínimo, virada 2023→2024), testes de migração (modelos × schema e ida e volta) e build da interface no `lint.bat`.
+- Suíte E2E com Playwright (`e2e.bat`): smoke de todas as rotas, fluxos críticos e acessibilidade com axe-core, em banco descartável com dados fictícios. Novas dependências de desenvolvimento: `@playwright/test`, `@axe-core/playwright` e `@types/node`.
+
+### Alterado
+- CDI não usa mais pró-rata mensal/calendário 365 para o saldo efetivo; ausência de histórico é informada e o rendimento para no vencimento cadastrado. A projeção futura continua explicitamente estimada; demais indexadores e fórmula de rentabilidade mensal foram preservados.
+- Importações reconhecem nomes anteriores das corretoras unificadas e recusam nomes ambíguos. A migração de apelidos não admite downgrade automático; faça backup antes de atualizar.
+- Confirmação antes de excluir um grupo de investidores e de remover um ativo do Radar.
+- Erros inesperados da API retornam JSON com mensagem amigável e `erro_id`; mensagens de status das atualizações não exibem detalhes técnicos (SQL, URLs, pastas).
+- Acessibilidade: diálogos com foco preso e devolvido ao fechar, cabeçalhos ordenáveis do Portfólio operáveis pelo teclado, campos sem rótulo corrigidos e menu recolhido fora da navegação por Tab.
+
+### Corrigido
+- Backups passam a ser verificados com `integrity_check` após a criação; arquivo inválido é descartado sem acionar a retenção.
+- Restauração: se a migração do backup restaurado falhar, o banco anterior é recolocado automaticamente.
+- Câmbio gravado pelos jobs de cotações e cripto no mesmo minuto não gera mais erro de chave duplicada.
+- Radar: o link "Atualizações" do texto de ajuda abre a seção correta de Configurações e é sublinhado (não depende só da cor).
+
 ## [1.4.1] - 2026-11-08
 
 ### Corrigido

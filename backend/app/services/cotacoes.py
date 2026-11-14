@@ -4,8 +4,9 @@ from dataclasses import dataclass, field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ..db import insert_upsert
 from ..models import Ativo, AtivoRadar, Cotacao, CotacaoMoeda, ValuationHistorico
-from ..providers.base import AtivoRef, ProvedorCotacao
+from ..providers.base import AtivoRef, CotacaoAtual, ProvedorCotacao
 from ..providers.bcb import ProvedorBcb
 from ..providers.yahoo import ProvedorYahoo
 from . import renda_fixa
@@ -22,6 +23,28 @@ def provedores_padrao() -> list[ProvedorCotacao]:
 class ResultadoAtualizacao:
     atualizados: dict[str, str] = field(default_factory=dict)
     sem_cotacao: list[str] = field(default_factory=list)
+    # Fonte fora do ar/resposta vazia: distinto de ticker sem cotação; não altera o que é gravado.
+    falhas_fonte: list[str] = field(default_factory=list)
+
+
+def _drenar_falhas(provedor: ProvedorCotacao) -> list[str]:
+    falhas = getattr(provedor, "falhas", None)
+    if not falhas:
+        return []
+    copia = list(falhas)
+    falhas.clear()
+    return copia
+
+
+def gravar_cambio(sessao: Session, moeda: str, cot: CotacaoAtual) -> None:
+    """Upsert por (moeda, data): os jobs de cotações e cripto podem gravar a mesma chave ao mesmo tempo."""
+    comando = insert_upsert(sessao, CotacaoMoeda).values(moeda=moeda, data=cot.data, valor=cot.preco, fonte=cot.fonte)
+    sessao.execute(
+        comando.on_conflict_do_update(
+            index_elements=["moeda", "data"],
+            set_={"valor": comando.excluded.valor, "fonte": comando.excluded.fonte},
+        )
+    )
 
 
 def ativos_monitorados(sessao: Session) -> list[Ativo]:
@@ -55,7 +78,9 @@ def atualizar_cotacoes(
         if not pendentes:
             break
         refs = [AtivoRef(a.ticker, a.mercado, a.moeda) for a in pendentes.values()]
-        for ticker, cot in provedor.cotacoes(refs).items():
+        encontrados = provedor.cotacoes(refs)
+        resultado.falhas_fonte.extend(_drenar_falhas(provedor))
+        for ticker, cot in encontrados.items():
             ativo = pendentes.pop(ticker, None)
             if ativo is None:
                 continue
@@ -71,19 +96,15 @@ def atualizar_cotacoes(
     for provedor in provedores:
         if not moedas_pendentes:
             break
-        for moeda, cot in provedor.cambios(sorted(moedas_pendentes)).items():
+        encontrados = provedor.cambios(sorted(moedas_pendentes))
+        resultado.falhas_fonte.extend(_drenar_falhas(provedor))
+        for moeda, cot in encontrados.items():
             moedas_pendentes.discard(moeda)
-            linha = sessao.scalar(
-                select(CotacaoMoeda).where(CotacaoMoeda.moeda == moeda, CotacaoMoeda.data == cot.data)
-            )
-            if linha is None:
-                linha = CotacaoMoeda(moeda=moeda, data=cot.data)
-                sessao.add(linha)
-            linha.valor, linha.fonte = cot.preco, cot.fonte
+            gravar_cambio(sessao, moeda, cot)
             resultado.atualizados[moeda] = cot.fonte
 
     sessao.commit()
     if ativos_padrao:
-        resultado.atualizados.update(renda_fixa.atualizar(sessao))
+        resultado.atualizados.update(renda_fixa.atualizar(sessao, falhas=resultado.falhas_fonte))
     resultado.sem_cotacao = sorted(pendentes) + sorted(moedas_pendentes)
     return resultado
