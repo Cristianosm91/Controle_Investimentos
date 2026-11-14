@@ -6,6 +6,8 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 
 ## [Não lançado]
 
+## [1.5.0] - 2026-11-14
+
 ### Adicionado
 - Correção explícita de moeda na edição do ativo: confirmação, backup verificado e PTAX histórica para operações/proventos, sem converter preços ou valores e sem alterar movimentos de caixa não vinculados.
 - Apuração de IR: lucro líquido após IRRF conciliado com a carteira, separado da base fiscal; valores retidos, compensados e acumulados, com ajuda “?” sobre o dedo-duro.
@@ -36,10 +38,6 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 - Restauração: se a migração do backup restaurado falhar, o banco anterior é recolocado automaticamente.
 - Câmbio gravado pelos jobs de cotações e cripto no mesmo minuto não gera mais erro de chave duplicada.
 - Radar: o link "Atualizações" do texto de ajuda abre a seção correta de Configurações e é sublinhado (não depende só da cor).
-
-## [1.4.1] - 2026-11-08
-
-### Corrigido
 - Qualidade de Dados: após corrigir uma operação, mantém na lista as demais operações ainda pendentes da mesma regra.
 
 ## [1.4.0] - 2026-11-08
@@ -185,7 +183,10 @@ Primeira versão estável: substitui a planilha de controle de investimentos (Fa
 - Arquivos da B3 com dimensão declarada como `A1` eram lidos só até a primeira linha.
 - Quantidades em texto pt-BR com ponto de milhar (`1.350`) eram lidas como decimais.
 
-[Não lançado]: https://github.com/Cristianosm91/Controle_Investimentos/compare/v1.2.1...HEAD
+[Não lançado]: https://github.com/Cristianosm91/Controle_Investimentos/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/Cristianosm91/Controle_Investimentos/compare/v1.4.0...v1.5.0
+[1.4.0]: https://github.com/Cristianosm91/Controle_Investimentos/compare/v1.3.0...v1.4.0
+[1.3.0]: https://github.com/Cristianosm91/Controle_Investimentos/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/Cristianosm91/Controle_Investimentos/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/Cristianosm91/Controle_Investimentos/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/Cristianosm91/Controle_Investimentos/compare/v1.0.0...v1.1.0
