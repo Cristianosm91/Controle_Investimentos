@@ -110,7 +110,7 @@ cd Controle_Investimentos
 iniciar.bat
 ```
 
-Pronto: o navegador abre em **http://127.0.0.1:8000**. Na primeira execução o `iniciar.bat` prepara tudo sozinho (ambiente Python, dependências, compilação da interface e banco de dados). Para encerrar, pressione `Ctrl+C` no terminal ou rode `parar.bat`.
+Pronto: o navegador abre em **http://127.0.0.1:8000**. Na primeira execução o `iniciar.bat` prepara o ambiente Python, as dependências e o banco de dados, e pergunta se você quer recompilar a interface ou usar o build existente. Para encerrar, pressione `Ctrl+C` no terminal ou rode `parar.bat`.
 
 > Os dados ficam em `%LOCALAPPDATA%\InvestHub\investhub.db`, fora de pastas sincronizadas. Nada precisa ser configurado para começar.
 
@@ -375,14 +375,19 @@ cd Controle_Investimentos
 iniciar.bat
 ```
 
-Na primeira execução o `iniciar.bat`:
+Ao executar o `iniciar.bat`, escolha uma das opções:
 
-1. cria o ambiente virtual Python (`.venv`) e instala as dependências;
-2. instala as dependências do frontend e compila a interface;
-3. aplica as migrações do banco;
-4. abre `http://127.0.0.1:8000` no navegador.
+1. **Recompilar a interface e iniciar** — compila o frontend com as alterações atuais
+   antes de abrir o aplicativo. Requer Node.js/npm.
+2. **Iniciar sem recompilar** — usa a interface que já está em `frontend\dist`;
+   essa opção não incorpora alterações recentes no frontend.
 
-Nas execuções seguintes, a interface é recompilada automaticamente sempre que algum arquivo do frontend (`frontend\src`, `package.json`, configurações do Vite/TypeScript) for mais recente que o build em `frontend\dist`. Se o `npm` não estiver disponível, o app sobe com o build existente e exibe um aviso.
+Na primeira execução, o script também cria o ambiente virtual Python (`.venv`) e
+instala as dependências do backend. Se ainda não houver um build em
+`frontend\dist\index.html`, será necessário escolher a opção de recompilação. Em
+seguida, o script faz um backup verificado, aplica as migrações do banco e abre
+`http://127.0.0.1:8000` no navegador. Se a recompilação falhar, o script não inicia
+o aplicativo com um build possivelmente desatualizado.
 
 ### Instalação manual
 
