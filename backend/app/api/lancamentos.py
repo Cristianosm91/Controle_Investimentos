@@ -55,7 +55,7 @@ def _validar_refs(sessao: Session, dados: BaseModel) -> None:
 
 def _listar(
     sessao: Session, modelo, campo_data, schema, investidores, ticker, inicio, fim, limite, deslocamento, evento=None,
-    classe=None, ids=None, corretora_id=None,
+    classe=None, ids=None, corretora_id=None, excluir_evento=None,
 ):
     base = select(modelo)
     if investidores:
@@ -70,6 +70,8 @@ def _listar(
         base = base.where(modelo.id.in_(ids_lista))
     if evento:
         base = base.where(modelo.evento == evento)
+    if excluir_evento:
+        base = base.where(modelo.evento != excluir_evento)
     if (ticker or classe) and hasattr(modelo, "ativo_id"):
         base = base.join(Ativo, Ativo.id == modelo.ativo_id)
         if ticker:
@@ -302,6 +304,7 @@ def listar_proventos(
     return _listar(
         sessao, Provento, Provento.data_pagamento, ProventoOut, investidores, ticker, inicio, fim, limite, deslocamento,
         evento, classe=classe, ids=ids, corretora_id=corretora_id,
+        excluir_evento="ALUGUEL" if evento is None else None,
     )
 
 

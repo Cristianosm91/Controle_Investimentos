@@ -166,7 +166,7 @@ def listar(sessao: Session, investidor_ids: Sequence[int] | None, hoje: date | N
         if ativo_id not in cotas:
             venc = None
             if renda_fixa.calculado(ativo) and ativo.data_vencimento and ativo.data_vencimento > hoje:
-                venc = renda_fixa.valor_cota(sessao, ativo, ativo.data_vencimento)
+                venc = renda_fixa.valor_cota(sessao, ativo, ativo.data_vencimento, projecao=True)
             cotas[ativo_id] = (renda_fixa.valor_cota(sessao, ativo, hoje), venc)
         cota_hoje, cota_venc = cotas[ativo_id]
         aplicacoes = _ajustar(aplicacoes_abertas(movimentos[(inv, ativo_id)]), posicao.quantidade, posicao.custo)

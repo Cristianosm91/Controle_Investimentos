@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api, query } from "../api";
+import { AjudaIndicador } from "../components/AjudaIndicador";
 import { classeSinal, data, moeda, numero, percentual } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
 import type { Ativo, PremissasValuation, Valuation as ValuationTipo } from "../tipos";
@@ -219,21 +220,21 @@ export function Valuation() {
         <>
           <div className="valuation-resumo">
             <div className="painel">
-              <span className="sutil">Cotação atual</span>
+              <span className="sutil">Cotação atual <AjudaIndicador titulo="Cotação atual" texto="Última cotação disponível para o ativo na moeda apresentada." /></span>
               <strong>{moeda(detalhe.cotacao, detalhe.moeda)}</strong>
             </div>
             <div className="painel">
-              <span className="sutil">Mediana dos modelos disponíveis</span>
+              <span className="sutil">Mediana dos modelos disponíveis <AjudaIndicador titulo="Mediana dos modelos" texto="Mediana dos preços justos dos modelos calculáveis com os dados e premissas disponíveis; não é recomendação nem preço-alvo." /></span>
               <strong>{moeda(detalhe.analise.preco_mediano, detalhe.moeda)}</strong>
             </div>
             <div className="painel">
-              <span className="sutil">Diferença para a mediana</span>
+              <span className="sutil">Diferença para a mediana <AjudaIndicador titulo="Diferença para a mediana" texto="Mediana dos preços justos dividida pela cotação, menos um; apresentada em percentual." /></span>
               <strong className={classeSinal(detalhe.analise.upside_mediano)}>
                 {percentual(detalhe.analise.upside_mediano)}
               </strong>
             </div>
             <div className="painel">
-              <span className="sutil">Modelos calculáveis</span>
+              <span className="sutil">Modelos calculáveis <AjudaIndicador titulo="Modelos calculáveis" texto="Quantidade de modelos com resultado disponível em relação ao total de modelos." /></span>
               <strong>
                 {numero(detalhe.analise.modelos_disponiveis, 0)} / {numero(detalhe.analise.total_modelos, 0)}
               </strong>
@@ -346,19 +347,19 @@ export function Valuation() {
             <h2>TIR e TWR do ativo</h2>
             <div className="valuation-resumo valuation-retorno">
               <div>
-                <span className="sutil">TIR anual</span>
+                <span className="sutil">TIR anual <AjudaIndicador titulo="TIR anual do ativo" texto="Taxa interna de retorno anualizada a partir das operações, proventos líquidos e valor de mercado final em reais." /></span>
                 <strong className={classeSinal(detalhe.rentabilidade.tir_aa)}>
                   {percentual(detalhe.rentabilidade.tir_aa)}
                 </strong>
               </div>
               <div>
-                <span className="sutil">TIR mensal equivalente</span>
+                <span className="sutil">TIR mensal equivalente <AjudaIndicador titulo="TIR mensal equivalente" texto="Taxa mensal equivalente à TIR anual, calculada por capitalização composta." /></span>
                 <strong className={classeSinal(detalhe.rentabilidade.tir_am)}>
                   {percentual(detalhe.rentabilidade.tir_am)}
                 </strong>
               </div>
               <div>
-                <span className="sutil">TWR acumulado</span>
+                <span className="sutil">TWR acumulado <AjudaIndicador titulo="TWR acumulado do ativo" texto="Composição dos retornos mensais do ativo, separando o efeito dos fluxos. Na falta de cotação mensal, usa-se o custo como aproximação." /></span>
                 <strong className={classeSinal(detalhe.rentabilidade.twr_acumulado)}>
                   {percentual(detalhe.rentabilidade.twr_acumulado)}
                 </strong>

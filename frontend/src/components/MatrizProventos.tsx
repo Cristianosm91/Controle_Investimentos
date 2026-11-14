@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, query } from "../api";
+import { AjudaIndicador } from "./AjudaIndicador";
 import { MESES, moeda } from "../formato";
 import type { MatrizProventos as TMatriz } from "../tipos";
 
@@ -35,6 +36,7 @@ export function MatrizProventos({ filtro, classe }: { filtro: string | undefined
         {m && (
           <span className="sutil">
             Total {moeda(m.total)} · média por mês com proventos {moeda(media)} · valores líquidos em R$
+            <AjudaIndicador titulo="Matriz de proventos" texto="Valores líquidos de IR e taxas convertidos em reais, agrupados por mês e por ano ou ativo conforme a visão. A média divide o total pelo número de meses com valor diferente de zero." />
           </span>
         )}
       </div>

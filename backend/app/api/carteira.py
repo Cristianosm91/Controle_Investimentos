@@ -79,6 +79,7 @@ def listar_posicoes(
             lucro_realizado=l.posicao.lucro_realizado,
             lucro_daytrade=l.posicao.lucro_daytrade,
             proventos=l.proventos,
+            aluguel=l.aluguel,
             proventos_12m=m.proventos_12m,
             yoc_12m=m.yoc_12m,
             tir_aa=m.tir_aa,

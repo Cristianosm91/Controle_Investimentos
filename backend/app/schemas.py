@@ -76,11 +76,28 @@ class CorretoraIn(BaseModel):
     nome: str = Field(min_length=1, max_length=60)
     cnpj: str | None = Field(default=None, pattern=r"^\d{14}$")
 
+    @field_validator("nome")
+    @classmethod
+    def _nome_corretora(cls, valor: str) -> str:
+        valor = valor.strip()
+        if not valor:
+            raise ValueError("Informe o nome da corretora")
+        return valor
+
+
+class CorretoraUniaoIn(BaseModel):
+    destino_id: int = Field(ge=1)
+
+
+class CorretoraApelidoOut(_Saida):
+    nome: str
+
 
 class CorretoraOut(_Saida):
     id: int
     nome: str
     cnpj: str | None
+    apelidos: list[CorretoraApelidoOut] = Field(default_factory=list)
 
 
 # ---------- Ativos ----------
@@ -93,6 +110,7 @@ class AtivoIn(BaseModel):
     subsetor: str | None = None
     moeda: str = "BRL"
     mercado: str | None = "BVMF"
+    confirmar_correcao_moeda: bool = False
     cotacao_automatica: bool = True
     indexador: str | None = None
     indexador_pct: Decimal | None = Field(default=None, gt=0, description="Fração do índice (1 = 100%)")
@@ -148,6 +166,8 @@ class AtivoIn(BaseModel):
 class ClasseAtivoIn(BaseModel):
     classe: str | None = Field(default=None, min_length=1, max_length=20)
     mercado: Literal["BVMF", "NASDAQ", "NYSE", "NYSEARCA", "NYSEAMERICAN", "BATS"] | None = None
+    moeda: Literal["BRL", "USD", "EUR"] | None = None
+    confirmar_correcao_moeda: bool = False
 
     @field_validator("classe")
     @classmethod
@@ -161,8 +181,8 @@ class ClasseAtivoIn(BaseModel):
 
     @model_validator(mode="after")
     def _campos(self) -> "ClasseAtivoIn":
-        if not self.model_fields_set & {"classe", "mercado"}:
-            raise ValueError("Informe a classe ou a bolsa do ativo")
+        if not self.model_fields_set & {"classe", "mercado", "moeda"}:
+            raise ValueError("Informe a classe, bolsa ou moeda do ativo")
         return self
 
 
@@ -568,6 +588,7 @@ class PosicaoOut(BaseModel):
     lucro_realizado: Num
     lucro_daytrade: Num
     proventos: Num
+    aluguel: Num
     proventos_12m: Num | None = None
     yoc_12m: Num | None = None
     tir_aa: float | None = None
@@ -653,6 +674,8 @@ class TarefaOut(BaseModel):
     mensagem: str | None
     duracao_s: float | None
     proxima: datetime | None
+    # "ok" | "parcial" (concluída com falhas de fonte) | "falha"; None = ainda não executada.
+    status: Literal["ok", "parcial", "falha"] | None = None
 
 
 class BackupOut(BaseModel):
@@ -1065,6 +1088,7 @@ class MesRentabilidadeOut(BaseModel):
     investido: Num
     mercado: Num
     proventos: Num
+    aluguel: Num
     lucro_trades: Num
     lucro_daytrade: Num
     fluxo: Num
@@ -1190,6 +1214,8 @@ class CategoriaMesOut(BaseModel):
     categoria: str
     vendas: Num
     lucro: Num
+    lucro_liquido: Num
+    irrf: Num
     isento: bool
     base: Num
     aliquota: Num | None
@@ -1445,3 +1471,24 @@ class MetaOut(BaseModel):
     aporte_necessario: Num
     rendimento_usado: Num | None
     serie: list[PontoMetaOut]
+
+
+class BackupGeradoOut(BackupOut):
+    # Falha não fatal ao copiar para a pasta secundária (INVESTHUB_BACKUP_COPIA_DIR).
+    aviso_copia: str | None = None
+
+
+class InvestidorRefOut(BaseModel):
+    id: int
+    nome: str
+
+
+class ExclusaoInvestidorResumoOut(BaseModel):
+    investidor: InvestidorRefOut
+    contagens: dict[str, int]
+    backup_disponivel: bool
+
+
+class ExclusaoInvestidorOut(BaseModel):
+    backup: str
+    removidos: dict[str, int]

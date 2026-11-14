@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { api, query } from "../api";
+import { AjudaIndicador } from "../components/AjudaIndicador";
 import { Modal } from "../components/Modal";
 import { useExclusaoEmLote } from "../components/ExclusaoEmLote";
 import { CampoData } from "../components/CampoData";
@@ -141,26 +142,38 @@ function Apuracao({ investidor }: { investidor: number }) {
       )}
       <div className="cards valores-alinhados">
         <div className="card">
-          <span>DARF no ano</span>
+          <span>IRRF retido no ano <AjudaIndicador titulo="IRRF retido" texto="Soma do imposto retido nas operações de bolsa dos meses exibidos, convertido para reais. É o dedo-duro nas operações aplicáveis; não inclui retenções de proventos ou de rendimentos fora desta apuração." /></span>
+          <strong>{moeda(soma(meses, (m) => m.irrf))}</strong>
+        </div>
+        <div className="card">
+          <span>IRRF compensado no ano <AjudaIndicador titulo="IRRF compensado" texto="Parte do IRRF usada como crédito contra o imposto apurado. Não é descontada também da base tributável." /></span>
+          <strong>{moeda(soma(meses, (m) => m.irrf_compensado))}</strong>
+        </div>
+        <div className="card">
+          <span>IRRF acumulado a compensar <AjudaIndicador titulo="IRRF acumulado" texto="Saldo não compensado no último mês exibido, não a soma dos saldos mensais. O transporte mensal termina em dezembro; o saldo restante deve ser conferido na declaração anual." /></span>
+          <strong>{moeda(ultimo.irrf_saldo)}</strong>
+        </div>
+        <div className="card">
+          <span>DARF no ano <AjudaIndicador titulo="DARF no ano" texto="Soma dos valores de DARF apurados nos meses exibidos. É uma estimativa; confira a apuração antes do pagamento." /></span>
           <strong>{moeda(soma(meses, (m) => m.darf))}</strong>
         </div>
         <div className="card">
-          <span>Pago no ano</span>
+          <span>Pago no ano <AjudaIndicador titulo="Pago no ano" texto="Soma dos pagamentos de DARF registrados para os meses exibidos." /></span>
           <strong>{moeda(soma(meses, (m) => m.pago))}</strong>
         </div>
         <div className="card">
-          <span>Saldo a pagar</span>
+          <span>Saldo a pagar <AjudaIndicador titulo="Saldo a pagar" texto="Soma dos saldos de DARF a pagar dos meses exibidos, após os pagamentos registrados." /></span>
           <strong className={classeSinal(-soma(meses, (m) => m.saldo))}>{moeda(soma(meses, (m) => m.saldo))}</strong>
         </div>
         {grupos.map((g) => (
           <div className="card" key={g}>
-            <span>Prejuízo a compensar · {dominio?.grupos_prejuizo[g]}</span>
+            <span>Prejuízo a compensar · {dominio?.grupos_prejuizo[g]} <AjudaIndicador titulo="Prejuízo a compensar" texto="Saldo de prejuízo a compensar do grupo no último mês da apuração exibida. Confira a apuração fiscal." /></span>
             <strong>{moeda(ultimo.prejuizo[g] ?? 0)}</strong>
           </div>
         ))}
         {ultimo.darf_transportado > 0 && (
           <div className="card">
-            <span>DARF abaixo de R$ 10 a acumular</span>
+            <span>DARF abaixo de R$ 10 a acumular <AjudaIndicador titulo="DARF a acumular" texto="Valor de imposto abaixo do mínimo de recolhimento, transportado para apuração posterior." /></span>
             <strong>{moeda(ultimo.darf_transportado)}</strong>
           </div>
         )}
@@ -174,12 +187,14 @@ function Apuracao({ investidor }: { investidor: number }) {
               <th className="num">Vendas ações</th>
               {categorias.map((c) => (
                 <th key={c} className="num">
-                  Lucro {dominio?.categorias_ir[c]}
+                  Lucro líquido {dominio?.categorias_ir[c]} <AjudaIndicador titulo={`Lucro líquido ${dominio?.categorias_ir[c]}`} texto="Lucro realizado após taxas e IRRF, pelo mesmo preço médio líquido da carteira. A base tributável usa o lucro antes do IRRF e após compensações, pois a retenção é um crédito do imposto, evitando dedução dupla." />
                 </th>
               ))}
-              <th className="num">Base tributável</th>
+              <th className="num">Base tributável <AjudaIndicador titulo="Base tributável" texto="Lucro fiscal antes do IRRF, após isenções e compensação de prejuízos. O IRRF reduz o imposto calculado, não esta base." /></th>
               <th className="num">IR devido</th>
+              <th className="num">IRRF retido</th>
               <th className="num">IRRF abatido</th>
+              <th className="num">IRRF a compensar</th>
               <th className="num">DARF</th>
               <th className="num">Pago</th>
               <th className="num">Saldo</th>
@@ -196,15 +211,17 @@ function Apuracao({ investidor }: { investidor: number }) {
                   {categorias.map((c) => {
                     const x = cat(m, c);
                     return (
-                      <td key={c} className={`num ${classeSinal(x.lucro)}`}>
-                        {x.vendas || x.lucro ? moeda(x.lucro) : ""}
+                      <td key={c} className={`num ${classeSinal(x.lucro_liquido)}`}>
+                        {x.vendas || x.lucro_liquido ? moeda(x.lucro_liquido) : ""}
                         {x.isento && x.lucro > 0 && <span className="etiqueta">isento</span>}
                       </td>
                     );
                   })}
                   <td className="num">{base ? moeda(base) : ""}</td>
                   <td className="num">{m.imposto ? moeda(m.imposto) : ""}</td>
+                  <td className="num">{m.irrf ? moeda(m.irrf) : ""}</td>
                   <td className="num">{m.irrf_compensado ? moeda(m.irrf_compensado) : ""}</td>
+                  <td className="num">{m.irrf_saldo ? moeda(m.irrf_saldo) : ""}</td>
                   <td className="num">
                     {m.darf ? <strong>{moeda(m.darf)}</strong> : ""}
                     {m.darf_transportado > 0 && (
@@ -232,12 +249,14 @@ function Apuracao({ investidor }: { investidor: number }) {
               <td className="num">{moeda(soma(meses, (m) => cat(m, "ACAO").vendas))}</td>
               {categorias.map((c) => (
                 <td key={c} className="num">
-                  {moeda(soma(meses, (m) => cat(m, c).lucro))}
+                  {moeda(soma(meses, (m) => cat(m, c).lucro_liquido))}
                 </td>
               ))}
               <td className="num">{moeda(soma(meses, (m) => m.categorias.reduce((t, x) => t + x.base, 0)))}</td>
               <td className="num">{moeda(soma(meses, (m) => m.imposto))}</td>
+              <td className="num">{moeda(soma(meses, (m) => m.irrf))}</td>
               <td className="num">{moeda(soma(meses, (m) => m.irrf_compensado))}</td>
+              <td className="num">{moeda(ultimo.irrf_saldo)}</td>
               <td className="num">{moeda(soma(meses, (m) => m.darf))}</td>
               <td className="num">{moeda(soma(meses, (m) => m.pago))}</td>
               <td className="num">{moeda(soma(meses, (m) => m.saldo))}</td>
@@ -246,6 +265,10 @@ function Apuracao({ investidor }: { investidor: number }) {
           </tfoot>
         </table>
       </div>
+      <p className="sutil">
+        Lucro líquido desconta o IRRF; base tributável não o desconta novamente. IRRF retido é o total informado,
+        abatido é o crédito utilizado e a compensar é o saldo acumulado, não a soma dos saldos.
+      </p>
       <p className="sutil">
         Ações com vendas até R$ 20 mil no mês: lucro isento (prejuízo continua compensável). IRRF (0,005% e 1% no day trade) abate o
         imposto até dezembro do mesmo ano. Regras e alíquotas em <Link to="/configuracoes">Configurações → Imposto de renda</Link>.
@@ -540,20 +563,20 @@ function DirpfRelatorio({ investidor }: { investidor: number }) {
           <h3>Renda variável</h3>
           <div className="cards">
             <div className="card">
-              <span>DARF no ano</span>
+              <span>DARF no ano <AjudaIndicador titulo="DARF no ano" texto="Soma dos DARFs apurados nos meses do ano selecionado. Confira a estimativa antes de declarar ou pagar." /></span>
               <strong>{moeda(soma(r.meses, (m) => m.darf))}</strong>
             </div>
             <div className="card">
-              <span>Pago no ano</span>
+              <span>Pago no ano <AjudaIndicador titulo="Pago no ano" texto="Soma dos pagamentos de DARF registrados nos meses do ano selecionado." /></span>
               <strong>{moeda(soma(r.meses, (m) => m.pago))}</strong>
             </div>
             <div className="card">
-              <span>IRRF não compensado no ano</span>
+              <span>IRRF não compensado no ano <AjudaIndicador titulo="IRRF não compensado" texto="Saldo final de imposto retido na fonte ainda não compensado na apuração do ano." /></span>
               <strong>{moeda(r.irrf_saldo_final)}</strong>
             </div>
             {Object.entries(r.prejuizo_final).map(([g, v]) => (
               <div className="card" key={g}>
-                <span>Prejuízo em 31/12 · {dominio?.grupos_prejuizo[g] ?? g}</span>
+                <span>Prejuízo em 31/12 · {dominio?.grupos_prejuizo[g] ?? g} <AjudaIndicador titulo="Prejuízo em 31 de dezembro" texto="Saldo final de prejuízo a compensar para o grupo na apuração anual." /></span>
                 <strong>{moeda(v)}</strong>
               </div>
             ))}
@@ -564,19 +587,19 @@ function DirpfRelatorio({ investidor }: { investidor: number }) {
               <h3>Exterior (Lei 14.754/2023)</h3>
               <div className="cards">
                 <div className="card">
-                  <span>Lucro nas vendas</span>
+                  <span>Lucro nas vendas <AjudaIndicador titulo="Lucro nas vendas no exterior" texto="Resultado das vendas no exterior apurado para o ano selecionado; confira os dados antes de declarar." /></span>
                   <strong className={classeSinal(r.exterior.lucro)}>{moeda(r.exterior.lucro)}</strong>
                 </div>
                 <div className="card">
-                  <span>Dividendos</span>
+                  <span>Dividendos <AjudaIndicador titulo="Dividendos no exterior" texto="Total de dividendos do exterior considerado na apuração anual." /></span>
                   <strong>{moeda(r.exterior.dividendos)}</strong>
                 </div>
                 <div className="card">
-                  <span>Imposto pago no exterior</span>
+                  <span>Imposto pago no exterior <AjudaIndicador titulo="Imposto pago no exterior" texto="Total de imposto pago no exterior considerado na apuração anual." /></span>
                   <strong>{moeda(r.exterior.imposto_pago_exterior)}</strong>
                 </div>
                 <div className="card">
-                  <span>IR estimado</span>
+                  <span>IR estimado <AjudaIndicador titulo="IR estimado no exterior" texto="Imposto estimado na apuração dos rendimentos e vendas no exterior. Confira as informações e obrigações fiscais antes de declarar." /></span>
                   <strong>{moeda(r.exterior.imposto)}</strong>
                 </div>
               </div>

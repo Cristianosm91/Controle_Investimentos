@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { api, query } from "../api";
 import { invalidarDerivados, useAtivos } from "../cadastros";
 import { GraficoLinhas } from "../components/Graficos";
+import { AjudaIndicador } from "../components/AjudaIndicador";
 import { classeSinal, data, mesAno, moeda, numero, percentual } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
 import type { Ativo, MoedaCripto, MonitorCripto, PainelCripto, PontoCripto } from "../tipos";
@@ -132,9 +133,9 @@ export function Cripto() {
       </div>
 
       <div className="cards">
-        <div className="card"><span>Investido</span><strong>{moeda(investido)}</strong></div>
-        <div className="card"><span>Valor de mercado</span><strong>{moeda(mercado)}</strong></div>
-        <div className="card"><span>Lucro aberto</span><strong className={classeSinal(mercado === null ? null : mercado - investido)}>
+        <div className="card"><span>Investido <AjudaIndicador titulo="Investido em cripto" texto="Soma dos custos contábeis em reais das posições de cripto exibidas." /></span><strong>{moeda(investido)}</strong></div>
+        <div className="card"><span>Valor de mercado <AjudaIndicador titulo="Valor de mercado em cripto" texto="Soma da quantidade de cada posição multiplicada pela cotação e pelo câmbio da moeda do ativo. Fica indisponível se faltar algum valor." /></span><strong>{moeda(mercado)}</strong></div>
+        <div className="card"><span>Lucro aberto <AjudaIndicador titulo="Lucro aberto em cripto" texto="Valor de mercado em reais menos o investido em reais. Depende de todas as cotações necessárias." /></span><strong className={classeSinal(mercado === null ? null : mercado - investido)}>
           {moeda(mercado === null ? null : mercado - investido)}</strong></div>
       </div>
       {painel.isLoading && <p>Carregando cripto…</p>}
@@ -165,12 +166,12 @@ export function Cripto() {
             {[7, 30, 90].map((d) => <option key={d} value={d}>{d} dias</option>)}
           </select></label>
         </div>
-        <p className="sutil">Histórico CoinGecko em UTC; cache de 15 minutos. Não há gráfico substituto quando a fonte falha.</p>
+        <p className="sutil">Histórico CoinGecko em UTC; cache de 15 minutos. Não há gráfico substituto quando a fonte falha. <AjudaIndicador titulo="Histórico de preço em USD" texto="A linha apresenta os preços em dólares retornados pelo CoinGecko para a moeda e o intervalo selecionados." /></p>
         {historico.isLoading && <p>Carregando histórico…</p>}
         {historico.error instanceof Error && <div className="erro" role="alert">{historico.error.message}</div>}
         {historico.data && <GraficoLinhas datas={historico.data.map((p) => p.instante.slice(0, 10))}
           series={[{ nome: "Preço USD", cor: "var(--primaria)", valores: historico.data.map((p) => p.preco_usd) }]}
-          formatar={(v) => moeda(v, "USD")} />}
+          formatar={(v) => moeda(v, "USD")} titulo="Histórico de preço em USD" />}
       </div>}
 
       <div className="painel">

@@ -1,10 +1,13 @@
 """Backup e restauração do banco SQLite local.
 
-Cópias usam a API de backup do SQLite (consistente mesmo com o app gravando). A restauração valida o arquivo,
-guarda uma cópia do banco atual e substitui o conteúdo pela mesma API, sem trocar o arquivo aberto.
+Cópias usam a API de backup do SQLite (consistente mesmo com o app gravando) e só são aceitas após
+`PRAGMA integrity_check`. A restauração valida o arquivo, guarda uma cópia do banco atual e substitui o conteúdo
+pela mesma API, sem trocar o arquivo aberto; se a migração do backup falhar, o conteúdo anterior volta.
 """
 
 import logging
+import re
+import shutil
 import sqlite3
 from contextlib import ExitStack, closing
 from dataclasses import dataclass
@@ -13,11 +16,13 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from alembic.config import Config
+from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
+from sqlalchemy import create_engine
 
 from alembic import command
 
-from ..config import RAIZ_PROJETO
+from ..config import RAIZ_PROJETO, settings
 
 log = logging.getLogger(__name__)
 
@@ -29,11 +34,17 @@ MANTER_AUTOMATICOS = 10
 MANTER_ANTES_RESTAURACAO = 10
 PREFIXO = "investhub-"
 TIPOS = ("manual", "automatico", "antes-restauracao")
+# Motivo opcional no nome (ex.: investhub-…-antes-migracao-manual.db); o tipo continua sendo o sufixo.
+_MOTIVO = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
 _PASTA_ALEMBIC = RAIZ_PROJETO / "backend" / "alembic"
 
 
 class BackupInvalido(Exception):
     pass
+
+
+class RestauracaoIncompleta(Exception):
+    """A migração do backup falhou e o conteúdo anterior não pôde ser devolvido automaticamente."""
 
 
 @dataclass(frozen=True)
@@ -65,6 +76,22 @@ def revisao_atual() -> str | None:
     return ScriptDirectory.from_config(_alembic()).get_current_head()
 
 
+def migracoes_pendentes(banco: Path) -> bool:
+    """True se a revisão gravada no banco difere da head das migrações do app."""
+    engine = create_engine("sqlite://", creator=lambda: sqlite3.connect(f"{banco.as_uri()}?mode=ro", uri=True))
+    try:
+        with engine.connect() as con:
+            atuais = set(MigrationContext.configure(con).get_current_heads())
+    finally:
+        engine.dispose()
+    return atuais != set(ScriptDirectory.from_config(_alembic()).get_heads())
+
+
+def pasta_copia() -> Path | None:
+    valor = settings.backup_copia_dir.strip()
+    return Path(valor).expanduser() if valor else None
+
+
 def _tipo(nome: str) -> str | None:
     if not (nome.startswith(PREFIXO) and nome.endswith(".db")):
         return None
@@ -77,28 +104,75 @@ def _copiar(origem: sqlite3.Connection, destino: Path) -> None:
         origem.backup(alvo)
 
 
-def gerar(banco: Path, tipo: str = "manual", agora: datetime | None = None) -> Path:
+def verificar_integridade(arquivo: Path) -> None:
+    """Exige `PRAGMA integrity_check = ok`; backup que não passa não pode ser contado como cópia válida."""
+    try:
+        with closing(sqlite3.connect(f"{arquivo.as_uri()}?mode=ro", uri=True)) as con:
+            con.execute("PRAGMA trusted_schema = OFF")
+            resultado = con.execute("PRAGMA integrity_check").fetchone()[0]
+    except sqlite3.DatabaseError as erro:
+        raise BackupInvalido(f"Backup reprovado na verificação de integridade: {erro}") from erro
+    if resultado != "ok":
+        raise BackupInvalido(f"Backup reprovado na verificação de integridade: {resultado}")
+
+
+def _copiar_para_pasta_secundaria(arquivo: Path, avisos: list[str] | None) -> None:
+    """Falha aqui só gera aviso: o backup principal já está salvo e verificado."""
+    pasta = pasta_copia()
+    if pasta is None:
+        return
+    temporario = pasta / (arquivo.name + ".parcial")
+    try:
+        pasta.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(arquivo, temporario)
+        verificar_integridade(temporario)
+        temporario.replace(pasta / arquivo.name)
+    except (OSError, BackupInvalido) as erro:
+        mensagem = f"Backup salvo, mas a cópia para a pasta secundária {pasta} falhou: {erro}"
+        log.warning(mensagem)
+        if avisos is not None:
+            avisos.append(mensagem)
+    finally:
+        try:
+            temporario.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+def gerar(
+    banco: Path,
+    tipo: str = "manual",
+    agora: datetime | None = None,
+    motivo: str | None = None,
+    avisos: list[str] | None = None,
+) -> Path:
+    """Gera e verifica um backup; `avisos` recebe falhas não fatais (cópia para a pasta secundária)."""
     if tipo not in TIPOS:
         raise ValueError(f"Tipo de backup inválido: {tipo}")
+    if motivo is not None and not _MOTIVO.fullmatch(motivo):
+        raise ValueError(f"Motivo de backup inválido: {motivo}")
     if not banco.is_file():
         raise FileNotFoundError(f"Banco não encontrado: {banco}")
     pasta = pasta_backups(banco)
     pasta.mkdir(parents=True, exist_ok=True)
     carimbo = (agora or datetime.now(FUSO)).strftime("%Y%m%d-%H%M%S")
-    destino = pasta / f"{PREFIXO}{carimbo}-{tipo}.db"
+    sufixo = f"{motivo}-{tipo}" if motivo else tipo
+    destino = pasta / f"{PREFIXO}{carimbo}-{sufixo}.db"
     contador = 1
     while destino.exists():
         contador += 1
-        destino = pasta / f"{PREFIXO}{carimbo}-{contador}-{tipo}.db"
+        destino = pasta / f"{PREFIXO}{carimbo}-{contador}-{sufixo}.db"
     temporario = destino.with_suffix(".parcial")
     temporario.unlink(missing_ok=True)
     try:
         with closing(sqlite3.connect(f"{banco.as_uri()}?mode=ro", uri=True)) as fonte:
             _copiar(fonte, temporario)
+        verificar_integridade(temporario)
         temporario.rename(destino)
     finally:
         temporario.unlink(missing_ok=True)
-    log.info("Backup %s gerado em %s", tipo, destino)
+    log.info("Backup %s gerado e verificado em %s", tipo, destino)
+    _copiar_para_pasta_secundaria(destino, avisos)
     return destino
 
 
@@ -136,6 +210,7 @@ def _limpar(banco: Path, tipo: str, manter: int, preservar: Path | None = None) 
     """Apaga os backups mais antigos do tipo além dos `manter` mais recentes (nunca o `preservar`)."""
     excedentes = [i for i in listar(banco) if i.tipo == tipo][manter:]
     pasta = pasta_backups(banco)
+    secundaria = pasta_copia()
     removidos = 0
     for item in excedentes:
         arquivo = pasta / item.nome
@@ -143,6 +218,12 @@ def _limpar(banco: Path, tipo: str, manter: int, preservar: Path | None = None) 
             continue
         arquivo.unlink(missing_ok=True)
         removidos += 1
+        if secundaria is not None:
+            # A pasta secundária espelha a retenção; falha nela não interrompe a limpeza principal.
+            try:
+                (secundaria / item.nome).unlink(missing_ok=True)
+            except OSError as erro:
+                log.warning("Não foi possível remover %s da pasta secundária: %s", item.nome, erro)
     return removidos
 
 
@@ -167,6 +248,7 @@ def automatico_recente(banco: Path, horas: int = 20) -> bool:
 
 
 def gerar_automatico(banco: Path) -> Path:
+    # Só limpa depois que o backup novo passou na verificação (gerar levanta se falhar).
     destino = gerar(banco, "automatico")
     limpar_automaticos(banco)
     return destino
@@ -206,12 +288,30 @@ def restaurar(arquivo: Path, banco: Path) -> tuple[Path, str]:
     """
     revisao = validar(arquivo)
     seguranca = gerar(banco, "antes-restauracao")
-    with ExitStack() as pilha:
-        fonte = pilha.enter_context(closing(sqlite3.connect(f"{arquivo.as_uri()}?mode=ro", uri=True)))
-        alvo = pilha.enter_context(closing(sqlite3.connect(banco, timeout=30)))
-        fonte.backup(alvo)
+    _sobrescrever(arquivo, banco)
     if revisao != revisao_atual():
-        command.upgrade(_alembic(f"sqlite:///{banco.as_posix()}"), "head")
+        try:
+            command.upgrade(_alembic(f"sqlite:///{banco.as_posix()}"), "head")
+        except Exception as erro:
+            log.exception("Falha ao migrar o backup %s; devolvendo o conteúdo anterior", arquivo.name)
+            try:
+                _sobrescrever(seguranca, banco)
+            except Exception as erro_volta:
+                raise RestauracaoIncompleta(
+                    f"Não foi possível atualizar o backup para a versão atual do app ({erro}) nem desfazer a "
+                    f"restauração automaticamente ({erro_volta}). Restaure a cópia {seguranca.name}."
+                ) from erro_volta
+            raise BackupInvalido(
+                f"Não foi possível atualizar o backup para a versão atual do app ({erro}). "
+                "A restauração foi desfeita e o banco anterior foi mantido."
+            ) from erro
     _limpar(banco, "antes-restauracao", MANTER_ANTES_RESTAURACAO, preservar=arquivo)
     log.info("Banco restaurado a partir de %s (revisão %s); cópia anterior em %s", arquivo.name, revisao, seguranca)
     return seguranca, revisao
+
+
+def _sobrescrever(origem: Path, banco: Path) -> None:
+    with ExitStack() as pilha:
+        fonte = pilha.enter_context(closing(sqlite3.connect(f"{origem.as_uri()}?mode=ro", uri=True)))
+        alvo = pilha.enter_context(closing(sqlite3.connect(banco, timeout=30)))
+        fonte.backup(alvo)

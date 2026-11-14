@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { api, query } from "../../api";
-import { invalidarDerivados, paraFracao, paraPercentual, useDominio } from "../../cadastros";
+import { confirmarCorrecaoMoeda, invalidarDerivados, paraFracao, paraPercentual, useDominio } from "../../cadastros";
 import { data as fmtData, numero, percentual } from "../../formato";
 import type { Ativo, Cota } from "../../tipos";
 import { CampoData } from "../CampoData";
@@ -40,10 +40,12 @@ function descricao(a: Ativo): string {
 }
 
 function CotaAtual({ ativo }: { ativo: Ativo }) {
-  const { data } = useQuery({
+  const { data, error } = useQuery({
     queryKey: ["cota", ativo.id, hoje()],
     queryFn: () => api.get<Cota>(`/ativos/${ativo.id}/cota${query({ data: hoje() })}`),
+    retry: false,
   });
+  if (error) return <span className="negativo">{error.message}</span>;
   return <>{data ? numero(data.cota, 6) : "—"}</>;
 }
 
@@ -65,18 +67,19 @@ function SaldoManual({ ativo, aoSalvar }: { ativo: Ativo; aoSalvar: () => void }
         enviar.mutate();
       }}
     >
-      <CampoData required valor={dia} aoMudar={setDia} />
+      <CampoData required title={`Data do saldo de ${ativo.ticker}`} valor={dia} aoMudar={setDia} />
       <input
         type="number"
         step="any"
         min="0.01"
         required
-        placeholder={`Saldo total (${ativo.moeda})`}
+        placeholder={`Saldo bruto total (${ativo.moeda})`}
+        aria-label={`Saldo bruto total de ${ativo.ticker} (${ativo.moeda})`}
         value={saldo}
         onChange={(e) => setSaldo(e.target.value)}
       />
       <button type="submit" className="secundario" disabled={enviar.isPending}>
-        Atualizar saldo
+        {ativo.indexador ? "Corrigir saldo" : "Atualizar saldo"}
       </button>
       {enviar.error && <span className="negativo">{(enviar.error as Error).message}</span>}
     </form>
@@ -108,6 +111,7 @@ export function AtivosPersonalizados() {
         setor: f.original?.setor ?? null,
         subsetor: f.original?.subsetor ?? null,
         moeda: f.moeda,
+        confirmar_correcao_moeda: !!f.original && f.original.moeda !== f.moeda,
         mercado: null,
         cotacao_automatica: false,
         indexador: f.automatico ? f.indexador : null,
@@ -144,6 +148,8 @@ export function AtivosPersonalizados() {
 
   const enviar = (e: FormEvent) => {
     e.preventDefault();
+    if (form.original && form.original.moeda !== form.moeda &&
+        !confirmarCorrecaoMoeda(form.ticker, form.original.moeda, form.moeda)) return;
     salvar.mutate(form);
   };
 
@@ -156,11 +162,14 @@ export function AtivosPersonalizados() {
       </p>
       <ul className="sutil">
         <li>
-          <strong>Rendimento automático</strong>: cota = 1 na data-base, corrigida pelo índice mensal (CDI, SELIC, IPCA, IGP-M do BCB) ×
-          % do índice + taxa a.a. Mês ainda sem índice repete o último conhecido (estimativa).
+          <strong>Rendimento automático</strong>: CDI capitalizado pelas taxas diárias publicadas pelo BCB × % contratado,
+          somente nas datas com boletim; taxa adicional a.a. em base 252. Requer o histórico completo em Atualizações.
+          SELIC, IPCA e IGP-M mantêm o índice mensal pró-rata (estimativa).
         </li>
         <li>
           <strong>Saldo manual</strong>: informe o saldo total do ativo na data; a cota passa a ser saldo ÷ quantidade.
+          Nos ativos automáticos, informe o saldo bruto (antes de IR/IOF), somando todos os investidores;
+          o rendimento continua a partir da correção, sem apagar o histórico anterior.
         </li>
       </ul>
       {salvar.error && <div className="erro">{(salvar.error as Error).message}</div>}
@@ -190,7 +199,7 @@ export function AtivosPersonalizados() {
                   <td>
                     {descricao(a)}
                     {a.isento_ir && <span className="etiqueta">isento de IR</span>}
-                    {!a.indexador && <SaldoManual ativo={a} aoSalvar={recarregar} />}
+                    <SaldoManual ativo={a} aoSalvar={recarregar} />
                   </td>
                   <td>{fmtData(a.data_base)}</td>
                   <td>{fmtData(a.data_vencimento)}</td>

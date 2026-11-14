@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 
 from ..models import Meta
 from ..schemas import (
@@ -17,6 +17,7 @@ from ..schemas import (
     RendaFixaOut,
 )
 from ..services import agenda_proventos, exposicao, metas, renda_fixa_liquida
+from ..services.cdi import CdiIndisponivel
 from .deps import InvestidoresDep, SessaoDep, obter_ou_404
 
 router = APIRouter(tags=["planejamento"])
@@ -26,7 +27,10 @@ router = APIRouter(tags=["planejamento"])
 
 @router.get("/renda-fixa", response_model=RendaFixaOut)
 def renda_fixa(sessao: SessaoDep, investidores: InvestidoresDep):
-    itens = renda_fixa_liquida.listar(sessao, investidores)
+    try:
+        itens = renda_fixa_liquida.listar(sessao, investidores)
+    except CdiIndisponivel as erro:
+        raise HTTPException(422, str(erro)) from erro
     saida = [
         ItemRendaFixaOut(
             investidor_id=i.investidor_id, ativo_id=i.ativo.id, ticker=i.ativo.ticker, nome=i.ativo.nome,

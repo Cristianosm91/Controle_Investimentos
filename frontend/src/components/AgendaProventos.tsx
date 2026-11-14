@@ -5,6 +5,7 @@ import { data, mesAno, moeda, moedaCompacta, percentual } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
 import type { AgendaProventos as TAgenda } from "../tipos";
 import { GraficoBarras } from "./Graficos";
+import { AjudaIndicador } from "./AjudaIndicador";
 
 export function AgendaProventos({ classe }: { classe?: string }) {
   const { filtro, investidores } = useInvestidor();
@@ -23,32 +24,32 @@ export function AgendaProventos({ classe }: { classe?: string }) {
     <>
       <div className="cards">
         <div className="card">
-          <span>A receber (lançados)</span>
+          <span>A receber (lançados) <AjudaIndicador titulo="A receber" texto="Soma líquida dos proventos lançados com pagamento futuro, respeitando os filtros." /></span>
           <strong>{moeda(a.total_a_receber)}</strong>
           <small className="sutil">{a.a_receber.length} pagamento(s) futuro(s)</small>
         </div>
         <div className="card">
-          <span>Recebidos nos últimos 12 meses</span>
+          <span>Recebidos nos últimos 12 meses <AjudaIndicador titulo="Recebidos nos últimos 12 meses" texto="Soma dos proventos líquidos efetivamente recebidos nos últimos 12 meses." /></span>
           <strong>{moeda(a.total_recebido_12m)}</strong>
           <small className="sutil">total efetivamente recebido</small>
         </div>
         <div className="card">
-          <span>Média mensal (12 meses)</span>
+          <span>Média mensal (12 meses) <AjudaIndicador titulo="Média mensal" texto="Total de proventos líquidos recebidos nos últimos 12 meses dividido por 12." /></span>
           <strong>{moeda(a.media_mensal)}</strong>
           <small className="sutil">total recebido ÷ 12</small>
         </div>
         <div className="card">
-          <span>Yield on Cost atual</span>
+          <span>Yield on Cost atual <AjudaIndicador titulo="Yield on Cost atual" texto="Proventos líquidos recebidos nos últimos 12 meses divididos pelo custo atual da carteira." /></span>
           <strong>{percentual(a.yoc_atual)}</strong>
           <small className="sutil">recebidos nos últimos 12 meses ÷ custo atual da carteira</small>
         </div>
         <div className="card">
-          <span>Projeção (próximos 12 meses)</span>
+          <span>Projeção (próximos 12 meses) <AjudaIndicador titulo="Projeção de proventos" texto="Soma dos pagamentos futuros lançados e das estimativas baseadas no histórico para os próximos 12 meses. É uma projeção, não uma garantia." /></span>
           <strong>{moeda(a.total_12m)}</strong>
           <small className="sutil">estimativa com lançamentos confirmados e projeção histórica</small>
         </div>
         <div className="card">
-          <span>Yield on Cost projetado</span>
+          <span>Yield on Cost projetado <AjudaIndicador titulo="Yield on Cost projetado" texto="Projeção de proventos para os próximos 12 meses dividida pelo custo atual da carteira." /></span>
           <strong>{percentual(a.yoc_projetado)}</strong>
           <small className="sutil">projeção 12 meses ÷ custo atual da carteira</small>
         </div>
@@ -56,12 +57,14 @@ export function AgendaProventos({ classe }: { classe?: string }) {
 
       <div className="paineis alinhado-topo">
         <div className="painel">
-          <h3>Projeção mensal</h3>
+          <h3>Projeção mensal <AjudaIndicador titulo="Projeção mensal" texto="Cada barra soma os proventos confirmados e estimados do mês. A tabela abaixo detalha as duas parcelas." /></h3>
           <GraficoBarras
             datas={a.meses.map((m) => m.mes)}
             valores={a.meses.map((m) => m.confirmado + m.estimado)}
             formatar={moedaCompacta}
             cor="var(--primaria)"
+            titulo="Projeção mensal de proventos"
+            rotuloValor="Confirmado + estimado"
           />
           <table className="tabela compacta">
             <thead>

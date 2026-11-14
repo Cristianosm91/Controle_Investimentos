@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Build (PyInstaller)
+build/
+dist/
+*.spec
+
+# Sistema / editores
+Thumbs.db
+desktop.ini
+.DS_Store
+~$*
+*.tmp
+.vscode/
+
+# Pacotes gerados para compartilhamento
+*.zip
+
+# Credenciais nunca vão para o repositório
+credencial.bin
+*.pem
+*.key
+.env

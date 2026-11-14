@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { api } from "../api";
 import { Alertas } from "./Alertas";
 import { BotoesExportar, ProvedorExportacao } from "./Exportacao";
@@ -33,8 +33,20 @@ export function Layout() {
   );
 }
 
+const MOBILE = "(max-width: 720px)";
+
+function tituloDaPagina(caminho: string): string {
+  if (caminho === "/configuracoes") return "Configurações";
+  return PAGINAS.find((p) => p.caminho === caminho)?.rotulo ?? "Página não encontrada";
+}
+
 function Estrutura() {
   const conteudo = useRef<HTMLElement>(null);
+  const menu = useRef<HTMLElement>(null);
+  const botaoMenuMobile = useRef<HTMLButtonElement>(null);
+  const { pathname } = useLocation();
+  const rotaAnterior = useRef(pathname);
+  const [mobile, setMobile] = useState(() => window.matchMedia(MOBILE).matches);
   const [menuRecolhido, setMenuRecolhido] = useState(
     () => localStorage.getItem("investhub:menu-recolhido") === "true",
   );
@@ -49,6 +61,44 @@ function Estrutura() {
     localStorage.setItem("investhub:menu-recolhido", String(menuRecolhido));
   }, [menuRecolhido]);
 
+  // Título da aba por rota e foco no conteúdo após navegar (leitor de tela anuncia a nova página).
+  useEffect(() => {
+    document.title = `${tituloDaPagina(pathname)} · InvestHub+`;
+    if (rotaAnterior.current === pathname) return;
+    rotaAnterior.current = pathname;
+    conteudo.current?.focus({ preventScroll: true });
+  }, [pathname]);
+
+  useEffect(() => {
+    const consulta = window.matchMedia(MOBILE);
+    const mudar = () => setMobile(consulta.matches);
+    consulta.addEventListener("change", mudar);
+    return () => consulta.removeEventListener("change", mudar);
+  }, []);
+
+  // No mobile, o menu fechado fica fora da ordem de Tab e da árvore de acessibilidade.
+  const menuInerte = mobile && !drawerAberto;
+  useEffect(() => {
+    const el = menu.current;
+    if (!el) return;
+    if (menuInerte) el.setAttribute("inert", "");
+    else el.removeAttribute("inert");
+  }, [menuInerte]);
+
+  const drawerJaAberto = useRef(false);
+  useEffect(() => {
+    if (!mobile) return;
+    if (drawerAberto) {
+      drawerJaAberto.current = true;
+      menu.current?.querySelector<HTMLElement>("nav a")?.focus();
+    } else if (drawerJaAberto.current) {
+      drawerJaAberto.current = false;
+      if (menu.current?.contains(document.activeElement) || document.activeElement === document.body) {
+        botaoMenuMobile.current?.focus();
+      }
+    }
+  }, [drawerAberto, mobile]);
+
   useEffect(() => {
     if (!drawerAberto) return;
     const fecharComEscape = (evento: KeyboardEvent) => {
@@ -60,6 +110,16 @@ function Estrutura() {
 
   return (
     <div className={`app${menuRecolhido ? " menu-recolhido" : ""}${drawerAberto ? " drawer-aberto" : ""}`}>
+      <a
+        className="pular-conteudo"
+        href="#conteudo"
+        onClick={(e) => {
+          e.preventDefault();
+          conteudo.current?.focus();
+        }}
+      >
+        Pular para o conteúdo
+      </a>
       {drawerAberto && (
         <button
           className="menu-fundo"
@@ -68,7 +128,7 @@ function Estrutura() {
           onClick={() => setDrawerAberto(false)}
         />
       )}
-      <aside className="menu" id="navegacao-principal">
+      <aside className="menu" id="navegacao-principal" ref={menu}>
         <div className="marca">
           <span className="marca-titulo">InvestHub+</span>
           {saude?.versao && <small className="versao">v{saude.versao}</small>}
@@ -112,6 +172,7 @@ function Estrutura() {
       <div className="principal">
         <header className="topo">
           <button
+            ref={botaoMenuMobile}
             className="menu-mobile-controle"
             type="button"
             aria-label="Abrir menu"
@@ -125,7 +186,7 @@ function Estrutura() {
           <Alertas />
           <SeletorInvestidor />
         </header>
-        <main className="conteudo" ref={conteudo}>
+        <main className="conteudo" id="conteudo" tabIndex={-1} ref={conteudo}>
           <Outlet />
         </main>
       </div>

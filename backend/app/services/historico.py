@@ -10,11 +10,11 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from ..db import insert_upsert
-from ..models import Ativo, CotacaoMoeda, IndiceMensal, Operacao
+from ..models import Ativo, CoberturaCdi, CotacaoMoeda, IndiceMensal, Operacao
 from ..providers import indices as fontes
 from ..providers.base import AtivoRef
 from ..providers.yahoo import MERCADO_CRIPTO, ProvedorYahoo
-from . import cotahist, renda_fixa
+from . import cdi, cotahist, renda_fixa
 
 log = logging.getLogger(__name__)
 
@@ -45,6 +45,25 @@ def atualizar_indices(sessao: Session, desde: date | None = None) -> ResultadoHi
     valores: dict[date, dict[str, Decimal]] = {}
 
     with httpx.Client() as cliente:
+        primeira_base = sessao.scalar(
+            select(func.min(Ativo.data_base)).where(~Ativo.cotacao_automatica, Ativo.indexador == "CDI")
+        )
+        cobertura = sessao.scalar(select(func.min(CoberturaCdi.inicio)))
+        fim_cobertura = sessao.scalar(select(func.max(CoberturaCdi.fim)))
+        inicio_cdi = (
+            min(inicio, primeira_base)
+            if primeira_base and (cobertura is None or primeira_base < cobertura) else inicio
+        )
+        if fim_cobertura and fim_cobertura < inicio_cdi:
+            inicio_cdi = fim_cobertura + timedelta(days=1)
+        fim_cdi = hoje - timedelta(days=1)  # O dia em andamento pode ainda nao estar publicado.
+        try:
+            diarios_cdi = fontes.serie_sgs(fontes.SERIE_CDI_DIARIO, inicio_cdi, fim_cdi, cliente)
+            cdi.gravar(sessao, inicio_cdi, fim_cdi, {d: v / 100 for d, v in diarios_cdi.items()})
+            resultado.gravados["CDI diário"] = len(diarios_cdi)
+        except (fontes.ErroIndice, cdi.CdiIndisponivel) as erro:
+            log.warning("%s", erro)
+            resultado.falhas.append("CDI diário")
         for coluna, serie in fontes.SERIES_MENSAIS.items():
             try:
                 for dia, pct in fontes.serie_sgs(serie, inicio, hoje, cliente).items():
@@ -149,6 +168,6 @@ def _combinar(sessao: Session, etapas, dias: int | None) -> ResultadoHistorico:
         total.gravados.update(r.gravados)
         total.falhas.extend(r.falhas)
     # Índices novos mudam as cotas estimadas da renda fixa automática.
-    if recalculados := renda_fixa.atualizar(sessao):
+    if recalculados := renda_fixa.atualizar(sessao, falhas=total.falhas):
         total.gravados["renda fixa"] = len(recalculados)
     return total
