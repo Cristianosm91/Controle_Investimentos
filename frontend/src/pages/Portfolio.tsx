@@ -580,7 +580,7 @@ export function Portfolio() {
       )}
       {atualizar.error && <div className="erro">{(atualizar.error as Error).message}</div>}
 
-      <div className="cards">
+      <div className="cards cards-portfolio">
         <div className="card">
           <span>Valor investido <AjudaIndicador titulo="Valor investido" texto="Capital efetivamente desembolsado que permanece associado às posições abertas, considerando os investidores e classes selecionados." /></span>
           <strong>

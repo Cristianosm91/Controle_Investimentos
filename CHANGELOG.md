@@ -160,8 +160,7 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 
 ## [1.0.0] - 2026-10-31
 
-Primeira versão estável: substitui a planilha de controle de investimentos (Fases 0 a 6 do
-[plano de desenvolvimento](PLANO_DESENVOLVIMENTO.md)).
+Primeira versão estável: substitui a planilha de controle de investimentos (Fases 0 a 6).
 
 ### Adicionado
 - Multi-investidor com grupos e seletor global; IR sempre por CPF.

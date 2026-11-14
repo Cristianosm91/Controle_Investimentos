@@ -454,6 +454,10 @@ select {
   margin-bottom: 1.2rem;
 }
 
+.cards-portfolio {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, max(170px, (100% - 3.2rem) / 5)), 1fr));
+}
+
 .ajuda-indicador {
   position: relative;
   display: inline-flex;
