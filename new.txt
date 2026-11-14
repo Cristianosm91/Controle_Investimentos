@@ -1,0 +1,41 @@
+1. Temos a correção de bolsa, classe mas não temos de moeda.
+UPDATE ativo 
+SET moeda = 'USD' 
+WHERE ticker = 'INTR';
+
+2. em qualidade de dados sobe o erro:
+
+Erro Custo de transferência divergente mas quando clico em: Abrir operações -> elas tem o mesmo valor
+
+	08/11/2026	
+Cristiano
+RAIZ55	
+Troca Ticker
+Ligada a RAIZ4
+2.500	R$ 2,92	R$ 0,00	R$ 0,00	R$ 7.300,00	
+CLEAR
+AT RAIZ4->RAIZ55
+Editar
+Excluir
+Desvincular
+	08/11/2026	
+Cristiano
+RAIZ4	
+Troca Ticker
+Ligada a RAIZ55
+-2.500	R$ 2,92	R$ 0,00	R$ 0,00	R$ 7.300,00	
+CLEAR
+AT RAIZ4->RAIZ55
+
+Na tela de qualidade apresenta assim: 
+RAIZ4 → RAIZ55 (08/11/2026): custo de saída R$ 7312.69 difere da entrada R$ 7300.00 (dif: R$ 12.69)
+
+3. Aluguel de ações está sendo considerado como provento? Não é pra considerar provento, é para considerar na rentabilidade na carteira mas não é pra considerar como provento, é para ser tratado como a categoria aluguel.
+
+4. temos o PM em portfólio mas também quero ter o pm considerando os proventos + aluguel, ou seja, a renda recebida, só que eu não quero criar uma nova coluna, devemos exibir o pm em destaque e menor o pm considerando proventos e aluguel
+
+5. Ao cadastrar uma nova operação, permitir eu digitar a corretora (pode ser uma corretora nova)
+
+6. Ao cadastrar uma nova operação de um ativo não cadastrado, ao  clicar em cadastrar ativo deve oferecer todas as opções, tentei cadastrar bitcoin e não tinha cripto para selecionar.
+
+7. Ao cadastrar uma cripto deve pedir o coingecko_id também.
