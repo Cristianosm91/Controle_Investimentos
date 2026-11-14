@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 from ..dominio import MOEDAS
 from ..models import Ativo, Corretora, Investidor, LoteImportacao, Operacao, Provento
 from ..seguranca import LINHAS_MAXIMAS, tamanho_descompactado_excedido
+from . import corretoras as cadastro_corretoras
 from . import lotes
 
 ORIGEM_B3 = "b3"
@@ -35,6 +36,13 @@ _TOLERANCIA_VALOR = Decimal("0.05")
 
 class ExtratoInvalido(Exception):
     pass
+
+
+def _encontrar_corretora(indice, nome):
+    try:
+        return cadastro_corretoras.encontrar(indice, nome)
+    except cadastro_corretoras.CorretoraAmbigua as erro:
+        raise ExtratoInvalido(str(erro)) from erro
 
 
 def _normalizar(texto) -> str:
@@ -591,7 +599,7 @@ def analisar(
     _comparar_existentes(sessao, investidor_id, validas)
 
     ativos = {a.ticker: a for a in sessao.scalars(select(Ativo).where(Ativo.ticker.in_({lin.ticker for lin in validas})))}
-    corretoras = {_normalizar(c.nome).upper(): c for c in sessao.scalars(select(Corretora))}
+    corretoras = cadastro_corretoras.indice(sessao)
     previa = Previa(relatorio, linhas)
     for linha in validas:
         if linha.status in ("novo", "verificar"):
@@ -599,7 +607,7 @@ def analisar(
                 previa.ativos_novos.setdefault(linha.ticker, linha.classe or "AÇÃO")
             if linha.instituicao:
                 nome = _nome_corretora(linha.instituicao)
-                if nome not in corretoras and nome not in previa.corretoras_novas:
+                if not _encontrar_corretora(corretoras, nome) and nome not in previa.corretoras_novas:
                     previa.corretoras_novas.append(nome)
     return previa
 
@@ -674,7 +682,7 @@ def importar(
     previa = analisar(sessao, investidor_id, conteudo, correcoes)
     resultado = Resultado()
     ativos = {a.ticker: a for a in sessao.scalars(select(Ativo))}
-    corretoras = {_normalizar(c.nome).upper(): c for c in sessao.scalars(select(Corretora))}
+    corretoras = cadastro_corretoras.indice(sessao)
     lote: LoteImportacao | None = None
 
     def lote_id() -> int:
@@ -702,11 +710,13 @@ def importar(
         if not linha.instituicao:
             return None
         nome = _nome_corretora(linha.instituicao)
-        if nome not in corretoras:
-            corretoras[nome] = Corretora(nome=nome)
-            sessao.add(corretoras[nome])
+        existente = _encontrar_corretora(corretoras, nome)
+        if existente is None:
+            existente = Corretora(nome=nome)
+            sessao.add(existente)
+            corretoras[cadastro_corretoras.normalizar(nome)] = {-1: existente}
             resultado.corretoras_criadas.append(nome)
-        return corretoras[nome]
+        return existente
 
     for linha in previa.linhas:
         if linha.status != "novo" and not (linha.status == "verificar" and linha.numero in incluir):

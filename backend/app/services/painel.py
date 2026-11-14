@@ -30,7 +30,8 @@ def _calcular(sessao: Session, investidor_ids: Sequence[int] | None, ate: date, 
         ativo_ids = list(sessao.scalars(select(Ativo.id).where(Ativo.classe == classe)))
     dados = r.carregar_dados(sessao, investidor_ids, ativo_ids)
     proventos = [(d, v) for _, _, d, v in dados.proventos]
-    serie = r.serie_mensal(dados.movimentos, proventos, dados.precificacao, ate)
+    alugueis = [(d, v) for _, _, d, v in dados.alugueis]
+    serie = r.serie_mensal(dados.movimentos, proventos, dados.precificacao, ate, alugueis=alugueis)
     bench = r.benchmarks_mensais(r.indices(sessao), [m.data for m in serie])
     return dados, serie, bench
 
@@ -97,19 +98,11 @@ def resumo(sessao: Session, investidor_ids: Sequence[int] | None, classe: str | 
         janelas.append(Janela(nome, linhas[0].mes.data.replace(day=1), ultimo.twr_acumulado, ultimo.acumulados))
 
     corte_12m = hoje - timedelta(days=365)
-    filtros_aluguel = [Provento.evento == "ALUGUEL", Provento.data_pagamento <= hoje]
-    if investidor_ids:
-        filtros_aluguel.append(Provento.investidor_id.in_(investidor_ids))
-    if classe:
-        filtros_aluguel.append(Provento.ativo_id.in_(select(Ativo.id).where(Ativo.classe == classe)))
-    liquido = (Provento.valor - Provento.irrf - Provento.taxas) * Provento.cambio
-    aluguel_total = Decimal(str(sessao.scalar(select(func.sum(liquido)).where(*filtros_aluguel)) or 0))
-    aluguel_12m = Decimal(str(
-        sessao.scalar(select(func.sum(liquido)).where(*filtros_aluguel, Provento.data_pagamento > corte_12m)) or 0
-    ))
-    proventos_12m = sum((v for _, _, d, v in dados.proventos if d > corte_12m), ZERO) - aluguel_12m
+    aluguel_total = sum((v for _, _, _, v in dados.alugueis), ZERO)
+    proventos_12m = sum((v for _, _, d, v in dados.proventos if d > corte_12m), ZERO)
     lucro_realizado = sum((m.lucro_trades + m.lucro_daytrade for m in serie), ZERO)
-    tir = r.tir(dados.movimentos, [(d, v) for _, _, d, v in dados.proventos], atual.mercado, hoje)
+    renda = dados.proventos + dados.alugueis
+    tir = r.tir(dados.movimentos, [(d, v) for _, _, d, v in renda], atual.mercado, hoje)
     investido = calcular_valor_investido(
         sessao, investidor_ids, classes_incluidas=[classe] if classe else None
     ).valor_investido
@@ -118,7 +111,7 @@ def resumo(sessao: Session, investidor_ids: Sequence[int] | None, classe: str | 
         patrimonio=atual.mercado,
         investido=investido,
         lucro_realizado=lucro_realizado,
-        proventos_total=sum((v for _, _, _, v in dados.proventos), ZERO) - aluguel_total,
+        proventos_total=sum((v for _, _, _, v in dados.proventos), ZERO),
         aluguel_total=aluguel_total,
         proventos_12m=proventos_12m,
         tir_aa=tir,
@@ -150,13 +143,16 @@ def metricas_posicoes(
     provs: dict[tuple, list[tuple[date, Decimal]]] = {}
     for inv, ativo, d, v in dados.proventos:
         provs.setdefault(chave(inv, ativo), []).append((d, v))
+    alugueis: dict[tuple, list[tuple[date, Decimal]]] = {}
+    for inv, ativo, d, v in dados.alugueis:
+        alugueis.setdefault(chave(inv, ativo), []).append((d, v))
 
     hoje = date.today()
     corte = hoje - timedelta(days=365)
     resultado = {}
     for k, (custo, mercado) in valores.items():
         p12 = sum((v for d, v in provs.get(k, []) if d > corte), ZERO)
-        taxa = r.tir(movs.get(k, []), provs.get(k, []), mercado, hoje) if mercado is not None else None
+        taxa = r.tir(movs.get(k, []), provs.get(k, []) + alugueis.get(k, []), mercado, hoje) if mercado is not None else None
         resultado[k] = MetricasPosicao(p12, p12 / custo if custo else None, taxa)
     return resultado
 
@@ -181,11 +177,11 @@ def matriz_proventos(
         consulta = (
             select(rotulo, mes, liquido)
             .join(Ativo, Ativo.id == Provento.ativo_id)
-            .where(extract("year", Provento.data_pagamento) == ano)
+            .where(extract("year", Provento.data_pagamento) == ano, Provento.evento != "ALUGUEL")
         )
     else:
         rotulo = extract("year", Provento.data_pagamento)
-        consulta = select(rotulo, mes, liquido)
+        consulta = select(rotulo, mes, liquido).where(Provento.evento != "ALUGUEL")
     if classe:
         if not ano:
             consulta = consulta.join(Ativo, Ativo.id == Provento.ativo_id)

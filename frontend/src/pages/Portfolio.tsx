@@ -2,8 +2,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, query } from "../api";
-import { invalidarDerivados, useParametros } from "../cadastros";
+import { invalidarDerivados, useAtivos, useParametros } from "../cadastros";
 import { chaveGrupo, Exposicao, ROTULO_DIMENSAO, somarPor, valorExposicao, type Dimensao } from "../components/Exposicao";
+import { SeloCotacaoAntiga } from "../components/SeloCotacaoAntiga";
+import { AjudaIndicador } from "../components/AjudaIndicador";
+import { cotacaoDesatualizada } from "../cotacao";
 import { classeSinal, data, moeda, numero, percentual } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
 import { MODELOS_VALUATION } from "../referencias";
@@ -34,7 +37,7 @@ function Sinal({ valor, children }: { valor: number | null; children: React.Reac
   return <span className={classeSinal(valor)}>{children}</span>;
 }
 
-function colunas(total: number, nomes: Map<number, string>, porInvestidor: boolean): Coluna[] {
+function colunas(total: number, nomes: Map<number, string>, porInvestidor: boolean, defasadas: Set<number>): Coluna[] {
   const lista: Coluna[] = [
     {
       chave: "ticker",
@@ -56,16 +59,41 @@ function colunas(total: number, nomes: Map<number, string>, porInvestidor: boole
       render: (p) => percentual((p.valor_mercado ?? 0) / (total || 1)),
     },
     { chave: "quantidade", titulo: "Qtd", numerica: true, valor: (p) => p.quantidade, render: (p) => numero(p.quantidade, 8) },
-    { chave: "preco_medio", titulo: "PM (R$)", numerica: true, valor: (p) => p.preco_medio, render: (p) => moeda(p.preco_medio) },
+    {
+      chave: "preco_medio",
+      titulo: "PM (R$)",
+      numerica: true,
+      valor: (p) => p.preco_medio,
+      render: (p) => {
+        const pmComRenda = p.quantidade
+          ? p.preco_medio - (p.proventos + p.aluguel) / p.quantidade
+          : null;
+        return (
+          <>
+            <strong>{moeda(p.preco_medio)}</strong>
+            <div className="sutil" title="PM descontando proventos e aluguel líquidos recebidos">
+              c/ renda {moeda(pmComRenda)}
+            </div>
+          </>
+        );
+      },
+    },
     {
       chave: "cotacao",
       titulo: "Cotação",
       numerica: true,
       valor: (p) => p.cotacao,
       render: (p) => (
-        <span title={p.cotacao_fonte ? `${p.cotacao_fonte} · ${data(p.cotacao_data)}` : "sem cotação"}>
-          {moeda(p.cotacao, p.moeda)}
-        </span>
+        <>
+          <span title={p.cotacao_fonte ? `${p.cotacao_fonte} · ${data(p.cotacao_data)}` : "sem cotação"}>
+            {moeda(p.cotacao, p.moeda)}
+          </span>
+          {defasadas.has(p.ativo_id) && p.cotacao_data && (
+            <div>
+              <SeloCotacaoAntiga dataCotacao={p.cotacao_data} />
+            </div>
+          )}
+        </>
       ),
     },
     { chave: "custo", titulo: "Custo ajustado", numerica: true, valor: (p) => p.custo, render: (p) => moeda(p.custo) },
@@ -103,6 +131,18 @@ function colunas(total: number, nomes: Map<number, string>, porInvestidor: boole
         <>
           {moeda(p.proventos)}
           <div className="sutil">{percentual(p.valor_investido ? p.proventos / p.valor_investido : null)}</div>
+        </>
+      ),
+    },
+    {
+      chave: "aluguel",
+      titulo: "Aluguel",
+      numerica: true,
+      valor: (p) => p.aluguel,
+      render: (p) => (
+        <>
+          {moeda(p.aluguel)}
+          <div className="sutil">{percentual(p.valor_investido ? p.aluguel / p.valor_investido : null)}</div>
         </>
       ),
     },
@@ -367,13 +407,26 @@ export function Portfolio() {
     totais.semCotacao > 0 || carregandoInvestimento || erroInvestimento || !valorInvestido
       ? null
       : totais.mercado - valorInvestido.valor_investido_posicoes_abertas;
-  const proventosSemAluguel = totais.proventos - (aluguel.data?.totais.liquido ?? 0);
   const lucroTotal =
     lucroAberto === null || !aluguel.data
       ? null
-      : lucroAberto + proventosSemAluguel + totais.swing + totais.daytrade + aluguel.data.totais.liquido;
+      : lucroAberto + totais.proventos + totais.swing + totais.daytrade + aluguel.data.totais.liquido;
 
   const nomes = useMemo(() => new Map(investidores.map((i) => [i.id, i.nome])), [investidores]);
+  const { data: ativosCadastro } = useAtivos();
+  // Só ativos com cotação automática; sem o cadastro carregado, nada é sinalizado (evita falso alerta).
+  const defasadas = useMemo(() => {
+    const automaticos = new Set((ativosCadastro ?? []).filter((a) => a.cotacao_automatica).map((a) => a.id));
+    return new Set(
+      posicoes
+        .filter((p) => automaticos.has(p.ativo_id) && cotacaoDesatualizada(p.cotacao_data, p.classe))
+        .map((p) => p.ativo_id),
+    );
+  }, [ativosCadastro, posicoes]);
+  const tickersDefasados = useMemo(
+    () => [...new Set(posicoes.filter((p) => defasadas.has(p.ativo_id)).map((p) => p.ticker))].sort(),
+    [posicoes, defasadas],
+  );
   const chaveLinha = (p: Posicao) => `${p.investidor_id ?? 0}-${p.ativo_id}`;
   const alternarDetalhe = (p: Posicao) => {
     const chave = chaveLinha(p);
@@ -395,7 +448,7 @@ export function Portfolio() {
               alternarDetalhe,
             ),
           ];
-  const cols = [...colunas(totais.mercado, nomes, porInvestidor), ...colsValuation];
+  const cols = [...colunas(totais.mercado, nomes, porInvestidor, defasadas), ...colsValuation];
 
   const ordenadas = useMemo(() => {
     const col = cols.find((c) => c.chave === ordem.chave) ?? cols[0];
@@ -529,7 +582,7 @@ export function Portfolio() {
 
       <div className="cards">
         <div className="card">
-          <span title="Capital desembolsado que continua associado às posições abertas.">Valor investido</span>
+          <span>Valor investido <AjudaIndicador titulo="Valor investido" texto="Capital efetivamente desembolsado que permanece associado às posições abertas, considerando os investidores e classes selecionados." /></span>
           <strong>
             {carregandoInvestimento
               ? "Carregando…"
@@ -539,25 +592,25 @@ export function Portfolio() {
           </strong>
         </div>
         <div className="card">
-          <span title="O custo contábil pode incluir valores atribuídos a bonificações, cisões e outros eventos sem novo desembolso. Valor investido considera apenas o capital efetivamente desembolsado que continua aplicado.">
-            Custo contábil das posições
+          <span>
+            Custo contábil das <span className="ajuda-indicador-grupo">posições <AjudaIndicador titulo="Custo contábil das posições" texto="Soma do custo das posições abertas. Pode incluir valores atribuídos a bonificações, cisões e outros eventos sem novo desembolso, diferindo do valor investido." /></span>
           </span>
           <strong>{moeda(totais.custoContabil)}</strong>
         </div>
         <div className="card">
-          <span>Valor atual</span>
+          <span>Valor atual <AjudaIndicador titulo="Valor atual" texto="Soma dos valores de mercado das posições abertas. Fica indisponível se algum ativo não tiver cotação." /></span>
           <strong>{moeda(totais.semCotacao > 0 ? null : totais.mercado)}</strong>
           {totais.semCotacao > 0 && <small className="sutil">{totais.semCotacao} ativo(s) sem cotação</small>}
         </div>
         {caixaNoPortfolio && caixa && (
           <div className="card">
-            <span>Caixa · Patrimônio</span>
+            <span>Caixa · Patrimônio <AjudaIndicador titulo="Caixa e patrimônio" texto="Soma do valor de mercado disponível das posições e do saldo de caixa convertido em reais. Abaixo aparece o saldo em caixa." /></span>
             <strong>{moeda(totais.mercado + caixa.total_brl)}</strong>
             <small className={classeSinal(caixa.total_brl)}>Saldo em caixa: {moeda(caixa.total_brl)}</small>
           </div>
         )}
         <div className="card">
-          <span>Resultado das posições abertas</span>
+          <span>Resultado das posições <span className="ajuda-indicador-grupo">abertas <AjudaIndicador titulo="Resultado das posições abertas" texto="Valor atual menos o capital efetivamente investido nas posições abertas. O percentual divide esse resultado pelo valor investido. Indisponível quando falta cotação ou investimento." /></span></span>
           <strong className={classeSinal(lucroAberto)}>{moeda(lucroAberto)}</strong>
           <small className={classeSinal(lucroAberto)}>
             {percentual(
@@ -568,30 +621,30 @@ export function Portfolio() {
           </small>
         </div>
         <div className="card">
-          <span>Lucro do dia</span>
+          <span>Lucro do dia <AjudaIndicador titulo="Lucro do dia" texto="Soma das variações diárias em reais das posições abertas com informação disponível." /></span>
           <strong className={classeSinal(totais.lucroDia)}>{moeda(totais.lucroDia)}</strong>
         </div>
         <div className="card">
-          <span>Proventos (histórico)</span>
-          <strong>{moeda(proventosSemAluguel)}</strong>
+          <span>Proventos (histórico) <AjudaIndicador titulo="Proventos histórico" texto="Soma dos proventos líquidos das posições, inclusive posições encerradas, respeitando os filtros." /></span>
+          <strong>{moeda(totais.proventos)}</strong>
         </div>
         <div className="card">
-          <span title="Resultado líquido de aluguel de ações BTC; já incluído no lucro total.">Aluguel BTC</span>
+          <span>Aluguel BTC <AjudaIndicador titulo="Aluguel BTC" texto="Resultado líquido histórico dos lançamentos de aluguel de ações, já incluído no lucro total." /></span>
           <strong className={classeSinal(aluguel.data?.totais.liquido ?? null)}>
             {aluguel.isLoading ? "Carregando…" : moeda(aluguel.data?.totais.liquido ?? null)}
           </strong>
           {aluguel.error && <small className="negativo">{(aluguel.error as Error).message}</small>}
         </div>
         <div className="card">
-          <span>Swing trade realizado</span>
+          <span>Swing trade realizado <AjudaIndicador titulo="Swing trade realizado" texto="Soma dos resultados realizados em operações que não são day trade, inclusive posições encerradas." /></span>
           <strong className={classeSinal(totais.swing)}>{moeda(totais.swing)}</strong>
         </div>
         <div className="card">
-          <span>Day trade realizado</span>
+          <span>Day trade realizado <AjudaIndicador titulo="Day trade realizado" texto="Soma dos resultados realizados em operações de day trade, inclusive posições encerradas." /></span>
           <strong className={classeSinal(totais.daytrade)}>{moeda(totais.daytrade)}</strong>
         </div>
         <div className="card">
-          <span>Lucro total</span>
+          <span>Lucro total <AjudaIndicador titulo="Lucro total" texto="Resultado das posições abertas + proventos históricos + swing trade + day trade + aluguel BTC líquido. Depende de cotação, investimento e dados de aluguel disponíveis." /></span>
           <strong className={classeSinal(lucroTotal)}>{moeda(lucroTotal)}</strong>
         </div>
       </div>
@@ -605,14 +658,29 @@ export function Portfolio() {
       )}
 
       {posicoes.length > 0 && (
+        <>
+        {tickersDefasados.length > 0 && (
+          <div className="aviso" role="status">
+            {tickersDefasados.length === 1
+              ? "1 ativo com cotação desatualizada"
+              : `${tickersDefasados.length} ativos com cotação desatualizada`}
+            : {tickersDefasados.join(", ")}. A data da última cotação aparece abaixo do preço.
+          </div>
+        )}
         <div className="tabela-container">
           <table className="tabela">
             <thead>
               <tr>
                 {cols.map((c) => (
-                  <th key={c.chave} className={c.numerica ? "num" : ""} onClick={() => ordenarPor(c.chave)}>
-                    {c.titulo}
-                    {ordem.chave === c.chave && (ordem.desc ? " ▼" : " ▲")}
+                  <th
+                    key={c.chave}
+                    className={c.numerica ? "num" : ""}
+                    aria-sort={ordem.chave === c.chave ? (ordem.desc ? "descending" : "ascending") : undefined}
+                  >
+                    <button type="button" className="ordenar" onClick={() => ordenarPor(c.chave)}>
+                      {c.titulo}
+                      {ordem.chave === c.chave && <span aria-hidden="true">{ordem.desc ? " ▼" : " ▲"}</span>}
+                    </button>
                   </th>
                 ))}
                 <th aria-label="Ações" />
@@ -621,6 +689,7 @@ export function Portfolio() {
             <tbody>{grupos.flatMap((g) => [...(g.nome ? [subtotal(g.nome, g.itens)] : []), ...g.itens.flatMap(linha)])}</tbody>
           </table>
         </div>
+        </>
       )}
     </section>
   );

@@ -82,6 +82,7 @@ class Mes:
     investido: Decimal
     mercado: Decimal
     proventos: Decimal
+    aluguel: Decimal
     lucro_trades: Decimal
     lucro_daytrade: Decimal
     fluxo: Decimal
@@ -97,6 +98,7 @@ def serie_mensal(
     precificacao: Precificacao,
     ate: date,
     desde: date | None = None,
+    alugueis: Iterable[tuple[date, Decimal]] = (),
 ) -> list[Mes]:
     movs = ordenar(movimentos)
     if not movs:
@@ -105,6 +107,10 @@ def serie_mensal(
     for dia, valor in proventos:
         chave = fim_do_mes(dia)
         prov_mes[chave] = prov_mes.get(chave, ZERO) + valor
+    aluguel_mes: dict[date, Decimal] = {}
+    for dia, valor in alugueis:
+        chave = fim_do_mes(dia)
+        aluguel_mes[chave] = aluguel_mes.get(chave, ZERO) + valor
 
     carteira = Carteira()
     i = 0
@@ -133,13 +139,14 @@ def serie_mensal(
                 sem_cotacao.append(p.ativo_id)
 
         prov = prov_mes.get(fim, ZERO)
-        fluxo = investido - investido_ant - prov - trades - daytrade
+        aluguel = aluguel_mes.get(fim, ZERO)
+        fluxo = investido - investido_ant - prov - aluguel - trades - daytrade
         lucro_mes = mercado - mercado_ant - fluxo
         base = mercado_ant + max(fluxo, ZERO)
         twr = lucro_mes / base if base else ZERO
         acumulado *= UM + twr
         resultado.append(
-            Mes(fim, investido, mercado, prov, trades, daytrade, fluxo, lucro_mes, twr, acumulado - UM, sem_cotacao)
+            Mes(fim, investido, mercado, prov, aluguel, trades, daytrade, fluxo, lucro_mes, twr, acumulado - UM, sem_cotacao)
         )
         investido_ant, mercado_ant = investido, mercado
     return resultado
@@ -279,6 +286,7 @@ def acumular(variacoes: Iterable[Decimal | None]) -> list[Decimal | None]:
 class DadosRentabilidade:
     movimentos: list[Movimento]
     proventos: list[tuple[int, int, date, Decimal]]  # investidor, ativo, data, líquido em BRL
+    alugueis: list[tuple[int, int, date, Decimal]]  # investidor, ativo, data, líquido em BRL
     precificacao: Precificacao
 
 
@@ -334,7 +342,17 @@ def carregar_dados(
     proventos = [
         (i, a, d, Decimal(str(v)))
         for i, a, d, v in sessao.execute(
-            select(Provento.investidor_id, Provento.ativo_id, Provento.data_pagamento, liquido).where(*filtros_prov)
+            select(Provento.investidor_id, Provento.ativo_id, Provento.data_pagamento, liquido).where(
+                *filtros_prov, Provento.evento != "ALUGUEL"
+            )
+        )
+    ]
+    alugueis = [
+        (i, a, d, Decimal(str(v)))
+        for i, a, d, v in sessao.execute(
+            select(Provento.investidor_id, Provento.ativo_id, Provento.data_pagamento, liquido).where(
+                *filtros_prov, Provento.evento == "ALUGUEL"
+            )
         )
     ]
 
@@ -363,7 +381,7 @@ def carregar_dados(
     precificacao = Precificacao(
         {a: Serie(p) for a, p in pontos.items()}, {m: Serie(p) for m, p in cambios.items()}, moeda_ativo
     )
-    return DadosRentabilidade(movimentos, proventos, precificacao)
+    return DadosRentabilidade(movimentos, proventos, alugueis, precificacao)
 
 
 def indices(sessao: Session) -> list[IndiceMensal]:

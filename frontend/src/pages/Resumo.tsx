@@ -4,6 +4,9 @@ import { Link } from "react-router-dom";
 import { api, query } from "../api";
 import { useAtivos } from "../cadastros";
 import { GraficoBarras, GraficoLinhas } from "../components/Graficos";
+import { AjudaIndicador } from "../components/AjudaIndicador";
+import { SeloCotacaoAntiga } from "../components/SeloCotacaoAntiga";
+import { cotacaoDesatualizada } from "../cotacao";
 import { classeSinal, data, moeda, moedaCompacta, percentual } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
 import { BENCHMARKS, NOMES_BENCHMARK } from "../referencias";
@@ -36,6 +39,8 @@ export function Resumo() {
   const abertas = (posicoes.data ?? []).filter(
     (p) => p.quantidade > 0 && p.variacao_dia_pct !== null && (!classe || p.classe === classe),
   );
+  const automaticos = new Set(ativos.filter((a) => a.cotacao_automatica).map((a) => a.id));
+  const defasada = (p: Posicao) => automaticos.has(p.ativo_id) && cotacaoDesatualizada(p.cotacao_data, p.classe);
   const destaques = [...abertas].sort((a, b) => (b.variacao_dia_pct ?? 0) - (a.variacao_dia_pct ?? 0));
   const lucroTotal = r ? r.lucro_aberto + r.lucro_realizado + r.proventos_total + r.aluguel_total : 0;
 
@@ -65,32 +70,32 @@ export function Resumo() {
         <>
           <div className="cards">
             <div className="card">
-              <span>Patrimônio</span>
+              <span>Patrimônio <AjudaIndicador titulo="Patrimônio" texto="Valor de mercado da carteira no último mês da série. O investido abaixo corresponde ao capital calculado para os filtros selecionados." /></span>
               <strong>{moeda(r.patrimonio)}</strong>
               <small className="sutil">Investido {moeda(r.investido)}</small>
             </div>
             <div className="card">
-              <span>Lucro aberto</span>
+              <span>Lucro aberto <AjudaIndicador titulo="Lucro aberto" texto="Patrimônio menos o valor investido. O percentual divide o lucro aberto pelo investido." /></span>
               <strong className={classeSinal(r.lucro_aberto)}>{moeda(r.lucro_aberto)}</strong>
               <small className={classeSinal(r.lucro_aberto)}>{percentual(r.investido ? r.lucro_aberto / r.investido : null)}</small>
             </div>
             <div className="card">
-              <span>Lucro total</span>
+              <span>Lucro total <AjudaIndicador titulo="Lucro total" texto="Soma do lucro aberto, resultado realizado nas operações, proventos e aluguel BTC líquido." /></span>
               <strong className={classeSinal(lucroTotal)}>{moeda(lucroTotal)}</strong>
               <small className="sutil">aberto + realizado + proventos + aluguel BTC</small>
             </div>
             <div className="card">
-              <span>Aluguel BTC</span>
+              <span>Aluguel BTC <AjudaIndicador titulo="Aluguel BTC" texto="Soma dos rendimentos líquidos de aluguel de ações registrados; já está incluída no lucro total." /></span>
               <strong className={classeSinal(r.aluguel_total)}>{moeda(r.aluguel_total)}</strong>
               <small className="sutil">resultado líquido já incluído no lucro total</small>
             </div>
             <div className="card">
-              <span>Proventos (12 meses)</span>
+              <span>Proventos (12 meses) <AjudaIndicador titulo="Proventos (12 meses)" texto="Soma dos proventos líquidos nos últimos 365 dias. O YoC relaciona esse valor ao investido; o total abaixo considera o histórico." /></span>
               <strong>{moeda(r.proventos_12m)}</strong>
               <small className="sutil">YoC {percentual(r.yoc_12m)} · total {moeda(r.proventos_total)}</small>
             </div>
             <div className="card">
-              <span>TIR</span>
+              <span>TIR <AjudaIndicador titulo="TIR" texto="Taxa interna de retorno anualizada calculada a partir das datas e valores das movimentações, rendimentos e patrimônio atual. A taxa mensal equivalente aparece abaixo." /></span>
               <strong className={classeSinal(r.tir_aa)}>{percentual(r.tir_aa)} a.a.</strong>
               <small className="sutil">{percentual(r.tir_am)} a.m.</small>
             </div>
@@ -98,7 +103,7 @@ export function Resumo() {
 
           <div className="paineis">
             <div className="painel">
-              <h3>Rentabilidade (TWR) × referências</h3>
+              <h3>Rentabilidade (TWR) × referências <AjudaIndicador titulo="Rentabilidade (TWR) e referências" texto="A TWR acumula os retornos da carteira no período, separando o efeito de aportes e retiradas. A coluna real desconta o IPCA; as demais mostram as referências correspondentes." /></h3>
               <table className="tabela">
                 <thead>
                   <tr>
@@ -144,12 +149,14 @@ export function Resumo() {
             </div>
 
             <div className="painel">
-              <h3>Proventos dos últimos 12 meses</h3>
+              <h3>Proventos dos últimos 12 meses <AjudaIndicador titulo="Proventos dos últimos 12 meses" texto="Cada barra mostra os proventos líquidos registrados no respectivo mês da série, para os filtros selecionados." /></h3>
               <GraficoBarras
                 datas={r.proventos_mensais.map(([d]) => d)}
                 valores={r.proventos_mensais.map(([, v]) => v)}
                 formatar={moedaCompacta}
                 cor="var(--primaria)"
+                titulo="Proventos dos últimos 12 meses"
+                rotuloValor="Proventos"
               />
             </div>
           </div>
@@ -158,8 +165,9 @@ export function Resumo() {
 
       {meses.length > 0 && (
         <div className="painel">
-          <h3>Evolução patrimonial</h3>
+          <h3>Evolução patrimonial <AjudaIndicador titulo="Evolução patrimonial" texto="Compara, em cada mês da série, o valor de mercado da carteira com o valor investido. Na falta de cotação histórica, o cálculo pode usar o custo." /></h3>
           <GraficoLinhas
+            titulo="Evolução patrimonial"
             datas={meses.map((m) => m.data)}
             series={[
               { nome: "Mercado", cor: "var(--primaria)", valores: meses.map((m) => m.mercado) },
@@ -177,7 +185,7 @@ export function Resumo() {
             { titulo: "Maiores baixas do dia", lista: destaques.slice(-5).reverse() },
           ].map(({ titulo, lista }) => (
             <div key={titulo} className="painel">
-              <h3>{titulo}</h3>
+              <h3>{titulo} <AjudaIndicador titulo={titulo} texto="Posições abertas ordenadas pela variação percentual diária da cotação. A lista mostra até cinco ativos e seus respectivos preços, variações e resultados do dia." /></h3>
               <table className="tabela">
                 <tbody>
                   {lista.map((p) => (
@@ -185,7 +193,14 @@ export function Resumo() {
                       <td>
                         <strong>{p.ticker}</strong>
                       </td>
-                      <td className="num">{moeda(p.cotacao, p.moeda)}</td>
+                      <td className="num">
+                        {moeda(p.cotacao, p.moeda)}
+                        {defasada(p) && p.cotacao_data && (
+                          <div>
+                            <SeloCotacaoAntiga dataCotacao={p.cotacao_data} />
+                          </div>
+                        )}
+                      </td>
                       <td className="num">
                         <Pct v={p.variacao_dia_pct} />
                       </td>

@@ -14,6 +14,7 @@ import httpx
 
 SERIES_MENSAIS = {"cdi": 4391, "selic": 4390, "ipca": 433, "igpm": 189}
 SERIES_PTAX_VENDA = {"USD": 1, "EUR": 21620}
+SERIE_CDI_DIARIO = 12  # Pontos percentuais ao dia, nao taxa anual.
 INDICES_B3 = {"ibov": "IBOV", "ifix": "IFIX"}
 
 _SGS = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.{serie}/dados"

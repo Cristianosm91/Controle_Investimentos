@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, query } from "../../api";
-import { invalidarDerivados, useAtivos } from "../../cadastros";
+import { confirmarCorrecaoMoeda, invalidarDerivados, useAtivos } from "../../cadastros";
 import { useInvestidor } from "../../InvestidorContext";
 import type { Posicao } from "../../tipos";
 
+const BOLSAS = ["BVMF", "NASDAQ", "NYSE", "NYSEARCA", "NYSEAMERICAN", "BATS"];
 const CLASSES_CONHECIDAS = [
   "AÇÃO", "BDR", "ETF", "ETF_US", "FII", "FIAGRO", "OPÇÃO", "REIT", "STOCK", "CRIPTO", "R.FIXA",
 ];
-const BOLSAS = ["BVMF", "NASDAQ", "NYSE", "NYSEARCA", "NYSEAMERICAN", "BATS"];
 
 export function ClassesAtivos() {
   const cliente = useQueryClient();
@@ -28,7 +28,7 @@ export function ClassesAtivos() {
     queryFn: () => api.get<string[]>("/classes"),
   });
   const alterarClasse = useMutation({
-    mutationFn: ({ id, ...campos }: { id: number; classe?: string; mercado?: string | null }) =>
+    mutationFn: ({ id, ...campos }: { id: number; classe?: string; mercado?: string | null; moeda?: string; confirmar_correcao_moeda?: boolean }) =>
       api.patch(`/ativos/${id}/classe`, campos),
     onSuccess: () => {
       cliente.invalidateQueries({ queryKey: ["ativos"] });
@@ -50,6 +50,7 @@ export function ClassesAtivos() {
           ticker: ativo.ticker,
           classe: ativo.classe,
           mercado: ativo.mercado,
+          moeda: ativo.moeda,
           aberta: error ? null : idsAbertos.has(ativo.id),
         }))
     : ativos.map((ativo) => ({
@@ -57,6 +58,7 @@ export function ClassesAtivos() {
         ticker: ativo.ticker,
         classe: ativo.classe,
         mercado: cadastros.data?.find((cadastro) => cadastro.id === ativo.ativo_id)?.mercado ?? null,
+        moeda: ativo.moeda,
         aberta: true,
       }));
 
@@ -104,6 +106,7 @@ export function ClassesAtivos() {
                 <th>Ticker</th>
                 <th>Classe</th>
                 <th>Bolsa</th>
+                <th>Moeda</th>
               </tr>
             </thead>
             <tbody>
@@ -157,12 +160,32 @@ export function ClassesAtivos() {
                       ))}
                     </select>
                   </td>
+                  <td>
+                    <select
+                      aria-label={`Moeda de ${ativo.ticker}`}
+                      value={ativo.moeda}
+                      disabled={alterarClasse.isPending}
+                      onChange={(e) => {
+                        const novaMoeda = e.target.value;
+                        if (
+                          novaMoeda !== ativo.moeda &&
+                          confirmarCorrecaoMoeda(ativo.ticker, ativo.moeda, novaMoeda)
+                        ) {
+                          alterarClasse.mutate({ id: ativo.id, moeda: novaMoeda, confirmar_correcao_moeda: true });
+                        }
+                      }}
+                    >
+                      {["BRL", "USD", "EUR"].map((moeda) => (
+                        <option key={moeda} value={moeda}>{moeda}</option>
+                      ))}
+                    </select>
+                  </td>
                 </tr>
                 );
               })}
               {!itens.length && (
                 <tr>
-                  <td colSpan={3}>Nenhum ativo encontrado.</td>
+                  <td colSpan={4}>Nenhum ativo encontrado.</td>
                 </tr>
               )}
             </tbody>

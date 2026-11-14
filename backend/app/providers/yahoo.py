@@ -32,6 +32,10 @@ def simbolo_yahoo(ativo: AtivoRef) -> str | None:
 class ProvedorYahoo:
     nome = "Yahoo"
 
+    def __init__(self) -> None:
+        # Falhas da fonte (exceção ou resposta vazia), distintas de ticker sem dado; lidas e limpas pelo chamador.
+        self.falhas: list[str] = []
+
     def _fechamentos(self, simbolos: list[str]) -> dict[str, tuple[date, Decimal, Decimal | None]]:
         if not simbolos:
             return {}
@@ -47,6 +51,11 @@ class ProvedorYahoo:
             )
         except Exception:
             log.exception("Falha ao consultar Yahoo Finance")
+            self.falhas.append("Yahoo Finance indisponível")
+            return {}
+        if df is None or df.empty:
+            log.warning("Yahoo Finance devolveu resposta vazia para %d símbolo(s)", len(simbolos))
+            self.falhas.append("Yahoo Finance sem resposta")
             return {}
 
         resultado = {}

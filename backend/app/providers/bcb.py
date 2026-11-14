@@ -98,6 +98,10 @@ class ProvedorBcb:
 
     nome = FONTE
 
+    def __init__(self) -> None:
+        # Moedas cuja consulta falhou (distinto de "sem boletim"); lidas e limpas pelo chamador.
+        self.falhas: list[str] = []
+
     def cotacoes(self, ativos: Sequence[AtivoRef]) -> dict[str, CotacaoAtual]:
         return {}
 
@@ -112,6 +116,7 @@ class ProvedorBcb:
                     boletins = _consultar(moeda, hoje - timedelta(days=_JANELA_DIAS), hoje, cliente)
                 except ErroPtax:
                     log.exception("PTAX %s indisponível", moeda)
+                    self.falhas.append(f"{self.nome} ({moeda})")
                     continue
                 if not boletins:
                     continue

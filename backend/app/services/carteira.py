@@ -33,8 +33,8 @@ def carregar_posicoes(
     return calcular_posicoes(movimentos)
 
 
-def _proventos_liquidos(
-    sessao: Session, investidor_ids: Sequence[int] | None, ativo_ids: set[int] | None = None
+def _rendimentos_liquidos(
+    sessao: Session, investidor_ids: Sequence[int] | None, ativo_ids: set[int] | None = None, aluguel: bool = False
 ) -> dict[tuple[int, int], Decimal]:
     liquido = func.sum((Provento.valor - Provento.irrf - Provento.taxas) * Provento.cambio)
     consulta = select(Provento.investidor_id, Provento.ativo_id, liquido).group_by(
@@ -44,6 +44,7 @@ def _proventos_liquidos(
         consulta = consulta.where(Provento.investidor_id.in_(investidor_ids))
     if ativo_ids is not None:
         consulta = consulta.where(Provento.ativo_id.in_(ativo_ids))
+    consulta = consulta.where(Provento.evento == "ALUGUEL" if aluguel else Provento.evento != "ALUGUEL")
     consulta = consulta.where(Provento.data_pagamento <= date.today())
     return {(i, a): Decimal(str(v or 0)) for i, a, v in sessao.execute(consulta)}
 
@@ -80,6 +81,7 @@ class LinhaCarteira:
     ativo: Ativo
     posicao: Posicao
     proventos: Decimal
+    aluguel: Decimal
     cotacao: Cotacao | None
     cambio: Decimal | None
 
@@ -111,7 +113,8 @@ def montar_carteira(
     ate: date | None = None,
 ) -> list[LinhaCarteira]:
     posicoes = carregar_posicoes(sessao, investidor_ids, ate=ate, ativo_ids=ativo_ids)
-    proventos = _proventos_liquidos(sessao, investidor_ids, ativo_ids)
+    proventos = _rendimentos_liquidos(sessao, investidor_ids, ativo_ids)
+    alugueis = _rendimentos_liquidos(sessao, investidor_ids, ativo_ids, aluguel=True)
 
     if consolidado:
         por_chave: dict[tuple[int | None, int], Posicao] = {
@@ -120,9 +123,13 @@ def montar_carteira(
         prov: dict[tuple[int | None, int], Decimal] = {}
         for (_, a), v in proventos.items():
             prov[(None, a)] = prov.get((None, a), ZERO) + v
+        renda_aluguel: dict[tuple[int | None, int], Decimal] = {}
+        for (_, a), v in alugueis.items():
+            renda_aluguel[(None, a)] = renda_aluguel.get((None, a), ZERO) + v
     else:
         por_chave = dict(posicoes)
         prov = dict(proventos)
+        renda_aluguel = dict(alugueis)
 
     if somente_abertas:
         por_chave = {k: p for k, p in por_chave.items() if p.aberta}
@@ -133,7 +140,10 @@ def montar_carteira(
     cambios = cambios_atuais(sessao)
 
     linhas = [
-        LinhaCarteira(inv, ativos[a], p, prov.get((inv, a), ZERO), cotacoes.get(a), cambios.get(ativos[a].moeda))
+        LinhaCarteira(
+            inv, ativos[a], p, prov.get((inv, a), ZERO), renda_aluguel.get((inv, a), ZERO), cotacoes.get(a),
+            cambios.get(ativos[a].moeda),
+        )
         for (inv, a), p in por_chave.items()
     ]
     linhas.sort(key=lambda l: (l.ativo.classe, l.ativo.ticker, l.investidor_id or 0))

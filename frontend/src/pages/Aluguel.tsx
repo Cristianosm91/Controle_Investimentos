@@ -5,6 +5,7 @@ import { invalidarDerivados, useAtivos } from "../cadastros";
 import { AcoesLinha } from "../components/AcoesLinha";
 import { FormProvento } from "../components/FormLancamentos";
 import { GraficoBarras } from "../components/Graficos";
+import { AjudaIndicador } from "../components/AjudaIndicador";
 import { ListaPaginada, type ColunaLista } from "../components/ListaPaginada";
 import { Modal } from "../components/Modal";
 import { ModelosImportacao } from "../components/ModelosImportacao";
@@ -202,19 +203,19 @@ function Resumo({ filtro }: { filtro: string | undefined }) {
       </div>
       <div className="cards">
         <div className="card">
-          <span>Remuneração bruta</span>
+          <span>Remuneração bruta <AjudaIndicador titulo="Remuneração bruta" texto="Soma da remuneração bruta dos lançamentos de aluguel no período selecionado." /></span>
           <strong>{moeda(r.totais.bruto)}</strong>
         </div>
         <div className="card">
-          <span>Taxa de intermediação</span>
+          <span>Taxa de intermediação <AjudaIndicador titulo="Taxa de intermediação" texto="Soma das taxas registradas nos lançamentos de aluguel do período." /></span>
           <strong>{moeda(r.totais.taxas)}</strong>
         </div>
         <div className="card">
-          <span>IRRF</span>
+          <span>IRRF <AjudaIndicador titulo="IRRF de aluguel" texto="Soma do imposto retido na fonte registrado nos lançamentos de aluguel do período." /></span>
           <strong>{moeda(r.totais.irrf)}</strong>
         </div>
         <div className="card">
-          <span>Líquido</span>
+          <span>Líquido <AjudaIndicador titulo="Aluguel líquido" texto="Remuneração bruta menos taxas de intermediação e IRRF dos lançamentos selecionados." /></span>
           <strong className={r.totais.liquido >= 0 ? "positivo" : "negativo"}>{moeda(r.totais.liquido)}</strong>
           <small className="sutil">{r.lancamentos} lançamento(s)</small>
         </div>
@@ -223,11 +224,13 @@ function Resumo({ filtro }: { filtro: string | undefined }) {
       {r.lancamentos > 0 && (
         <div className="paineis alinhado-topo">
           <div className="painel">
-            <h3>Líquido por mês</h3>
+            <h3>Líquido por mês <AjudaIndicador titulo="Aluguel líquido por mês" texto="Cada barra soma a remuneração de aluguel líquida de taxas e IRRF no mês." /></h3>
             <GraficoBarras
               datas={r.por_mes.map((m) => `${m.mes}-01`)}
               valores={r.por_mes.map((m) => m.liquido)}
               formatar={moedaCompacta}
+              titulo="Aluguel líquido por mês"
+              rotuloValor="Líquido"
             />
           </div>
           <div className="painel">

@@ -12,6 +12,7 @@ from ..models import Ativo, Cotacao, CotacaoMoeda, CriptoMercado, Investidor, Op
 from ..providers import cripto as provedor
 from ..providers.bcb import ProvedorBcb
 from .carteira import cambios_atuais, montar_carteira
+from .cotacoes import gravar_cambio
 from .ir_calculo import mes
 from .posicao import ZERO, Carteira, Movimento
 
@@ -22,6 +23,16 @@ LIMITE_INFORMATIVO = Decimal("35000")
 class AtualizacaoCripto:
     atualizados: list[str] = field(default_factory=list)
     avisos: list[str] = field(default_factory=list)
+    # Avisos que não indicam falha de fonte (não marcam a tarefa como "concluída com falhas").
+    informativos: list[str] = field(default_factory=list)
+
+    @property
+    def falhas(self) -> list[str]:
+        return [aviso for aviso in self.avisos if aviso not in self.informativos]
+
+    def informar(self, texto: str) -> None:
+        self.avisos.append(texto)
+        self.informativos.append(texto)
 
     def resumo(self) -> str:
         return f"{len(self.atualizados)} cripto(s) atualizada(s)" + (
@@ -37,12 +48,10 @@ def atualizar(sessao: Session) -> AtualizacaoCripto:
     ids = [a.coingecko_id for a in ativos if a.coingecko_id]
     mercados, resultado.avisos = provedor.mercados(ids)
     moedas = sorted({"USD"} | {a.moeda for a in ativos if a.moeda != "BRL"})
-    for moeda, cot in ProvedorBcb().cambios(moedas).items():
-        linha = sessao.scalar(select(CotacaoMoeda).where(CotacaoMoeda.moeda == moeda, CotacaoMoeda.data == cot.data))
-        if linha is None:
-            linha = CotacaoMoeda(moeda=moeda, data=cot.data)
-            sessao.add(linha)
-        linha.valor, linha.fonte = cot.preco, cot.fonte
+    fonte_cambio = ProvedorBcb()
+    for moeda, cot in fonte_cambio.cambios(moedas).items():
+        gravar_cambio(sessao, moeda, cot)
+    resultado.avisos.extend(f"{falha}: câmbio indisponível" for falha in fonte_cambio.falhas)
     sessao.flush()
     cambios = cambios_atuais(sessao)
     for ativo in ativos:
@@ -51,12 +60,12 @@ def atualizar(sessao: Session) -> AtualizacaoCripto:
             resultado.avisos.append(f"{ativo.ticker}: sem snapshot novo; dados antigos não são apresentados como atuais")
             continue
         if mercado.current_price.quantize(Decimal("0.00000001")) <= 0:
-            resultado.avisos.append(f"{ativo.ticker}: preço abaixo da precisão de 8 casas do banco; snapshot não gravado")
+            resultado.informar(f"{ativo.ticker}: preço abaixo da precisão de 8 casas do banco; snapshot não gravado")
             continue
         instante = mercado.last_updated.astimezone(UTC).replace(tzinfo=None)
         linha = sessao.get(CriptoMercado, ativo.id)
         if linha and linha.atualizado_em > instante:
-            resultado.avisos.append(f"{ativo.ticker}: snapshot recebido é anterior ao cache local")
+            resultado.informar(f"{ativo.ticker}: snapshot recebido é anterior ao cache local")
             continue
         if linha is None:
             linha = CriptoMercado(ativo_id=ativo.id)

@@ -165,6 +165,7 @@ function SeletorClasses({ valor, aoMudar }: { valor: string[]; aoMudar: (v: stri
         <input
           list="lista-classes"
           placeholder="Adicionar classe"
+          aria-label="Adicionar classe"
           value={nova}
           onChange={(e) => setNova(e.target.value)}
           onKeyDown={(e) => {
@@ -408,7 +409,12 @@ function Excecoes() {
         <CampoAtivo ativoId={ativo ? String(ativo.id) : ""} aoMudar={(a) => setAtivo(a)} />
         {linhas.map((l, i) => (
           <div key={i} className="linha-form largura-total">
-            <select required value={l.book_id} onChange={(e) => mudarLinha(i, { book_id: e.target.value })}>
+            <select
+              required
+              aria-label={`Book da linha ${i + 1}`}
+              value={l.book_id}
+              onChange={(e) => mudarLinha(i, { book_id: e.target.value })}
+            >
               <option value="">Book…</option>
               {books.map((b) => (
                 <option key={b.id} value={b.id}>
@@ -423,10 +429,16 @@ function Excecoes() {
               min="0"
               max="100"
               placeholder="%"
+              aria-label={`Percentual no book da linha ${i + 1} (%)`}
               value={l.percentual}
               onChange={(e) => mudarLinha(i, { percentual: e.target.value })}
             />
-            <button type="button" className="link perigo" onClick={() => setLinhas(linhas.filter((_, j) => j !== i))}>
+            <button
+              type="button"
+              className="link perigo"
+              aria-label={`Remover a linha ${i + 1}`}
+              onClick={() => setLinhas(linhas.filter((_, j) => j !== i))}
+            >
               ×
             </button>
           </div>

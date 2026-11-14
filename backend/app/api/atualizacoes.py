@@ -18,6 +18,7 @@ def listar_tarefas():
         TarefaOut(
             nome=t.nome, descricao=t.descricao, em_execucao=t.em_execucao, inicio=t.inicio, fim=t.fim,
             sucesso=t.sucesso, mensagem=t.mensagem, duracao_s=t.duracao_s, proxima=jobs.proxima_execucao(t.nome),
+            status=t.status,
         )
         for t in jobs.TAREFAS.values()
     ]
