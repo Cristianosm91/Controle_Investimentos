@@ -14,8 +14,14 @@ _MERCADOS_EUA = {"NASDAQ", "NYSE", "NYSEARCA", "NYSEAMERICAN", "BATS"}
 
 # Mercado fictício usado só na consulta de histórico de criptos (que não têm mercado no cadastro).
 MERCADO_CRIPTO = "CRIPTO"
-# Criptos cujo símbolo no Yahoo difere do ticker usual (renomeadas ou com homônimos).
-_CRIPTO_YAHOO = {"NANO": "XNO", "SUI": "SUI20947"}
+# Criptos cujo símbolo no Yahoo difere do ticker usual (renomeadas, homônimos ou nomes comuns).
+_CRIPTO_YAHOO = {
+    "NANO": "XNO",
+    "SUI": "SUI20947",
+    "BITCOIN": "BTC",
+    "ETHEREUM": "ETH",
+    "LITECOIN": "LTC",
+}
 
 
 def simbolo_yahoo(ativo: AtivoRef) -> str | None:

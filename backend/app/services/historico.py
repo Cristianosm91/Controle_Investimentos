@@ -133,16 +133,58 @@ def carregar_historico_exterior(sessao: Session, desde: date | None = None) -> R
     resultado = ResultadoHistorico()
     if not ativos:
         return resultado
+    # Para CRIPTO, o Yahoo Finance só disponibiliza histórico consistente em pares USD (ex: BTC-USD).
+    # Quando o ativo estiver em BRL ou outra moeda, busca a série em USD e converte via PTAX.
+    criptos_convertidas = {a.id: a.moeda for a in ativos if a.classe == "CRIPTO" and a.moeda != "USD"}
     referencias = [
-        AtivoRef(a.ticker, MERCADO_CRIPTO if a.classe == "CRIPTO" else a.mercado, a.moeda) for a in ativos
+        AtivoRef(
+            a.ticker,
+            MERCADO_CRIPTO if a.classe == "CRIPTO" else a.mercado,
+            "USD" if a.id in criptos_convertidas else a.moeda,
+        )
+        for a in ativos
     ]
     historico = ProvedorYahoo().historico(referencias, inicio)
+
+    # Série de câmbio PTAX para converter criptos cotadas em USD para a moeda do ativo (ex: BRL).
+    cambios_usd: dict[date, Decimal] = {}
+    if criptos_convertidas:
+        datas_necessarias = {dia for serie in historico.values() for dia in serie}
+        if datas_necessarias:
+            dias_ptax = list(
+                sessao.execute(
+                    select(CotacaoMoeda.data, CotacaoMoeda.valor).where(
+                        CotacaoMoeda.moeda == "USD",
+                        CotacaoMoeda.data >= min(datas_necessarias),
+                        CotacaoMoeda.data <= max(datas_necessarias),
+                    )
+                )
+            )
+            # Ordenado por data para carry-forward caso algum dia específico (ex: fim de semana) não tenha PTAX
+            serie_ptax = sorted((dia, valor) for dia, valor in dias_ptax)
+            if serie_ptax:
+                datas_ptax = [d for d, _ in serie_ptax]
+                valores_ptax = [v for _, v in serie_ptax]
+                import bisect
+
+                for dia in datas_necessarias:
+                    pos = bisect.bisect_right(datas_ptax, dia)
+                    if pos > 0:
+                        cambios_usd[dia] = valores_ptax[pos - 1]
+
     ids = {a.ticker: a.id for a in ativos}
-    fechamentos = [
-        cotahist.Fechamento(ticker, dia, preco, Decimal(0))
-        for ticker, serie in historico.items()
-        for dia, preco in serie.items()
-    ]
+    fechamentos = []
+    for ticker, serie in historico.items():
+        ativo_id = ids.get(ticker)
+        converter_de_usd = ativo_id in criptos_convertidas
+        for dia, preco in serie.items():
+            if converter_de_usd:
+                fator = cambios_usd.get(dia)
+                if fator is None:
+                    continue
+                preco = round(preco * fator, 8)
+            fechamentos.append(cotahist.Fechamento(ticker, dia, preco, Decimal(0)))
+
     resultado.gravados["cotações"] = cotahist.gravar(
         sessao, fechamentos, ids, fonte=ProvedorYahoo.nome, preservar_fonte=cotahist.FONTE
     )
