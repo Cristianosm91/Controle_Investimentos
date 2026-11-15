@@ -55,8 +55,13 @@ function escala(minDados: number, maxDados: number, alvoMarcas = 5) {
   let max = maxDados;
   if (min === max) {
     const folga = Math.abs(min) * 0.1 || 1;
-    min = min >= 0 ? Math.max(0, min - folga) : min - folga;
-    max = max <= 0 ? Math.min(0, max + folga) : max + folga;
+    if (min >= 0) {
+      min = Math.max(0, min - folga);
+      max += folga;
+    } else {
+      min -= folga;
+      max = Math.min(0, max + folga);
+    }
   }
   const passo = passoRedondo((max - min) / (alvoMarcas - 1));
   const inicio = Math.floor(min / passo) * passo;

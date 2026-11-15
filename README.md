@@ -4,7 +4,7 @@
 
 **Controle de investimentos pessoal e multi-investidor — carteira, proventos, rentabilidade e imposto de renda, rodando localmente no seu computador.**
 
-![Versão](https://img.shields.io/badge/versão-1.5.0-2E7D32)
+![Versão](https://img.shields.io/badge/versão-1.6.0-2E7D32)
 ![Status](https://img.shields.io/badge/status-estável-2E7D32)
 ![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white)
@@ -36,11 +36,10 @@ O **InvestHub+** é uma aplicação web **local** que substitui planilhas de con
 
 Tudo roda em `127.0.0.1`: os dados ficam no seu computador, e as únicas chamadas externas são consultas públicas de cotações, câmbio, índices, fundamentos e catálogo de criptos.
 
-### Novidades da versão 1.5.0
+### Novidades da versão 1.6.0
 
-A versão reúne melhorias de apuração de IR e renda fixa, correções de dados e moeda, edição e união de corretoras,
-ajuda contextual, acessibilidade, backup e observabilidade. Também inclui a correção da lista de Qualidade de Dados
-após editar uma operação. O [CHANGELOG](CHANGELOG.md) contém a relação completa.
+A versão refina a experiência visual e inclui suporte à restituição de capital nas operações. O [CHANGELOG](CHANGELOG.md)
+contém a relação completa.
 
 ### Novidades da versão 1.4.0
 
@@ -619,7 +618,8 @@ Custo, preço médio e lucro são apurados **em BRL**, convertendo cada moviment
 | Bonificação | Entra pela quantidade e custo atribuído |
 | Desdobramento / Grupamento | Altera só a quantidade; custo total mantido |
 | Transferência (troca de ticker, incorporação) | Sai sem lucro do ticker antigo; entra pelo custo no novo |
-| Amortização / Cisão | Reduz o custo sem alterar a quantidade; a cisão também reduz o valor investido pelo montante informado |
+| Amortização / Cisão | Reduz o custo sem alterar a quantidade; a amortização reduz o valor investido pelo capital devolvido e a cisão pelo montante informado |
+| Restituição de capital (`R.CAP`) | Lançar quantidade zero e valor total devolvido; reduz custo e capital investido sem alterar a quantidade |
 | Venda de direito de subscrição | Lucro integral, sem afetar a posição |
 | Day trade | Não altera a posição; lucro apurado separadamente |
 

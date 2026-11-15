@@ -100,22 +100,6 @@
   gap: 0.35rem;
 }
 
-.valuation .valuation-ajuda-premissa {
-  position: relative;
-  flex-shrink: 0;
-  min-width: 1.1rem;
-  min-height: 1.1rem;
-  padding: 0;
-  border: 1px solid var(--sutil);
-  border-radius: 50%;
-  background: transparent;
-  color: var(--sutil);
-  font-size: 0.75rem;
-  font-weight: 700;
-  line-height: 1;
-  text-transform: none;
-}
-
 .valuation-ajuda-premissa::after {
   position: absolute;
   z-index: 5;

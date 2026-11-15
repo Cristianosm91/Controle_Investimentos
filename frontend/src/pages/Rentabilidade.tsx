@@ -114,7 +114,7 @@ function AvisoSemHistorico({ meses }: { meses: number }) {
   }, [carregando, cliente]);
 
   return (
-    <div className="aviso titulo-linha">
+    <div className={carregando ? "aviso titulo-linha" : "aviso atencao titulo-linha"}>
       <span>
         {carregando ? (
           <>Carregando o histórico de cotações (B3, exterior e câmbio)… pode levar alguns minutos.</>

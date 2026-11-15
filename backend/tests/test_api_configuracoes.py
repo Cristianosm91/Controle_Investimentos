@@ -114,6 +114,9 @@ def test_parametros_e_saldo_de_caixa(cliente, base):
     ref = {"investidor_id": base["inv"], "ativo_id": base["petr"], "corretora_id": base["corretora"]}
     cliente.post("/api/operacoes", json={**ref, "data": "2026-02-05", "evento": "V", "quantidade": -50, "preco": 40, "taxas": 1,
                                          "irrf": 0.1})
+    cliente.post("/api/operacoes", json={
+        **ref, "data": "2026-02-10", "evento": "R_CAP", "quantidade": 0, "preco": -12.69,
+    })
     cliente.post("/api/proventos", json={**ref, "data_pagamento": "2026-03-01", "evento": "JSCP", "valor": 100, "irrf": 15})
 
     so_mov = cliente.get("/api/caixa/saldos").json()
@@ -124,9 +127,9 @@ def test_parametros_e_saldo_de_caixa(cliente, base):
     saldo = cliente.get("/api/caixa/saldos").json()
     linha = saldo["saldos"][0]
     assert linha["corretora"] == "XP"
-    assert linha["operacoes"] == pytest.approx(-3001 + 1998.9)
+    assert linha["operacoes"] == pytest.approx(-3001 + 1998.9 + 12.69)
     assert linha["proventos"] == 85
-    assert saldo["total_brl"] == pytest.approx(10000 - 3001 + 1998.9 + 85)
+    assert saldo["total_brl"] == pytest.approx(10000 - 3001 + 1998.9 + 12.69 + 85)
 
 
 def test_valor_investido_liquido_separa_custo_das_posicoes(cliente, base):
@@ -151,12 +154,12 @@ def test_valor_investido_liquido_separa_custo_das_posicoes(cliente, base):
 
     resposta = cliente.get("/api/carteira/valor-investido")
     assert resposta.status_code == 200, resposta.text
-    assert resposta.json()["valor_investido"] == pytest.approx(52.12)
-    assert resposta.json()["valor_investido_posicoes_abertas"] == pytest.approx(52.12)
+    assert resposta.json()["valor_investido"] == pytest.approx(48.12)
+    assert resposta.json()["valor_investido_posicoes_abertas"] == pytest.approx(48.12)
 
     (posicao,) = cliente.get("/api/posicoes", params={"somente_abertas": False}).json()
     assert posicao["custo"] == pytest.approx(58.12)
-    assert posicao["valor_investido"] == pytest.approx(52.12)
+    assert posicao["valor_investido"] == pytest.approx(48.12)
     assert posicao["lucro_realizado"] == pytest.approx(19.62)
     assert posicao["lucro_daytrade"] == pytest.approx(0.5)
 

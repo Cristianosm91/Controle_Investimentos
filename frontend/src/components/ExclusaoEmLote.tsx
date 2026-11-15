@@ -88,24 +88,28 @@ export function useExclusaoEmLote<T, K extends number | string>({
   );
   const acoes = (
     <div className="acoes">
-      <label className="check">
-        <input type="checkbox" checked={todosSelecionados} onChange={alternarTodos} />
-        Selecionar todos ({ids.length})
-      </label>
-      <button
-        className="secundario"
-        disabled={!idsSelecionados.length || mutacao.isPending}
-        onClick={() => executar(idsSelecionados)}
-      >
-        {mutacao.isPending ? `${rotuloAcao}…` : `${rotuloAcao} selecionados (${idsSelecionados.length})`}
-      </button>
-      <button
-        className="link perigo"
-        disabled={!ids.length || mutacao.isPending}
-        onClick={() => executar(ids, true)}
-      >
-        {rotuloAcao} todos
-      </button>
+      {!!ids.length && (
+        <>
+          <label className="check">
+            <input type="checkbox" checked={todosSelecionados} onChange={alternarTodos} />
+            Selecionar todos ({ids.length})
+          </label>
+          <button
+            className="secundario"
+            disabled={!idsSelecionados.length || mutacao.isPending}
+            onClick={() => executar(idsSelecionados)}
+          >
+            {mutacao.isPending ? `${rotuloAcao}…` : `${rotuloAcao} selecionados (${idsSelecionados.length})`}
+          </button>
+          <button
+            className="link perigo"
+            disabled={!ids.length || mutacao.isPending}
+            onClick={() => executar(ids, true)}
+          >
+            {rotuloAcao} todos
+          </button>
+        </>
+      )}
       {resultado && <span className={resultado.includes("falha(s)") ? "negativo" : "positivo"}>{resultado}</span>}
     </div>
   );

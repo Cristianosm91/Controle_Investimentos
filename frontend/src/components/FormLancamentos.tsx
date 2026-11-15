@@ -71,7 +71,7 @@ function MolduraForm({ titulo, aoFechar, aoEnviar, salvando, erro, rodape, child
 
 /** Convenção de sinal da API (dominio.py); o formulário trabalha sempre com valores positivos. */
 const QTD_NEGATIVA = ["V", "VENDA_SUBSCRICAO"];
-const PRECO_NEGATIVO = ["AMORTIZACAO", "CISAO"];
+const PRECO_NEGATIVO = ["AMORTIZACAO", "CISAO", "R_CAP"];
 const QTD_COM_SINAL: Record<string, string> = {
   DESDOBRAMENTO: "positivo = desdobramento; negativo = grupamento",
   TRANSFERENCIA: "positivo = entrada; negativo = saída",
@@ -181,7 +181,8 @@ export function FormOperacao({ operacao, aoFechar }: { operacao?: Operacao; aoFe
 
   const qtd = Number(f.quantidade || 0);
   const preco = Number(f.preco || 0);
-  const total = Math.abs(qtd * preco) * Number(f.cambio || 1) + Number(f.taxas || 0) * Number(f.cambio || 1);
+  const valorBase = f.evento === "R_CAP" ? Math.abs(preco) : Math.abs(qtd * preco);
+  const total = valorBase * Number(f.cambio || 1) + Number(f.taxas || 0) * Number(f.cambio || 1);
 
   const enviar = () => {
     if (trocaVinculada) {
@@ -208,7 +209,7 @@ export function FormOperacao({ operacao, aoFechar }: { operacao?: Operacao; aoFe
       corretora_id: opcional(f.corretora_id),
       data: f.data,
       evento: f.evento,
-      quantidade: QTD_NEGATIVA.includes(f.evento) ? -Math.abs(qtd) : qtd,
+      quantidade: f.evento === "R_CAP" ? 0 : QTD_NEGATIVA.includes(f.evento) ? -Math.abs(qtd) : qtd,
       preco: PRECO_NEGATIVO.includes(f.evento) ? -Math.abs(preco) : preco,
       taxas: Number(f.taxas || 0),
       irrf: Number(f.irrf || 0),
@@ -237,7 +238,11 @@ export function FormOperacao({ operacao, aoFechar }: { operacao?: Operacao; aoFe
         ativoId={f.ativo_id}
         aoMudar={(a) => mudar(a ? { ativo_id: String(a.id), moeda: a.moeda, cambioAuto: true, ...(a.moeda === "BRL" && { cambio: "1" }) } : { ativo_id: "" })}
       />
-      <CampoEvento tipo="eventos_operacao" valor={f.evento} aoMudar={(v) => mudar({ evento: v })} />
+      <CampoEvento
+        tipo="eventos_operacao"
+        valor={f.evento}
+        aoMudar={(v) => mudar({ evento: v, ...(v === "R_CAP" && { quantidade: "0" }) })}
+      />
       {!operacao && f.evento === "TRANSFERENCIA" && (
         <label className="check largura-total">
           <input
@@ -255,6 +260,7 @@ export function FormOperacao({ operacao, aoFechar }: { operacao?: Operacao; aoFe
           type="number"
           step="any"
           min={trocaVinculada ? "0.00000001" : f.evento in QTD_COM_SINAL ? undefined : "0"}
+          readOnly={f.evento === "R_CAP"}
           value={f.quantidade}
           onChange={(e) => mudar({ quantidade: e.target.value })}
         />
@@ -265,7 +271,9 @@ export function FormOperacao({ operacao, aoFechar }: { operacao?: Operacao; aoFe
         ) : null}
       </label>
       <label>
-        {PRECO_NEGATIVO.includes(f.evento)
+        {f.evento === "R_CAP"
+          ? "Valor devolvido"
+          : PRECO_NEGATIVO.includes(f.evento)
           ? "Valor devolvido por cota"
           : trocaVinculada
             ? "Custo médio por cota de origem"
@@ -274,6 +282,7 @@ export function FormOperacao({ operacao, aoFechar }: { operacao?: Operacao; aoFe
           type="number"
           step="any"
           min="0"
+          required
           value={f.preco}
           onChange={(e) => {
             setPrecoAuto(false);

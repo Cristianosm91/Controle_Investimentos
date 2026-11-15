@@ -104,45 +104,47 @@ export function Resumo() {
           <div className="paineis">
             <div className="painel">
               <h3>Rentabilidade (TWR) × referências <AjudaIndicador titulo="Rentabilidade (TWR) e referências" texto="A TWR acumula os retornos da carteira no período, separando o efeito de aportes e retiradas. A coluna real desconta o IPCA; as demais mostram as referências correspondentes." /></h3>
-              <table className="tabela">
-                <thead>
-                  <tr>
-                    <th>Período</th>
-                    <th className="num">Carteira</th>
-                    <th className="num" title="Rentabilidade da carteira descontada a inflação (IPCA)">
-                      Real
-                    </th>
-                    {BENCHMARKS.map((b) => (
-                      <th key={b} className="num">
-                        {NOMES_BENCHMARK[b]}
+              <div className="tabela-container">
+                <table className="tabela">
+                  <thead>
+                    <tr>
+                      <th>Período</th>
+                      <th className="num">Carteira</th>
+                      <th className="num" title="Rentabilidade da carteira descontada a inflação (IPCA)">
+                        Real
                       </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {r.janelas.map((j) => (
-                    <tr key={j.nome}>
-                      <td>
-                        {j.nome}
-                        <div className="sutil">desde {data(j.inicio)}</div>
-                      </td>
-                      <td className="num">
-                        <strong>
-                          <Pct v={j.twr} />
-                        </strong>
-                      </td>
-                      <td className="num">
-                        <Pct v={j.real} />
-                      </td>
                       {BENCHMARKS.map((b) => (
-                        <td key={b} className="num">
-                          <Pct v={j[b]} />
-                        </td>
+                        <th key={b} className="num">
+                          {NOMES_BENCHMARK[b]}
+                        </th>
                       ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {r.janelas.map((j) => (
+                      <tr key={j.nome}>
+                        <td>
+                          {j.nome}
+                          <div className="sutil">desde {data(j.inicio)}</div>
+                        </td>
+                        <td className="num">
+                          <strong>
+                            <Pct v={j.twr} />
+                          </strong>
+                        </td>
+                        <td className="num">
+                          <Pct v={j.real} />
+                        </td>
+                        {BENCHMARKS.map((b) => (
+                          <td key={b} className="num">
+                            <Pct v={j[b]} />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
               <p className="sutil">
                 <Link to="/dashboard">Ver rentabilidade detalhada →</Link>
               </p>
@@ -186,31 +188,33 @@ export function Resumo() {
           ].map(({ titulo, lista }) => (
             <div key={titulo} className="painel">
               <h3>{titulo} <AjudaIndicador titulo={titulo} texto="Posições abertas ordenadas pela variação percentual diária da cotação. A lista mostra até cinco ativos e seus respectivos preços, variações e resultados do dia." /></h3>
-              <table className="tabela">
-                <tbody>
-                  {lista.map((p) => (
-                    <tr key={p.ativo_id}>
-                      <td>
-                        <strong>{p.ticker}</strong>
-                      </td>
-                      <td className="num">
-                        {moeda(p.cotacao, p.moeda)}
-                        {defasada(p) && p.cotacao_data && (
-                          <div>
-                            <SeloCotacaoAntiga dataCotacao={p.cotacao_data} />
-                          </div>
-                        )}
-                      </td>
-                      <td className="num">
-                        <Pct v={p.variacao_dia_pct} />
-                      </td>
-                      <td className="num">
-                        <span className={classeSinal(p.lucro_dia)}>{moeda(p.lucro_dia)}</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="tabela-container">
+                <table className="tabela">
+                  <tbody>
+                    {lista.map((p) => (
+                      <tr key={p.ativo_id}>
+                        <td>
+                          <strong>{p.ticker}</strong>
+                        </td>
+                        <td className="num">
+                          {moeda(p.cotacao, p.moeda)}
+                          {defasada(p) && p.cotacao_data && (
+                            <div>
+                              <SeloCotacaoAntiga dataCotacao={p.cotacao_data} />
+                            </div>
+                          )}
+                        </td>
+                        <td className="num">
+                          <Pct v={p.variacao_dia_pct} />
+                        </td>
+                        <td className="num">
+                          <span className={classeSinal(p.lucro_dia)}>{moeda(p.lucro_dia)}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           ))}
         </div>

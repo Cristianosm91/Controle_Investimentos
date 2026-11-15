@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api, query } from "../api";
 import { AjudaIndicador } from "../components/AjudaIndicador";
+import { AjudaInfo } from "../components/AjudaInfo";
 import { classeSinal, data, moeda, numero, percentual } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
 import type { Ativo, PremissasValuation, Valuation as ValuationTipo } from "../tipos";
@@ -47,6 +48,12 @@ const CAMPOS: CampoConfiguracao[] = [
   { chave: "fcfe_3", rotulo: "FCFE por ação · ano 3", unidade: "por ação", passo: "any" },
   { chave: "fcfe_4", rotulo: "FCFE por ação · ano 4", unidade: "por ação", passo: "any" },
   { chave: "fcfe_5", rotulo: "FCFE por ação · ano 5", unidade: "por ação", passo: "any" },
+];
+
+const GRUPOS_CAMPOS: { titulo: string; chaves: CampoPremissa[] }[] = [
+  { titulo: "Fundamentos", chaves: ["lpa", "vpa", "dividendo_anual", "roe", "payout"] },
+  { titulo: "Premissas de valuation", chaves: ["ke", "g", "pl_historico", "pl_setor"] },
+  { titulo: "FCFE", chaves: ["fcfe_1", "fcfe_2", "fcfe_3", "fcfe_4", "fcfe_5"] },
 ];
 
 const CAMPOS_PERCENTUAIS = new Set<CampoPremissa>(["roe", "payout", "g", "ke"]);
@@ -270,30 +277,37 @@ export function Valuation() {
                 {buscarPremissas.isPending ? "BUSCANDO…" : "BUSCAR PREMISSAS"}
               </button>
               {mensagemBusca && <p className="sutil" role="status">{mensagemBusca}</p>}
-              <div className="valuation-campos">
-                {CAMPOS.map(({ chave, rotulo, unidade, passo }) => (
-                  <label key={chave}>
-                    <span className="valuation-campo-titulo">
-                      {rotulo}
-                      <button
-                        type="button"
-                        className="valuation-ajuda-premissa"
-                        data-tooltip={AJUDA_PREMISSAS[chave]}
-                        aria-label={`Ajuda sobre ${rotulo}: ${AJUDA_PREMISSAS[chave]}`}
-                      >
-                        ?
-                      </button>
-                    </span>
-                    <span className="valuation-unidade">{unidade}</span>
-                    <input
-                      type="number"
-                      step={passo}
-                      value={formulario[chave]}
-                      onChange={(evento) =>
-                        setFormulario((atual) => ({ ...atual, [chave]: evento.target.value }))
-                      }
-                    />
-                  </label>
+              <div className="valuation-grupos">
+                {GRUPOS_CAMPOS.map((grupo) => (
+                  <section key={grupo.titulo} className="valuation-grupo">
+                    <h3>{grupo.titulo}</h3>
+                    <div className="valuation-campos">
+                      {grupo.chaves.map((chave) => {
+                        const { rotulo, unidade, passo } = CAMPOS.find((campo) => campo.chave === chave)!;
+                        return (
+                          <label key={chave}>
+                            <span className="valuation-campo-titulo">
+                              {rotulo}
+                              <AjudaInfo
+                                className="valuation-ajuda-premissa"
+                                data-tooltip={AJUDA_PREMISSAS[chave]}
+                                aria-label={`Ajuda sobre ${rotulo}: ${AJUDA_PREMISSAS[chave]}`}
+                              />
+                            </span>
+                            <span className="valuation-unidade">{unidade}</span>
+                            <input
+                              type="number"
+                              step={passo}
+                              value={formulario[chave]}
+                              onChange={(evento) =>
+                                setFormulario((atual) => ({ ...atual, [chave]: evento.target.value }))
+                              }
+                            />
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </section>
                 ))}
               </div>
               <button className="valuation-salvar" disabled={salvar.isPending}>
@@ -317,7 +331,12 @@ export function Valuation() {
                       <tr key={modelo.id}>
                         <td>
                           {modelo.rotulo}
-                          {modelo.motivo && <div className="sutil">{modelo.motivo}</div>}
+                          {modelo.preco_justo === null && (
+                            <div className="valuation-modelo-indisponivel">
+                              <span className="etiqueta valuation-indisponivel-badge">Indisponível</span>
+                              {modelo.motivo && <span className="sutil">{modelo.motivo}</span>}
+                            </div>
+                          )}
                         </td>
                         <td className="num">{moeda(modelo.preco_justo, detalhe.moeda)}</td>
                         <td className="num">
@@ -365,44 +384,60 @@ export function Valuation() {
                 </strong>
               </div>
             </div>
-            <p className="sutil valuation-ajuda">
-              Cálculos respeitam o filtro global de investidores. TIR usa operações, proventos líquidos e valor de
-              mercado final em BRL; meses sem cotação são marcados e seguem a convenção mensal do app, que usa o custo
-              como aproximação de mercado.
-            </p>
             {detalhe.rentabilidade.meses.length ? (
-              <div className="tabela-container">
-                <table className="tabela valuation-retorno-tabela">
-                  <thead>
-                    <tr>
-                      <th>Mês</th>
-                      <th className="num">Investido</th>
-                      <th className="num">Mercado</th>
-                      <th className="num">TWR mensal</th>
-                      <th className="num">TWR acumulado</th>
-                      <th>Cotação</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {detalhe.rentabilidade.meses.map((mes) => (
-                      <tr key={mes.data}>
-                        <td>{data(mes.data)}</td>
-                        <td className="num">{moeda(mes.investido)}</td>
-                        <td className="num">{moeda(mes.mercado)}</td>
-                        <td className="num">
-                          <span className={classeSinal(mes.twr)}>{percentual(mes.twr)}</span>
-                        </td>
-                        <td className="num">
-                          <span className={classeSinal(mes.twr_acumulado)}>{percentual(mes.twr_acumulado)}</span>
-                        </td>
-                        <td>{mes.sem_cotacao ? "Sem cotação · custo" : "Cotado"}</td>
+              <>
+                <details className="valuation-metodologia">
+                  <summary>Como TIR e TWR são calculados</summary>
+                  <p className="sutil valuation-ajuda">
+                    Cálculos respeitam o filtro global de investidores. TIR usa operações, proventos líquidos e valor de
+                    mercado final em BRL; meses sem cotação são marcados e seguem a convenção mensal do app, que usa o
+                    custo como aproximação de mercado.
+                  </p>
+                </details>
+                <div className="tabela-container">
+                  <table className="tabela valuation-retorno-tabela">
+                    <thead>
+                      <tr>
+                        <th>Mês</th>
+                        <th className="num">Investido</th>
+                        <th className="num">Mercado</th>
+                        <th className="num">TWR mensal</th>
+                        <th className="num">TWR acumulado</th>
+                        <th>Cotação</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {detalhe.rentabilidade.meses.map((mes) => (
+                        <tr key={mes.data}>
+                          <td>{data(mes.data)}</td>
+                          <td className="num">{moeda(mes.investido)}</td>
+                          <td className="num">{moeda(mes.mercado)}</td>
+                          <td className="num">
+                            <span className={classeSinal(mes.twr)}>{percentual(mes.twr)}</span>
+                          </td>
+                          <td className="num">
+                            <span className={classeSinal(mes.twr_acumulado)}>{percentual(mes.twr_acumulado)}</span>
+                          </td>
+                          <td>{mes.sem_cotacao ? "Sem cotação · custo" : "Cotado"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             ) : (
-              <p className="sutil">Sem operações para o ativo e os investidores selecionados.</p>
+              <div className="valuation-sem-retorno">
+                <strong>Não foi possível calcular TIR e TWR.</strong>
+                <p>Não existem operações para este ativo considerando os investidores selecionados.</p>
+                <details className="valuation-metodologia">
+                  <summary>Como TIR e TWR são calculados</summary>
+                  <p className="sutil valuation-ajuda">
+                    Cálculos respeitam o filtro global de investidores. TIR usa operações, proventos líquidos e valor de
+                    mercado final em BRL; meses sem cotação são marcados e seguem a convenção mensal do app, que usa o
+                    custo como aproximação de mercado.
+                  </p>
+                </details>
+              </div>
             )}
           </div>
         </>

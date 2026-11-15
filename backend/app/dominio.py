@@ -6,6 +6,7 @@
 #   DESDOBRAMENTO ............. +/- (só altera quantidade; custo total mantido)
 #   TRANSFERENCIA ............. +/- (troca de ticker/incorporação; sai sem lucro, entra pelo custo)
 #   AMORTIZACAO, CISAO ........ > 0 com preco <= 0 (reduz custo: quantidade x preco)
+#   R_CAP ..................... = 0 com preco < 0 (restituição total reduz custo)
 EVENTOS_OPERACAO: dict[str, str] = {
     "C": "Compra",
     "V": "Venda",
@@ -14,6 +15,7 @@ EVENTOS_OPERACAO: dict[str, str] = {
     "TRANSFERENCIA": "Transferência/Troca de ticker",
     "AMORTIZACAO": "Amortização",
     "CISAO": "Cisão",
+    "R_CAP": "Restituição de capital",
     "VENDA_SUBSCRICAO": "Venda de direito de subscrição",
 }
 
@@ -34,6 +36,9 @@ EVENTOS_PLANILHA_OPERACOES: dict[str, str] = {
     "AT": "TRANSFERENCIA",
     "AM": "AMORTIZACAO",
     "AMORTIZACAO": "AMORTIZACAO",
+    "R.CAP": "R_CAP",
+    "R CAP": "R_CAP",
+    "RESTITUICAO DE CAPITAL": "R_CAP",
     "CISAO": "CISAO",
     "CISÃO": "CISAO",
     "V.SUB": "VENDA_SUBSCRICAO",
@@ -42,12 +47,11 @@ EVENTOS_PLANILHA_OPERACOES: dict[str, str] = {
 
 EVENTOS_PLANILHA_CODIGOS = (
     "C", "V", "DT", "IPO", "SUB", "BN", "S/I", "DESDOBRAMENTO", "GRUPAMENTO",
-    "TC", "AT", "AM", "CISAO", "V.SUB",
+    "TC", "AT", "AM", "CISAO", "V.SUB", "R.CAP",
 )
 
 EVENTOS_PLANILHA_NAO_SUPORTADOS: dict[str, str] = {
     "BAIXA": "não há evento de baixa sem preço no processamento atual",
-    "R.CAP": "a restituição de capital exige quantidade zero, incompatível com o evento de amortização atual",
     "EX.OPC": "o exercício de opção exige vínculo com o ativo subjacente e preço de exercício",
     "TERMO": "operações a termo exigem controle de posição e liquidação próprio",
     "AJ.POS": "ajustes diários de contratos futuros não são representados pelo modelo de posição atual",

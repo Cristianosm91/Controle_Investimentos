@@ -28,6 +28,7 @@ def test_siglas_operacionais_normalizam_para_eventos_do_dominio():
         ("sub", "10", "5", "C", Decimal("10"), False),
         ("bn", "5", "4.96", "BONIFICACAO", Decimal("5"), False),
         ("AM", "10", "-0.5", "AMORTIZACAO", Decimal("10"), False),
+        ("R.CAP", "0", "50", "R_CAP", Decimal(0), False),
         ("DT", "2", "10", "C", Decimal("2"), True),
         ("DT", "-2", "10", "V", Decimal("-2"), True),
         ("DESDOBRAMENTO", "5", "0", "DESDOBRAMENTO", Decimal("5"), False),
@@ -80,6 +81,17 @@ def test_validacao_exige_sinais_e_campos_compativeis_com_evento():
     assert "AM" in amortizacao_invalida.motivo
     assert "quantidade/preço" in amortizacao_invalida.motivo
 
+    restituicao = _linha("R.CAP", "0", "50")
+    assert restituicao.tipo == "OPERACAO"
+    assert restituicao.evento == "R_CAP"
+    assert restituicao.quantidade == 0
+    assert restituicao.preco == -50
+    assert restituicao.valor == 50
+
+    restituicao_invalida = _linha("R.CAP", "1", "50")
+    assert restituicao_invalida.tipo == "IGNORADA"
+    assert "quantidade/preço" in restituicao_invalida.motivo
+
     bonificacao_invalida = _linha("BN", "2", "0")
     assert bonificacao_invalida.tipo == "IGNORADA"
     assert "BN" in bonificacao_invalida.motivo
@@ -119,6 +131,7 @@ def test_modelo_explica_eventos_e_apresenta_a_lista_suportada():
     instrucoes = "\n".join(str(c.value or "") for linha in livro["Instruções"] for c in linha)
 
     assert all(codigo in instrucoes for codigo in EVENTOS_PLANILHA_CODIGOS)
+    assert "Restituição de capital" in instrucoes
     assert "Modelo personalizado" in instrucoes
     assert "Proventos" in instrucoes
     assert "não são suportados" in instrucoes

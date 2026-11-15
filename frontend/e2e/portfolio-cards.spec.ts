@@ -1,10 +1,20 @@
 import { expect, test } from "./apoio";
 
-test("quadros do portfólio usam até cinco colunas conforme o espaço disponível", async ({ page }) => {
+test("quadros do portfólio mantêm dimensões iguais e usam até cinco colunas conforme o espaço disponível", async ({ page }) => {
   await page.goto("/portfolio");
   const grade = page.locator(".cards-portfolio");
   const cards = page.locator(".cards-portfolio > .card");
   await expect(cards).toHaveCount(10);
+  const verificarDimensoesIguais = async (contexto: string) => {
+    const dimensoes = await cards.evaluateAll((itens) => itens.map((item) => {
+      const { width, height } = item.getBoundingClientRect();
+      return { width, height };
+    }));
+    const larguras = dimensoes.map(({ width }) => width);
+    const alturas = dimensoes.map(({ height }) => height);
+    expect(Math.max(...larguras) - Math.min(...larguras), `larguras: ${contexto}`).toBeLessThanOrEqual(1);
+    expect(Math.max(...alturas) - Math.min(...alturas), `alturas: ${contexto}`).toBeLessThanOrEqual(1);
+  };
 
   for (const [largura, colunas] of [[200, 1], [360, 2], [560, 3], [740, 4], [920, 5], [1800, 5]]) {
     await grade.evaluate((elemento, valor) => { elemento.style.width = `${valor}px`; }, largura);
@@ -15,6 +25,7 @@ test("quadros do portfólio usam até cinco colunas conforme o espaço disponív
     }));
     expect(medidas.colunas, `largura ${largura}px`).toBe(colunas);
     expect(medidas.conteudo).toBeLessThanOrEqual(medidas.largura);
+    await verificarDimensoesIguais(`${largura}px`);
   }
   await grade.evaluate((elemento) => { elemento.style.width = ""; });
 
@@ -29,6 +40,7 @@ test("quadros do portfólio usam até cinco colunas conforme o espaço disponív
       }));
       expect(medidas.colunas, `largura ${width}, zoom ${zoom}`).toBeLessThanOrEqual(5);
       expect(medidas.conteudo, `largura ${width}, zoom ${zoom}`).toBeLessThanOrEqual(medidas.largura + 1);
+      await verificarDimensoesIguais(`viewport ${width}px, zoom ${zoom}`);
     }
   }
 });

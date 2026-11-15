@@ -6,6 +6,15 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 
 ## [Não lançado]
 
+## [1.6.0] - 2026-11-15
+
+### Adicionado
+- Reconhecimento da restituição de capital (`R.CAP`) na importação de operações e no cálculo do custo e da rentabilidade.
+- Refinamento visual e de UX nas páginas, componentes, navegação e tabelas do InvestHub+.
+
+### Corrigido
+- Evita coordenadas SVG inválidas nos gráficos quando os valores são constantes.
+
 ## [1.5.0] - 2026-11-14
 
 ### Adicionado
@@ -183,7 +192,8 @@ Primeira versão estável: substitui a planilha de controle de investimentos (Fa
 - Arquivos da B3 com dimensão declarada como `A1` eram lidos só até a primeira linha.
 - Quantidades em texto pt-BR com ponto de milhar (`1.350`) eram lidas como decimais.
 
-[Não lançado]: https://github.com/Cristianosm91/Controle_Investimentos/compare/v1.5.0...HEAD
+[Não lançado]: https://github.com/Cristianosm91/Controle_Investimentos/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/Cristianosm91/Controle_Investimentos/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/Cristianosm91/Controle_Investimentos/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/Cristianosm91/Controle_Investimentos/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/Cristianosm91/Controle_Investimentos/compare/v1.2.1...v1.3.0

@@ -2,7 +2,7 @@
 
 Sempre soma as movimentações lançadas na tela Caixa. A partir de `caixa_data_inicio` (Parâmetros) também
 integra os lançamentos de carteira, no valor da moeda original:
-compra/venda (inclusive day trade), venda de direito de subscrição, amortização em dinheiro e proventos líquidos.
+compra/venda (inclusive day trade), venda de direito de subscrição, amortização/restituição de capital e proventos líquidos.
 """
 
 from collections.abc import Sequence
@@ -57,6 +57,7 @@ def _efeito_operacao(em_brl: bool = False):
         (Operacao.evento == "C", -(q * p) - t - ir),
         (Operacao.evento.in_(("V", "VENDA_SUBSCRICAO")), -(q * p) - t - ir),
         (Operacao.evento == "AMORTIZACAO", -(q * p) - t - ir),
+        (Operacao.evento == "R_CAP", -p - t - ir),
         else_=0,
     )
     return efeito * Operacao.cambio if em_brl else efeito

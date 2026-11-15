@@ -59,7 +59,12 @@ _PROVENTOS = {
     "reembolso": "REEMBOLSO_JSCP",
 }
 # Movimentação → operação (somente créditos).
-_OPERACOES_MOVIMENTACAO = {"amortizacao": "AMORTIZACAO", "desdobro": "DESDOBRAMENTO"}
+_OPERACOES_MOVIMENTACAO = {
+    "amortizacao": "AMORTIZACAO",
+    "desdobro": "DESDOBRAMENTO",
+    "r.cap": "R_CAP",
+    "restituicao de capital": "R_CAP",
+}
 _MOTIVOS_IGNORADOS = {
     "transferencia - liquidacao": "Liquidação de compra/venda: use o relatório de Negociação",
     "emprestimo": "Aluguel de ações (BTC): lance em Proventos → Aluguel",
@@ -417,6 +422,9 @@ def _linha_planilha_operacoes(numero, dia, valor, qtd, preco, instituicao) -> Li
         elif evento == "AMORTIZACAO":
             quantidade_valida = qtd > 0
             preco_valido = preco < 0
+        elif evento == "R_CAP":
+            quantidade_valida = qtd == 0
+            preco_valido = preco > 0
         elif evento == "CISAO":
             quantidade_valida = qtd > 0
             preco_valido = preco <= 0
@@ -442,8 +450,9 @@ def _linha_planilha_operacoes(numero, dia, valor, qtd, preco, instituicao) -> Li
             )
         else:
             linha.tipo, linha.evento = "OPERACAO", evento
-            linha.quantidade = quantidade
-            linha.preco, linha.valor = preco, abs(qtd * preco)
+            linha.quantidade = Decimal(0) if evento == "R_CAP" else quantidade
+            linha.preco = -preco if evento == "R_CAP" else preco
+            linha.valor = preco if evento == "R_CAP" else abs(qtd * preco)
             linha.taxas, linha.irrf = taxas, irrf
             linha.daytrade = daytrade
             linha.classe = classe or _classe_inferida(ticker, None)
@@ -519,13 +528,21 @@ def _linha_movimentacao(numero, dia, valor, qtd, preco, total, instituicao, rela
                 linha.motivo = "Reembolso de provento de ações emprestadas (BTC): confira se foi JCP ou dividendo"
     elif movimentacao in _OPERACOES_MOVIMENTACAO and credito:
         evento = _OPERACOES_MOVIMENTACAO[movimentacao]
-        if qtd <= 0 or (evento == "AMORTIZACAO" and valor_total <= 0):
+        if (evento == "R_CAP" and valor_total <= 0) or (
+            evento != "R_CAP" and (qtd <= 0 or (evento == "AMORTIZACAO" and valor_total <= 0))
+        ):
             linha.status, linha.motivo = "ignorado", "Quantidade ou valor ausente"
         else:
-            linha.tipo, linha.evento, linha.quantidade = "OPERACAO", evento, qtd
+            linha.tipo, linha.evento = "OPERACAO", evento
+            linha.quantidade = Decimal(0) if evento == "R_CAP" else qtd
             # Amortização reduz custo: preço negativo por cota (convenção do app).
-            linha.preco = -(valor_total / qtd).quantize(Decimal("0.00000001")) if evento == "AMORTIZACAO" else Decimal(0)
-            linha.valor = valor_total if evento == "AMORTIZACAO" else Decimal(0)
+            if evento == "AMORTIZACAO":
+                linha.preco = -(valor_total / qtd).quantize(Decimal("0.00000001"))
+            elif evento == "R_CAP":
+                linha.preco = -valor_total
+            else:
+                linha.preco = Decimal(0)
+            linha.valor = valor_total if evento in ("AMORTIZACAO", "R_CAP") else Decimal(0)
     else:
         linha.status = "ignorado"
         linha.motivo = _MOTIVOS_IGNORADOS.get(movimentacao) or (

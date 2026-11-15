@@ -109,6 +109,10 @@ MODELOS: dict[str, Modelo] = {
                 "DESDOBRAMENTO/GRUPAMENTO, exigem preço zero. Taxas e IRRF devem ser não negativos."
             ),
             (
+                "R.CAP (Restituição de capital) exige quantidade zero e valor total positivo na coluna preço; "
+                "o valor reduz o custo da posição. Para amortização (AM), informe quantidade e preço por cota."
+            ),
+            (
                 "Informe a moeda da operação (BRL, USD ou EUR); os valores são importados na moeda informada. "
                 "Proventos (DIVIDENDO, JSCP, RENDIMENTO, BTC/ALUGUEL, "
                 "entre outros) devem ser importados pelo modelo de Proventos."
@@ -118,7 +122,7 @@ MODELOS: dict[str, Modelo] = {
                 "A classe informada é aplicada somente a ativos novos; ativos já cadastrados mantêm a classe atual."
             ),
             (
-                "BAIXA, R.CAP, EX.OPC, TERMO, AJ.POS, ISENTO, TAXA e C.COTA são reconhecidos como códigos "
+                "BAIXA, EX.OPC, TERMO, AJ.POS, ISENTO, TAXA e C.COTA são reconhecidos como códigos "
                 "documentados, mas não são suportados por este modelo; a linha será rejeitada com a justificativa."
             ),
         ),

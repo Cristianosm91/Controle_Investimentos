@@ -167,6 +167,8 @@ def caixa(m: Movimento) -> Decimal:
         return (-q * m.preco - m.taxas - m.irrf) * m.cambio
     if ev == "AMORTIZACAO":
         return (-q * m.preco - m.irrf) * m.cambio
+    if ev == "R_CAP":
+        return (-m.preco - m.irrf) * m.cambio
     return ZERO
 
 

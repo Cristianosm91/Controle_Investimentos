@@ -48,6 +48,10 @@ MOVIMENTACAO = xlsx(CAB_MOVIMENTACAO, [
     ["Credito", "15/01/2025", "Juros Sobre Capital Próprio", "ITUB4 - ITAU UNIBANCO HOLDING S.A.", XP, 100, 0.1, 10],
     ["Credito", "14/01/2025", "Rendimento", "HGLG11 - CSHG LOGISTICA FUNDO DE INVESTIMENTO IMOBILIARIO", INTER, 10, 1.1, 11],
     ["Credito", "20/01/2025", "Amortização", "HGLG11 - CSHG LOGISTICA FUNDO DE INVESTIMENTO IMOBILIARIO", INTER, 10, 0.5, 5],
+    [
+        "Credito", "20/01/2025", "Restituição de Capital",
+        "HGLG11 - CSHG LOGISTICA FUNDO DE INVESTIMENTO IMOBILIARIO", INTER, 0, "-", 12.69,
+    ],
     ["Credito", "21/01/2025", "Desdobro", "PETR4 - PETROLEO BRASILEIRO S.A. PETROBRAS", XP, 107, "-", "-"],
     ["Credito", "04/01/2025", "Transferência - Liquidação", "PETR4 - PETROLEO BRASILEIRO S.A. PETROBRAS", XP, 100, 38.4, 3840],
     ["Credito", "22/01/2025", "Rendimento", "Tesouro Selic 2029", XP, 1, 10, 10],
@@ -216,14 +220,15 @@ def test_movimentacao_proventos_e_eventos(cliente):
     assert (linhas[2]["tipo"], linhas[2]["evento"], linhas[2]["valor"]) == ("PROVENTO", "DIVIDENDO", 128.4)
     assert linhas[3]["evento"] == "JSCP" and linhas[4]["evento"] == "RENDIMENTO"
     assert (linhas[5]["evento"], linhas[5]["quantidade"], linhas[5]["preco"]) == ("AMORTIZACAO", 10, -0.5)
-    assert (linhas[6]["evento"], linhas[6]["quantidade"]) == ("DESDOBRAMENTO", 107)
-    assert "Negociação" in linhas[7]["motivo"]
-    assert linhas[8]["status"] == linhas[9]["status"] == linhas[10]["status"] == "ignorado"
-    assert "Aluguel" in linhas[10]["motivo"]
+    assert (linhas[6]["evento"], linhas[6]["quantidade"], linhas[6]["preco"]) == ("R_CAP", 0, -12.69)
+    assert (linhas[7]["evento"], linhas[7]["quantidade"]) == ("DESDOBRAMENTO", 107)
+    assert "Negociação" in linhas[8]["motivo"]
+    assert linhas[9]["status"] == linhas[10]["status"] == "ignorado"
+    assert "Aluguel" in linhas[11]["motivo"]
     assert previa["ativos_novos"]["HGLG11"] == "FII"
 
     resultado = enviar(cliente, "importar", MOVIMENTACAO, investidor_id=inv).json()
-    assert (resultado["operacoes"], resultado["proventos"]) == (2, 3)
+    assert (resultado["operacoes"], resultado["proventos"]) == (3, 3)
     proventos = cliente.get("/api/proventos", params={"investidores": inv}).json()["itens"]
     assert {(p["ticker"], p["evento"], p["valor"], p["irrf"]) for p in proventos} == {
         ("PETR4", "DIVIDENDO", 128.4, 0), ("ITUB4", "JSCP", 10, 0), ("HGLG11", "RENDIMENTO", 11, 0),

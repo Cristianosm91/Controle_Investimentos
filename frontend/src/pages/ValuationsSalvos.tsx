@@ -3,6 +3,7 @@ import { Fragment, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
 import { useExclusaoEmLote } from "../components/ExclusaoEmLote";
+import { Icone } from "../components/Icone";
 import { classeSinal, data, moeda, numero, percentual } from "../formato";
 import { MODELOS_VALUATION as MODELOS } from "../referencias";
 import type { CalculoValuation, HistoricoValuation, PremissasValuation } from "../tipos";
@@ -70,18 +71,28 @@ export function ValuationsSalvos() {
       <div className="titulo-linha">
         <h1>Valuations salvos</h1>
         <span className="sutil">Último cálculo de cada ativo e os dois anteriores; não constituem recomendação</span>
-        <Link to="/valuation" className="link">
-          Calcular novo →
-        </Link>
+        {!!historico.data?.length && (
+          <Link to="/valuation" className="link">
+            Calcular novo →
+          </Link>
+        )}
       </div>
 
       {erro && <div className="erro">{(erro as Error).message}</div>}
-      {selecao.acoes}
-      {historico.isLoading && <p>Carregando…</p>}
+      {!!historico.data?.length && selecao.acoes}
+      {historico.isLoading && (
+        <div className="estado-carregando" role="status" aria-busy="true">
+          <span className="skeleton skeleton-lista" aria-hidden="true" />
+          <span className="visualmente-oculto">Carregando valuations salvos…</span>
+        </div>
+      )}
       {historico.data?.length === 0 && (
-        <div className="aviso">
-          Nenhum valuation salvo ainda. Calcule em <Link to="/valuation">Valuation</Link> e clique em “Calcular e
-          salvar”.
+        <div className="estado-vazio">
+          <Icone nome="folder" size={28} aria-hidden="true" />
+          <p>Ainda não há valuations salvos. Calcule um valuation para acompanhar e comparar seus resultados.</p>
+          <Link to="/valuation" className="botao botao-primario">
+            Calcular valuation
+          </Link>
         </div>
       )}
 

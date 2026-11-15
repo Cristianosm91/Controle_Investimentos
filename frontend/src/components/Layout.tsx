@@ -4,25 +4,26 @@ import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { api } from "../api";
 import { Alertas } from "./Alertas";
 import { BotoesExportar, ProvedorExportacao } from "./Exportacao";
+import { Icone } from "./Icone";
 import { SeletorInvestidor } from "./SeletorInvestidor";
 
 export const PAGINAS = [
-  { caminho: "/", rotulo: "Resumo", icone: "🏠" },
-  { caminho: "/portfolio", rotulo: "Portfólio", icone: "💼" },
-  { caminho: "/dashboard", rotulo: "Rentabilidade", icone: "📈" },
-  { caminho: "/proventos", rotulo: "Proventos", icone: "💰" },
-  { caminho: "/aluguel", rotulo: "Aluguel (BTC)", icone: "🤝" },
-  { caminho: "/renda-fixa", rotulo: "Renda fixa", icone: "🏛️" },
-  { caminho: "/operacoes", rotulo: "Operações", icone: "🔁" },
-  { caminho: "/caixa", rotulo: "Caixa", icone: "🏦" },
-  { caminho: "/alocacao", rotulo: "Alocação", icone: "⚖️" },
-  { caminho: "/metas", rotulo: "Metas", icone: "🎯" },
-  { caminho: "/radar", rotulo: "Radar", icone: "📡" },
-  { caminho: "/cripto", rotulo: "Cripto", icone: "🪙" },
-  { caminho: "/status", rotulo: "Status do ativo", icone: "🔎" },
-  { caminho: "/ir", rotulo: "Imposto de Renda", icone: "🧾" },
-  { caminho: "/valuation", rotulo: "Valuation", icone: "🧮" },
-  { caminho: "/valuations-salvos", rotulo: "Valuations salvos", icone: "🗂️" },
+  { caminho: "/", rotulo: "Resumo", icone: "home" },
+  { caminho: "/portfolio", rotulo: "Portfólio", icone: "briefcase" },
+  { caminho: "/dashboard", rotulo: "Rentabilidade", icone: "chart" },
+  { caminho: "/proventos", rotulo: "Proventos", icone: "dollar" },
+  { caminho: "/aluguel", rotulo: "Aluguel (BTC)", icone: "handshake" },
+  { caminho: "/renda-fixa", rotulo: "Renda fixa", icone: "landmark" },
+  { caminho: "/operacoes", rotulo: "Operações", icone: "transfer" },
+  { caminho: "/caixa", rotulo: "Caixa", icone: "wallet" },
+  { caminho: "/alocacao", rotulo: "Alocação", icone: "scale" },
+  { caminho: "/metas", rotulo: "Metas", icone: "target" },
+  { caminho: "/radar", rotulo: "Radar", icone: "telescope" },
+  { caminho: "/cripto", rotulo: "Cripto", icone: "bitcoin" },
+  { caminho: "/status", rotulo: "Status do ativo", icone: "search" },
+  { caminho: "/ir", rotulo: "Imposto de Renda", icone: "receipt" },
+  { caminho: "/valuation", rotulo: "Valuation", icone: "calculator" },
+  { caminho: "/valuations-salvos", rotulo: "Valuations salvos", icone: "folder" },
 ] as const;
 
 export function Layout() {
@@ -141,7 +142,7 @@ function Estrutura() {
             title={menuRecolhido ? "Expandir menu" : "Recolher menu"}
             onClick={() => setMenuRecolhido((recolhido) => !recolhido)}
           >
-            <span aria-hidden="true">{menuRecolhido ? "›" : "‹"}</span>
+            <Icone nome={menuRecolhido ? "panelOpen" : "panelClose"} size={18} aria-hidden="true" />
           </button>
         </div>
         <nav>
@@ -154,7 +155,7 @@ function Estrutura() {
               title={p.rotulo}
               onClick={() => setDrawerAberto(false)}
             >
-              <span className="menu-icone" aria-hidden="true">{p.icone}</span>
+              <Icone nome={p.icone} className="menu-icone" size={18} aria-hidden="true" />
               <span className="menu-rotulo">{p.rotulo}</span>
             </NavLink>
           ))}
@@ -165,7 +166,7 @@ function Estrutura() {
           title="Configurações"
           onClick={() => setDrawerAberto(false)}
         >
-          <span className="menu-icone" aria-hidden="true">⚙️</span>
+          <Icone nome="settings" className="menu-icone" size={18} aria-hidden="true" />
           <span className="menu-rotulo">Configurações</span>
         </NavLink>
       </aside>
@@ -180,7 +181,8 @@ function Estrutura() {
             aria-controls="navegacao-principal"
             onClick={() => setDrawerAberto(true)}
           >
-            <span aria-hidden="true">☰</span>
+            <span className="visualmente-oculto">Abrir menu</span>
+            <Icone nome="panelOpen" size={19} aria-hidden="true" />
           </button>
           <BotoesExportar alvo={conteudo} />
           <Alertas />

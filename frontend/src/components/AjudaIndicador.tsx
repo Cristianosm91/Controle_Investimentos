@@ -1,4 +1,5 @@
 import { useEffect, useId, useState } from "react";
+import { AjudaInfo } from "./AjudaInfo";
 
 const EVENTO_ABERTURA = "investhub:abrir-ajuda";
 
@@ -30,8 +31,7 @@ export function AjudaIndicador({ titulo, texto }: { titulo: string; texto: strin
     <span className="ajuda-indicador" onMouseEnter={(evento) => abrir(evento.currentTarget)} onMouseLeave={(evento) => {
       if (!evento.currentTarget.contains(document.activeElement)) setAberta(false);
     }}>
-      <button
-        type="button"
+      <AjudaInfo
         className="ajuda-indicador-botao"
         aria-label={`Ajuda sobre ${titulo}`}
         aria-describedby={aberta ? id : undefined}
@@ -42,13 +42,7 @@ export function AjudaIndicador({ titulo, texto }: { titulo: string; texto: strin
         onKeyDown={(evento) => {
           if (evento.key === "Escape") setAberta(false);
         }}
-      >
-        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="9" />
-          <path d="M9.6 9a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2-2.4 3.6" />
-          <path d="M12 17h.01" />
-        </svg>
-      </button>
+      />
       {aberta && (
         <span
           id={id}

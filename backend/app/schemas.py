@@ -417,6 +417,7 @@ class OperacaoIn(BaseModel):
             "TRANSFERENCIA": q != 0 and p >= 0,
             "AMORTIZACAO": q > 0 and p <= 0,
             "CISAO": q > 0 and p <= 0,
+            "R_CAP": q == 0 and p < 0,
         }
         if not regras[ev]:
             raise ValueError(f"Quantidade/preço incompatíveis com o evento {ev}")

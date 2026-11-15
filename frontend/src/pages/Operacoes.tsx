@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { AcoesLinha } from "../components/AcoesLinha";
+import { AjudaInfo } from "../components/AjudaInfo";
 import { FormOperacao } from "../components/FormLancamentos";
 import { ImportarExtrato } from "../components/ImportarExtrato";
 import { ListaPaginada, type ColunaLista } from "../components/ListaPaginada";
@@ -116,14 +117,10 @@ export function Operacoes() {
       cabecalho: (
         <span className="operacoes-evento-cabecalho">
           Evento
-          <button
-            type="button"
-            className="link operacoes-ajuda"
+          <AjudaInfo
             aria-label="Ajuda sobre os eventos de operações"
             onClick={() => setAjudaEventos(true)}
-          >
-            ?
-          </button>
+          />
         </span>
       ),
       render: (o) => renderEvento(o, true),

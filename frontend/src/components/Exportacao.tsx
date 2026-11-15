@@ -10,6 +10,7 @@ import {
   type RefObject,
 } from "react";
 import { baixar, lerTabelas, nomeArquivo, type Aba, type Formato } from "../exportar";
+import { Icone } from "./Icone";
 
 /** Fonte extra de dados para a exportação (ex.: lista paginada devolve todos os registros, não só a página). */
 type Fonte = () => Promise<Aba>;
@@ -48,6 +49,7 @@ export function useFonteExportacao(fonte: Fonte) {
 export function BotoesExportar({ alvo }: { alvo: RefObject<HTMLElement> }) {
   const contexto = useContext(Contexto);
   const [ocupado, setOcupado] = useState(false);
+  const menu = useRef<HTMLDetailsElement>(null);
 
   const exportar = useCallback(
     async (formato: Formato) => {
@@ -73,14 +75,35 @@ export function BotoesExportar({ alvo }: { alvo: RefObject<HTMLElement> }) {
   );
 
   return (
-    <div className="exportar" title="Exporta as tabelas desta página">
-      <span className="sutil">{ocupado ? "Exportando…" : "Exportar"}</span>
-      <button className="secundario" disabled={ocupado} onClick={() => exportar("csv")}>
-        CSV
-      </button>
-      <button className="secundario" disabled={ocupado} onClick={() => exportar("xlsx")}>
-        XLSX
-      </button>
-    </div>
+    <details className="exportar-menu" ref={menu}>
+      <summary className="exportar-resumo" aria-label="Exportar tabelas desta página">
+        {ocupado ? "Exportando…" : "Exportar"}
+        <Icone nome="chevronDown" size={16} aria-hidden="true" />
+      </summary>
+      <div className="exportar-opcoes">
+        <button
+          type="button"
+          className="exportar-opcao"
+          disabled={ocupado}
+          onClick={() => {
+            if (menu.current) menu.current.open = false;
+            void exportar("csv");
+          }}
+        >
+          CSV
+        </button>
+        <button
+          type="button"
+          className="exportar-opcao"
+          disabled={ocupado}
+          onClick={() => {
+            if (menu.current) menu.current.open = false;
+            void exportar("xlsx");
+          }}
+        >
+          Excel (.xlsx)
+        </button>
+      </div>
+    </details>
   );
 }

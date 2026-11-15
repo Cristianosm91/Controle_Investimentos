@@ -35,8 +35,10 @@ def test_filtro_operacoes_por_todos_os_eventos(cliente, ids, evento):
                 **ids,
                 "data": "2026-01-05",
                 "evento": codigo,
-                "quantidade": -10 if codigo in ("V", "VENDA_SUBSCRICAO") else 10,
-                "preco": 0,
+                "quantidade": (
+                    0 if codigo == "R_CAP" else -10 if codigo in ("V", "VENDA_SUBSCRICAO") else 10
+                ),
+                "preco": -10 if codigo == "R_CAP" else 0,
             },
         )
         assert resposta.status_code == 201, resposta.text
@@ -46,6 +48,24 @@ def test_filtro_operacoes_por_todos_os_eventos(cliente, ids, evento):
     assert resposta.json()["total"] == 1
     assert [item["evento"] for item in resposta.json()["itens"]] == [evento]
     assert cliente.get("/api/operacoes").json()["total"] == len(EVENTOS_OPERACAO)
+
+
+def test_restituicao_capital_api_reduz_custo_sem_mudar_quantidade(cliente, ids):
+    compra = cliente.post(
+        "/api/operacoes",
+        json={**ids, "data": "2026-01-05", "evento": "C", "quantidade": 10, "preco": 100},
+    )
+    assert compra.status_code == 201, compra.text
+    devolucao = cliente.post(
+        "/api/operacoes",
+        json={**ids, "data": "2026-02-05", "evento": "R_CAP", "quantidade": 0, "preco": -12.69},
+    )
+    assert devolucao.status_code == 201, devolucao.text
+
+    (posicao,) = cliente.get("/api/posicoes").json()
+    assert posicao["quantidade"] == 10
+    assert posicao["custo"] == pytest.approx(987.31)
+    assert posicao["valor_investido"] == pytest.approx(987.31)
 
 
 def test_troca_ticker_cria_e_vincula_as_duas_pernas(cliente, ids):

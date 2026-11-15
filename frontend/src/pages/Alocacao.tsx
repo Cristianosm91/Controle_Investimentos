@@ -18,35 +18,37 @@ function TabelaGrupos({ titulo, grupos }: { titulo: string; grupos: GrupoAlocaca
   return (
     <div className="painel">
       <h3>{titulo}</h3>
-      <table className="tabela">
-        <thead>
-          <tr>
-            <th />
-            <th className="num">Alvo</th>
-            <th className="num">Atual</th>
-            <th className="num">Desvio</th>
-            <th className="num">Valor atual</th>
-            <th className="num">Ajuste</th>
-          </tr>
-        </thead>
-        <tbody>
-          {grupos.map((g) => (
-            <tr key={g.nome}>
-              <td>
-                {g.nome}
-                {g.estrategia && <div className="sutil">{g.estrategia}</div>}
-              </td>
-              <td className="num">{percentual(g.peso_alvo)}</td>
-              <td className="num">{percentual(g.peso_atual)}</td>
-              <td className="num">
-                <Desvio alvo={g.peso_alvo} atual={g.peso_atual} />
-              </td>
-              <td className="num">{moeda(g.valor_atual)}</td>
-              <td className="num">{moeda(g.ajuste)}</td>
+      <div className="tabela-container">
+        <table className="tabela">
+          <thead>
+            <tr>
+              <th />
+              <th className="num">Alvo</th>
+              <th className="num">Atual</th>
+              <th className="num">Desvio</th>
+              <th className="num">Valor atual</th>
+              <th className="num">Ajuste</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {grupos.map((g) => (
+              <tr key={g.nome}>
+                <td>
+                  {g.nome}
+                  {g.estrategia && <div className="sutil">{g.estrategia}</div>}
+                </td>
+                <td className="num">{percentual(g.peso_alvo)}</td>
+                <td className="num">{percentual(g.peso_atual)}</td>
+                <td className="num">
+                  <Desvio alvo={g.peso_alvo} atual={g.peso_atual} />
+                </td>
+                <td className="num">{moeda(g.valor_atual)}</td>
+                <td className="num">{moeda(g.ajuste)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
