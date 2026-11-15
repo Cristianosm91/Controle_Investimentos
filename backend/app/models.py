@@ -36,6 +36,19 @@ class Corretora(Base):
     nome: Mapped[str] = mapped_column(String(60), unique=True)
     cnpj: Mapped[str | None] = mapped_column(String(14))
 
+    apelidos: Mapped[list["CorretoraApelido"]] = relationship(
+        back_populates="corretora", cascade="all, delete-orphan", order_by="CorretoraApelido.nome"
+    )
+
+
+class CorretoraApelido(Base):
+    __tablename__ = "corretora_apelido"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nome: Mapped[str] = mapped_column(String(60), unique=True)
+    corretora_id: Mapped[int] = mapped_column(ForeignKey("corretora.id", ondelete="CASCADE"), index=True)
+    corretora: Mapped[Corretora] = relationship(back_populates="apelidos")
+
 
 class CriptoMercado(Base):
     """Último snapshot por ativo; preços e capitalização em USD."""
@@ -117,10 +130,19 @@ class Operacao(Base):
     origem: Mapped[str] = mapped_column(String(20), default="manual")
     hash_origem: Mapped[str | None] = mapped_column(String(64), unique=True)
     lote_id: Mapped[int | None] = mapped_column(ForeignKey("lote_importacao.id", ondelete="SET NULL"), index=True)
+    transferencia_pareada_id: Mapped[int | None] = mapped_column(
+        ForeignKey("operacao.id", ondelete="SET NULL"), unique=True
+    )
 
     investidor: Mapped[Investidor] = relationship()
     ativo: Mapped[Ativo] = relationship()
     corretora: Mapped[Corretora | None] = relationship()
+    transferencia_pareada: Mapped["Operacao | None"] = relationship(
+        "Operacao",
+        remote_side="Operacao.id",
+        foreign_keys=[transferencia_pareada_id],
+        uselist=False,
+    )
 
 
 class TratamentoQualidade(Base):
@@ -354,6 +376,22 @@ class IndiceMensal(Base):
     ipca: Mapped[Decimal | None] = mapped_column(Valor)
     selic: Mapped[Decimal | None] = mapped_column(Valor)
     igpm: Mapped[Decimal | None] = mapped_column(Valor)
+
+
+class CdiDiario(Base):
+    __tablename__ = "cdi_diario"
+
+    data: Mapped[date] = mapped_column(Date, primary_key=True)
+    taxa: Mapped[Decimal] = mapped_column(Numeric(20, 12, asdecimal=True))
+
+
+class CoberturaCdi(Base):
+    """Intervalos consultados com sucesso; dias sem boletim não geram rendimento."""
+
+    __tablename__ = "cobertura_cdi"
+
+    inicio: Mapped[date] = mapped_column(Date, primary_key=True)
+    fim: Mapped[date] = mapped_column(Date)
 
 
 class Parametro(Base):

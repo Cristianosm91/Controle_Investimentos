@@ -101,6 +101,16 @@ def calcular_investimento(movimentos: Iterable[Movimento]) -> ResultadoInvestime
             if not movimento.daytrade:
                 posicao.quantidade += quantidade
                 posicao.capital += desembolso
+        elif evento in ("AMORTIZACAO", "CISAO", "R_CAP"):
+            reducao = max(
+                ZERO,
+                (
+                    -movimento.preco
+                    if evento == "R_CAP"
+                    else quantidade * -movimento.preco
+                ) * movimento.cambio,
+            )
+            posicao.capital = max(ZERO, posicao.capital - reducao)
         elif evento == "V" and not movimento.daytrade:
             reduzir(posicao, -quantidade)
         elif evento in ("BONIFICACAO", "DESDOBRAMENTO") and not movimento.daytrade:
@@ -179,6 +189,9 @@ def aplicar(p: Posicao, m: Movimento) -> Decimal:
         return ZERO
     if ev in ("AMORTIZACAO", "CISAO"):
         p.custo += q * m.preco * m.cambio
+        return ZERO
+    if ev == "R_CAP":
+        p.custo += m.preco * m.cambio
         return ZERO
     raise ValueError(f"Evento de operação desconhecido: {ev}")
 

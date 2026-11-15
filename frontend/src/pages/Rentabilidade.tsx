@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api, query } from "../api";
 import { invalidarDerivados, useAtivos } from "../cadastros";
 import { GraficoBarras, GraficoLinhas } from "../components/Graficos";
+import { AjudaIndicador } from "../components/AjudaIndicador";
 import { classeSinal, mesAno, MESES, moeda, moedaCompacta, percentual } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
 import { BENCHMARKS, CORES_BENCHMARK, NOMES_BENCHMARK } from "../referencias";
@@ -113,7 +114,7 @@ function AvisoSemHistorico({ meses }: { meses: number }) {
   }, [carregando, cliente]);
 
   return (
-    <div className="aviso titulo-linha">
+    <div className={carregando ? "aviso titulo-linha" : "aviso atencao titulo-linha"}>
       <span>
         {carregando ? (
           <>Carregando o histórico de cotações (B3, exterior e câmbio)… pode levar alguns minutos.</>
@@ -191,37 +192,39 @@ export function Rentabilidade() {
         <>
           <div className="cards">
             <div className="card">
-              <span>TWR no período</span>
+              <span>TWR no período <AjudaIndicador titulo="TWR no período" texto="Retorno acumulado da carteira no período, composto a partir dos retornos mensais e separado dos fluxos de aportes e retiradas. CDI e IBOV são referências acumuladas." /></span>
               <strong className={classeSinal(ultimo.twr_acumulado)}>{percentual(ultimo.twr_acumulado)}</strong>
               <small className="sutil">
                 CDI {percentual(ultimo.cdi_acumulado)} · IBOV {percentual(ultimo.ibov_acumulado)}
               </small>
             </div>
             <div className="card">
-              <span>Retorno real no período</span>
+              <span>Retorno real no período <AjudaIndicador titulo="Retorno real no período" texto="TWR acumulada ajustada pela inflação medida pelo IPCA no período." /></span>
               <strong className={classeSinal(ultimo.real_acumulado)}>{percentual(ultimo.real_acumulado)}</strong>
               <small className="sutil">TWR descontada a inflação · IPCA {percentual(ultimo.ipca_acumulado)}</small>
             </div>
             <div className="card">
-              <span>Patrimônio em {mesAno(ultimo.data)}</span>
+              <span>Patrimônio em {mesAno(ultimo.data)} <AjudaIndicador titulo="Patrimônio no último mês" texto="Valor de mercado da carteira no último mês exibido; o valor investido no mesmo mês aparece abaixo. Sem cotação histórica, usa-se o custo." /></span>
               <strong>{moeda(ultimo.mercado)}</strong>
               <small className="sutil">Investido {moeda(ultimo.investido)}</small>
             </div>
             <div className="card">
-              <span>Resultado no período</span>
+              <span>Resultado no período <AjudaIndicador titulo="Resultado no período" texto="Soma dos resultados mensais do período: valorização, proventos, aluguel e resultados de operações." /></span>
               <strong className={classeSinal(soma((m) => m.lucro))}>{moeda(soma((m) => m.lucro))}</strong>
-              <small className="sutil">valorização + proventos + trades</small>
+              <small className="sutil">valorização + proventos + aluguel + trades</small>
             </div>
             <div className="card">
-              <span>Fluxo líquido</span>
+              <span>Fluxo líquido <AjudaIndicador titulo="Fluxo líquido" texto="Soma dos fluxos mensais: aportes menos retiradas no período. Os proventos e aluguéis do período são informados separadamente abaixo." /></span>
               <strong>{moeda(soma((m) => m.fluxo))}</strong>
-              <small className="sutil">aportes − retiradas · proventos {moeda(soma((m) => m.proventos))}</small>
+              <small className="sutil">
+                aportes − retiradas · proventos {moeda(soma((m) => m.proventos))} · aluguel {moeda(soma((m) => m.aluguel))}
+              </small>
             </div>
           </div>
 
           <div className="painel">
             <div className="titulo-linha">
-              <h3>TWR acumulado × referências</h3>
+              <h3>TWR acumulado × referências <AjudaIndicador titulo="TWR acumulado e referências" texto="Compara a evolução da TWR acumulada da carteira com as referências selecionadas; a série real ajusta a carteira pelo IPCA." /></h3>
               <div className="acoes">
                 {BENCHMARKS.map((b) => (
                   <label key={b} className="check">
@@ -236,6 +239,7 @@ export function Rentabilidade() {
               </div>
             </div>
             <GraficoLinhas
+              titulo="TWR acumulado × referências"
               datas={datas}
               zero
               formatar={(v) => percentual(v)}
@@ -254,8 +258,9 @@ export function Rentabilidade() {
 
           <div className="paineis">
             <div className="painel">
-              <h3>Evolução patrimonial</h3>
+              <h3>Evolução patrimonial <AjudaIndicador titulo="Evolução patrimonial" texto="Compara o valor de mercado e o investido em cada mês. Sem cotação histórica, o cálculo pode usar o custo." /></h3>
               <GraficoLinhas
+                titulo="Evolução patrimonial"
                 datas={datas}
                 formatar={moedaCompacta}
                 series={[
@@ -265,8 +270,8 @@ export function Rentabilidade() {
               />
             </div>
             <div className="painel">
-              <h3>Resultado mensal</h3>
-              <GraficoBarras datas={datas} valores={meses.map((m) => m.lucro)} formatar={moedaCompacta} />
+              <h3>Resultado mensal <AjudaIndicador titulo="Resultado mensal" texto="Cada barra representa o resultado do mês, incluindo valorização, proventos, aluguel e trades." /></h3>
+              <GraficoBarras datas={datas} valores={meses.map((m) => m.lucro)} formatar={moedaCompacta} titulo="Resultado mensal" rotuloValor="Resultado" />
             </div>
           </div>
         </>
@@ -274,7 +279,7 @@ export function Rentabilidade() {
 
       {todosQ.data && todosQ.data.length > 0 && (
         <div className="painel">
-          <h3>TWR mensal</h3>
+          <h3>TWR mensal <AjudaIndicador titulo="TWR mensal" texto="Cada célula mostra a TWR do mês; o total anual compõe os retornos mensais. CDI e IBOV mostram as referências anuais compostas." /></h3>
           <MapaDeCalor meses={todosQ.data} />
           {todosQ.data.some((m) => m.sem_cotacao > 0) && (
             <p className="sutil">

@@ -1,8 +1,9 @@
 """Ativos personalizados: renda fixa com rendimento estimado por índice e saldo com atualização manual.
 
 Convenção (igual à de um fundo): o ativo tem um valor de cota. Na renda fixa automática a cota vale 1 em
-`data_base` e é corrigida por `indexador` x `indexador_pct` + `taxa_aa`; cada aplicação é lançada como compra
-de `valor aplicado / cota da data` cotas ao preço da cota. Sem indexador, a cota vem do saldo informado.
+`data_base` e é corrigida por `indexador` x `indexador_pct` + `taxa_aa` (CDI diário, demais mensais).
+Cada aplicação é uma compra de `valor aplicado / cota da data` cotas ao preço da cota.
+Sem indexador, a cota vem do saldo informado.
 """
 
 import logging
@@ -16,6 +17,7 @@ from sqlalchemy.orm import Session
 from ..db import insert_upsert
 from ..models import Ativo, Cotacao, IndiceMensal
 from .carteira import carregar_posicoes
+from .cdi import CdiIndisponivel, CurvaCdi
 
 log = logging.getLogger(__name__)
 
@@ -71,12 +73,53 @@ def calculado(ativo: Ativo) -> bool:
     return not ativo.cotacao_automatica and ativo.indexador is not None and ativo.data_base is not None
 
 
-def valor_cota(sessao: Session, ativo: Ativo, dia: date) -> Decimal:
+def _valor_calculado(
+    ativo: Ativo, dia: date, indice: Mapping[date, Decimal], curva: CurvaCdi | None,
+    manuais: list[tuple[date, Decimal]],
+) -> Decimal:
+    if ativo.indexador == "CDI" and ativo.data_vencimento:
+        dia = min(dia, ativo.data_vencimento)
+    inicio, base = ativo.data_base, Decimal(1)
+    for data_manual, cota in manuais:
+        if data_manual <= dia and (inicio is None or data_manual >= inicio):
+            inicio, base = data_manual, cota
+    if inicio is None:
+        raise ValueError("Ativo automático sem data-base")
+    if dia <= inicio:
+        return base
+    correcao = curva.fator(inicio, dia) if curva is not None else fator(
+        inicio, dia, indice, ativo.indexador_pct or Decimal(1), ativo.taxa_aa or Decimal(0),
+    )
+    return base * correcao
+
+
+def _manuais(sessao: Session, ativo: Ativo) -> list[tuple[date, Decimal]]:
+    return [(dia, preco) for dia, preco in sessao.execute(
+        select(Cotacao.data, Cotacao.preco).where(Cotacao.ativo_id == ativo.id, Cotacao.fonte == FONTE_MANUAL)
+        .order_by(Cotacao.data)
+    )]
+
+
+def valor_cota(sessao: Session, ativo: Ativo, dia: date, *, projecao: bool = False) -> Decimal:
     """Cota do ativo personalizado na data (1 antes da primeira atualização)."""
     if calculado(ativo):
-        return fator(
-            ativo.data_base, dia, _indice(sessao, ativo.indexador), ativo.indexador_pct or Decimal(1),
-            ativo.taxa_aa or Decimal(0),
+        curva = (
+            CurvaCdi(sessao, ativo.indexador_pct or Decimal(1), ativo.taxa_aa or Decimal(0))
+            if ativo.indexador == "CDI" else None
+        )
+        indice = _indice(sessao, ativo.indexador)
+        manuais = _manuais(sessao, ativo)
+        if curva is not None and projecao and dia > date.today():
+            hoje = date.today()
+            if ativo.data_vencimento:
+                dia = min(dia, ativo.data_vencimento)
+            # Futuro nao tem CDI publicado: conserva a estimativa mensal, separada do saldo efetivo.
+            atual = _valor_calculado(ativo, hoje, indice, curva, manuais)
+            if not indice:
+                raise CdiIndisponivel("CDI mensal ausente para projeção. Atualize os índices.")
+            return atual * fator(hoje, dia, indice, ativo.indexador_pct or Decimal(1), ativo.taxa_aa or Decimal(0))
+        return _valor_calculado(
+            ativo, dia, indice, curva, manuais,
         )
     preco = sessao.scalar(
         select(Cotacao.preco).where(Cotacao.ativo_id == ativo.id, Cotacao.data <= dia).order_by(Cotacao.data.desc())
@@ -112,7 +155,10 @@ def _gravar(sessao: Session, ativo_id: int, precos: Iterable[tuple[date, Decimal
     return len(linhas)
 
 
-def atualizar(sessao: Session, ativos: Iterable[Ativo] | None = None, hoje: date | None = None) -> dict[str, str]:
+def atualizar(
+    sessao: Session, ativos: Iterable[Ativo] | None = None, hoje: date | None = None,
+    *, falhas: list[str] | None = None,
+) -> dict[str, str]:
     """Recalcula as cotas da renda fixa automática (fins de mês desde a data-base e hoje)."""
     hoje = hoje or date.today()
     if ativos is None:
@@ -124,14 +170,31 @@ def atualizar(sessao: Session, ativos: Iterable[Ativo] | None = None, hoje: date
         if not calculado(ativo):
             continue
         indice = _indice(sessao, ativo.indexador)
-        pct, taxa = ativo.indexador_pct or Decimal(1), ativo.taxa_aa or Decimal(0)
-        # Parâmetros podem ter mudado: refaz toda a série calculada.
-        sessao.execute(delete(Cotacao).where(Cotacao.ativo_id == ativo.id, Cotacao.fonte == FONTE_CALCULADA))
+        curva = (
+            CurvaCdi(sessao, ativo.indexador_pct or Decimal(1), ativo.taxa_aa or Decimal(0))
+            if ativo.indexador == "CDI" else None
+        )
+        manuais = _manuais(sessao, ativo)
+        datas_manuais = {d for d, _ in manuais}
         if ativo.data_base > hoje:
             continue
-        precos = [(d, fator(ativo.data_base, d, indice, pct, taxa)) for d in _datas(ativo.data_base, hoje)]
+        precos = []
+        indisponiveis = []
+        for d in _datas(ativo.data_base, hoje):
+            if d in datas_manuais:
+                continue
+            try:
+                precos.append((d, _valor_calculado(ativo, d, indice, curva, manuais)))
+            except CdiIndisponivel as erro:
+                indisponiveis.append(d)
+                log.warning("%s: %s", ativo.ticker, erro)
+        # Uma cota antiga nao pode continuar parecendo recalculada se faltou historico.
+        sessao.execute(delete(Cotacao).where(Cotacao.ativo_id == ativo.id, Cotacao.fonte == FONTE_CALCULADA))
         _gravar(sessao, ativo.id, precos, FONTE_CALCULADA)
-        atualizados[ativo.ticker] = FONTE_CALCULADA
+        if indisponiveis and falhas is not None:
+            falhas.append(f"CDI diário de {ativo.ticker}: {len(indisponiveis)} data(s) sem histórico")
+        if hoje not in indisponiveis:
+            atualizados[ativo.ticker] = FONTE_CALCULADA
     sessao.commit()
     if atualizados:
         log.info("Renda fixa automática recalculada: %s", ", ".join(atualizados))
@@ -146,6 +209,10 @@ def remover_calculadas(sessao: Session, ativo: Ativo) -> None:
 
 def informar_saldo(sessao: Session, ativo: Ativo, dia: date, saldo: Decimal) -> Decimal:
     """Saldo manual na moeda do ativo (soma de todos os investidores) → cota = saldo / quantidade aberta."""
+    if calculado(ativo) and (dia > date.today() or dia < ativo.data_base):
+        raise ValueError("A correção de saldo deve estar entre a data-base e hoje")
+    if ativo.indexador == "CDI" and ativo.data_vencimento and dia > ativo.data_vencimento:
+        raise ValueError("A correção de saldo deve ser até o vencimento")
     quantidade = sum(
         (p.quantidade for (_, a), p in carregar_posicoes(sessao, None, ate=dia).items() if a == ativo.id),
         Decimal(0),
@@ -154,5 +221,8 @@ def informar_saldo(sessao: Session, ativo: Ativo, dia: date, saldo: Decimal) -> 
         raise ValueError(f"{ativo.ticker} não tem posição aberta em {dia:%d/%m/%Y}")
     cota = saldo / quantidade
     _gravar(sessao, ativo.id, [(dia, cota)], FONTE_MANUAL)
-    sessao.commit()
+    if calculado(ativo):
+        atualizar(sessao, [ativo])
+    else:
+        sessao.commit()
     return cota

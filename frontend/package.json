@@ -1,13 +1,16 @@
 {
   "name": "investhub-frontend",
   "private": true,
-  "version": "1.2.1",
+  "version": "1.6.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "tsc -b --noEmit",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "e2e": "playwright test -c e2e",
+    "e2e:smoke": "playwright test -c e2e --grep @smoke",
+    "e2e:tipos": "tsc --noEmit --strict --skipLibCheck --target ES2022 --module ESNext --moduleResolution Bundler --lib ES2022,DOM --types node e2e/apoio.ts e2e/playwright.config.ts e2e/smoke.spec.ts e2e/fluxos.spec.ts e2e/acessibilidade.spec.ts e2e/correcoes-financeiras.spec.ts"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.59.0",
@@ -16,6 +19,9 @@
     "react-router-dom": "^6.27.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
+    "@playwright/test": "1.65.1",
+    "@types/node": "26.6.6",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",

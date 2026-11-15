@@ -42,7 +42,7 @@ export function converter(bruto: string): Celula {
 
 function segmentos(celula: Element): string[] {
   const copia = celula.cloneNode(true) as Element;
-  copia.querySelectorAll("button, input, select, textarea, svg, .acoes-linha, [data-exportar='ignorar']").forEach((e) => e.remove());
+  copia.querySelectorAll("button:not(.ordenar), input, select, textarea, svg, .acoes-linha, [data-exportar='ignorar']").forEach((e) => e.remove());
   const textos: string[] = [];
   let paiAnterior: Node | null = null;
   const caminhar = document.createTreeWalker(copia, NodeFilter.SHOW_TEXT);

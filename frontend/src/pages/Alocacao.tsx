@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useDeferredValue, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, query } from "../api";
+import { AjudaIndicador } from "../components/AjudaIndicador";
 import { moeda, numero, percentual } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
 import type { Alocacao as TAlocacao, GrupoAlocacao, ItemAlocacao } from "../tipos";
@@ -17,35 +18,37 @@ function TabelaGrupos({ titulo, grupos }: { titulo: string; grupos: GrupoAlocaca
   return (
     <div className="painel">
       <h3>{titulo}</h3>
-      <table className="tabela">
-        <thead>
-          <tr>
-            <th />
-            <th className="num">Alvo</th>
-            <th className="num">Atual</th>
-            <th className="num">Desvio</th>
-            <th className="num">Valor atual</th>
-            <th className="num">Ajuste</th>
-          </tr>
-        </thead>
-        <tbody>
-          {grupos.map((g) => (
-            <tr key={g.nome}>
-              <td>
-                {g.nome}
-                {g.estrategia && <div className="sutil">{g.estrategia}</div>}
-              </td>
-              <td className="num">{percentual(g.peso_alvo)}</td>
-              <td className="num">{percentual(g.peso_atual)}</td>
-              <td className="num">
-                <Desvio alvo={g.peso_alvo} atual={g.peso_atual} />
-              </td>
-              <td className="num">{moeda(g.valor_atual)}</td>
-              <td className="num">{moeda(g.ajuste)}</td>
+      <div className="tabela-container">
+        <table className="tabela">
+          <thead>
+            <tr>
+              <th />
+              <th className="num">Alvo</th>
+              <th className="num">Atual</th>
+              <th className="num">Desvio</th>
+              <th className="num">Valor atual</th>
+              <th className="num">Ajuste</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {grupos.map((g) => (
+              <tr key={g.nome}>
+                <td>
+                  {g.nome}
+                  {g.estrategia && <div className="sutil">{g.estrategia}</div>}
+                </td>
+                <td className="num">{percentual(g.peso_alvo)}</td>
+                <td className="num">{percentual(g.peso_atual)}</td>
+                <td className="num">
+                  <Desvio alvo={g.peso_alvo} atual={g.peso_atual} />
+                </td>
+                <td className="num">{moeda(g.valor_atual)}</td>
+                <td className="num">{moeda(g.ajuste)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -129,22 +132,22 @@ export function Alocacao() {
         <>
           <div className="cards">
             <div className="card">
-              <span>Patrimônio considerado</span>
+              <span>Patrimônio considerado <AjudaIndicador titulo="Patrimônio considerado" texto="Valor atual considerado pelo simulador para as posições e investidores selecionados." /></span>
               <strong>{moeda(r.total_atual)}</strong>
             </div>
             <div className="card">
-              <span>Compras sugeridas</span>
+              <span>Compras sugeridas <AjudaIndicador titulo="Compras sugeridas" texto="Soma dos ajustes positivos sugeridos pelo simulador, considerando o aporte, modo e restrições escolhidos." /></span>
               <strong>{moeda(compras)}</strong>
             </div>
             {modo === "rebalancear" && (
               <div className="card">
-                <span>Vendas sugeridas</span>
+                <span>Vendas sugeridas <AjudaIndicador titulo="Vendas sugeridas" texto="Soma dos ajustes negativos sugeridos no modo de rebalanceamento." /></span>
                 <strong className="negativo">{moeda(vendas)}</strong>
               </div>
             )}
             {modo === "comprar" && r.aporte > 0 && (
               <div className="card">
-                <span>Aporte sem destino</span>
+                <span>Aporte sem destino <AjudaIndicador titulo="Aporte sem destino" texto="Parcela do aporte que o simulador não distribuiu, por falta de déficit, cotação ou por restrição de preço-teto." /></span>
                 <strong>{moeda(r.sobra)}</strong>
                 <small className="sutil">Sem déficit, sem cotação ou acima do teto</small>
               </div>

@@ -6,8 +6,9 @@ from sqlalchemy import exists, select
 from sqlalchemy.exc import IntegrityError
 
 from ..models import Ativo, Operacao, Provento
-from ..schemas import AtivoIn, AtivoOut, CotaOut, SaldoManualIn
-from ..services import renda_fixa
+from ..schemas import AtivoIn, AtivoOut, ClasseAtivoIn, CotaOut, SaldoManualIn
+from ..services import moeda_ativo, renda_fixa
+from ..services.cdi import CdiIndisponivel
 from .deps import SessaoDep, obter_ou_404
 
 router = APIRouter(prefix="/ativos", tags=["ativos"])
@@ -30,7 +31,7 @@ def listar_ativos(
 
 @router.post("", response_model=AtivoOut, status_code=201)
 def criar_ativo(dados: AtivoIn, sessao: SessaoDep):
-    obj = Ativo(**dados.model_dump())
+    obj = Ativo(**dados.model_dump(exclude={"confirmar_correcao_moeda"}))
     sessao.add(obj)
     try:
         sessao.commit()
@@ -51,23 +52,41 @@ def alterar_ativo(id_: int, dados: AtivoIn, sessao: SessaoDep):
     ):
         raise HTTPException(409, "Não altere a identidade de uma cripto vinculada; cadastre um ativo distinto")
     era_calculado = renda_fixa.calculado(obj)
-    campos = dados.model_dump()
+    campos = dados.model_dump(exclude={"confirmar_correcao_moeda", "moeda"})
     # Formulários que não editam estes campos não os apagam.
     for campo in ("cnpj", "data_vencimento", "isento_ir"):
         if campo not in dados.model_fields_set:
             campos.pop(campo)
     if "coingecko_id" not in dados.model_fields_set and dados.classe == "CRIPTO":
         campos.pop("coingecko_id")
-    for campo, valor in campos.items():
-        setattr(obj, campo, valor)
-    try:
-        sessao.commit()
-    except IntegrityError:
-        sessao.rollback()
-        raise HTTPException(409, f"Ativo {dados.ticker} já cadastrado") from None
+    with moeda_ativo.corrigir(sessao, obj, dados.moeda, dados.confirmar_correcao_moeda):
+        for campo, valor in campos.items():
+            setattr(obj, campo, valor)
+        try:
+            sessao.commit()
+        except IntegrityError:
+            sessao.rollback()
+            raise HTTPException(409, f"Ativo {dados.ticker} já cadastrado") from None
     if era_calculado and not renda_fixa.calculado(obj):
         renda_fixa.remover_calculadas(sessao, obj)
     renda_fixa.atualizar(sessao, [obj])
+    return obj
+
+
+@router.patch("/{id_}/classe", response_model=AtivoOut)
+def alterar_classe_ativo(id_: int, dados: ClasseAtivoIn, sessao: SessaoDep):
+    obj = obter_ou_404(sessao, Ativo, id_)
+    if obj.coingecko_id is not None and dados.classe is not None and dados.classe != "CRIPTO":
+        raise HTTPException(409, "Não altere a classe de uma cripto vinculada")
+    if obj.coingecko_id is not None and "mercado" in dados.model_fields_set and dados.mercado is not None:
+        raise HTTPException(409, "Cripto vinculada não possui bolsa de valores")
+    with moeda_ativo.corrigir(sessao, obj, dados.moeda or obj.moeda, dados.confirmar_correcao_moeda):
+        if dados.classe is not None:
+            obj.classe = dados.classe
+        if "mercado" in dados.model_fields_set:
+            obj.mercado = dados.mercado
+        sessao.commit()
+    sessao.refresh(obj)
     return obj
 
 
@@ -77,14 +96,18 @@ def cota(id_: int, data: date, sessao: SessaoDep):
     obj = obter_ou_404(sessao, Ativo, id_)
     if obj.cotacao_automatica:
         raise HTTPException(422, f"{obj.ticker} tem cotação automática")
-    return CotaOut(ativo_id=obj.id, data=data, cota=renda_fixa.valor_cota(sessao, obj, data))
+    try:
+        valor = renda_fixa.valor_cota(sessao, obj, data)
+    except CdiIndisponivel as erro:
+        raise HTTPException(422, str(erro)) from erro
+    return CotaOut(ativo_id=obj.id, data=data, cota=valor)
 
 
 @router.post("/{id_}/saldo", response_model=CotaOut)
 def informar_saldo(id_: int, dados: SaldoManualIn, sessao: SessaoDep):
     obj = obter_ou_404(sessao, Ativo, id_)
-    if obj.cotacao_automatica or renda_fixa.calculado(obj):
-        raise HTTPException(422, f"{obj.ticker} não é ativo de saldo manual")
+    if obj.cotacao_automatica:
+        raise HTTPException(422, f"{obj.ticker} tem cotação de mercado; não admite saldo manual")
     try:
         valor = renda_fixa.informar_saldo(sessao, obj, dados.data, dados.saldo)
     except ValueError as erro:

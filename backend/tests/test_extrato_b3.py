@@ -1,5 +1,5 @@
-import json
 import io
+import json
 import re
 import zipfile
 from datetime import datetime
@@ -48,6 +48,10 @@ MOVIMENTACAO = xlsx(CAB_MOVIMENTACAO, [
     ["Credito", "15/01/2025", "Juros Sobre Capital Próprio", "ITUB4 - ITAU UNIBANCO HOLDING S.A.", XP, 100, 0.1, 10],
     ["Credito", "14/01/2025", "Rendimento", "HGLG11 - CSHG LOGISTICA FUNDO DE INVESTIMENTO IMOBILIARIO", INTER, 10, 1.1, 11],
     ["Credito", "20/01/2025", "Amortização", "HGLG11 - CSHG LOGISTICA FUNDO DE INVESTIMENTO IMOBILIARIO", INTER, 10, 0.5, 5],
+    [
+        "Credito", "20/01/2025", "Restituição de Capital",
+        "HGLG11 - CSHG LOGISTICA FUNDO DE INVESTIMENTO IMOBILIARIO", INTER, 0, "-", 12.69,
+    ],
     ["Credito", "21/01/2025", "Desdobro", "PETR4 - PETROLEO BRASILEIRO S.A. PETROBRAS", XP, 107, "-", "-"],
     ["Credito", "04/01/2025", "Transferência - Liquidação", "PETR4 - PETROLEO BRASILEIRO S.A. PETROBRAS", XP, 100, 38.4, 3840],
     ["Credito", "22/01/2025", "Rendimento", "Tesouro Selic 2029", XP, 1, 10, 10],
@@ -111,6 +115,33 @@ def test_planilha_operacoes_importa_taxas_e_irrf(cliente):
         ("C", 12.34, 0, "BRL"), ("V", 2.5, 0.01, "BRL"), ("C", 0, 0, "USD"),
     }
     assert enviar(cliente, "importar", PLANILHA_OPERACOES, investidor_id=inv).json()["operacoes"] == 0
+
+
+def test_planilha_personalizada_importa_classe_informada_e_aceita_layout_antigo(cliente):
+    inv = investidor(cliente)
+    cabecalho = CAB_PLANILHA_OPERACOES + ["classe"]
+    planilha = xlsx(cabecalho, [
+        ["O", datetime(2025, 2, 5), "C", 1, 200, 0, "XP", 0, "USD", "STOCK"],
+        ["VNQ", datetime(2025, 2, 6), "C", 1, 80, 0, "XP", 0, "USD", "REIT"],
+        ["SPY", datetime(2025, 2, 7), "C", 1, 500, 0, "XP", 0, "USD", "ETF_US"],
+    ])
+    previa = enviar(cliente, "previa", planilha, investidor_id=inv)
+    assert previa.status_code == 200, previa.text
+    assert previa.json()["ativos_novos"] == {"O": "STOCK", "VNQ": "REIT", "SPY": "ETF_US"}
+
+    resultado = enviar(cliente, "importar", planilha, investidor_id=inv)
+    assert resultado.status_code == 200, resultado.text
+    ativos = {ativo["ticker"]: ativo["classe"] for ativo in cliente.get("/api/ativos").json()}
+    assert {ticker: ativos[ticker] for ticker in ("O", "VNQ", "SPY")} == {
+        "O": "STOCK", "VNQ": "REIT", "SPY": "ETF_US",
+    }
+
+    antiga = xlsx(CAB_PLANILHA_OPERACOES, [
+        ["MSFT", datetime(2025, 2, 8), "C", 1, 200, 0, "XP", 0, "USD"],
+    ])
+    previa_antiga = enviar(cliente, "previa", antiga, investidor_id=inv)
+    assert previa_antiga.status_code == 200, previa_antiga.text
+    assert previa_antiga.json()["ativos_novos"]["MSFT"] == "AÇÃO"
 
 
 def test_planilha_corrige_multiplas_linhas_na_previa_e_importa_sem_editar_arquivo(cliente):
@@ -189,14 +220,15 @@ def test_movimentacao_proventos_e_eventos(cliente):
     assert (linhas[2]["tipo"], linhas[2]["evento"], linhas[2]["valor"]) == ("PROVENTO", "DIVIDENDO", 128.4)
     assert linhas[3]["evento"] == "JSCP" and linhas[4]["evento"] == "RENDIMENTO"
     assert (linhas[5]["evento"], linhas[5]["quantidade"], linhas[5]["preco"]) == ("AMORTIZACAO", 10, -0.5)
-    assert (linhas[6]["evento"], linhas[6]["quantidade"]) == ("DESDOBRAMENTO", 107)
-    assert "Negociação" in linhas[7]["motivo"]
-    assert linhas[8]["status"] == linhas[9]["status"] == linhas[10]["status"] == "ignorado"
-    assert "Aluguel" in linhas[10]["motivo"]
+    assert (linhas[6]["evento"], linhas[6]["quantidade"], linhas[6]["preco"]) == ("R_CAP", 0, -12.69)
+    assert (linhas[7]["evento"], linhas[7]["quantidade"]) == ("DESDOBRAMENTO", 107)
+    assert "Negociação" in linhas[8]["motivo"]
+    assert linhas[9]["status"] == linhas[10]["status"] == "ignorado"
+    assert "Aluguel" in linhas[11]["motivo"]
     assert previa["ativos_novos"]["HGLG11"] == "FII"
 
     resultado = enviar(cliente, "importar", MOVIMENTACAO, investidor_id=inv).json()
-    assert (resultado["operacoes"], resultado["proventos"]) == (2, 3)
+    assert (resultado["operacoes"], resultado["proventos"]) == (3, 3)
     proventos = cliente.get("/api/proventos", params={"investidores": inv}).json()["itens"]
     assert {(p["ticker"], p["evento"], p["valor"], p["irrf"]) for p in proventos} == {
         ("PETR4", "DIVIDENDO", 128.4, 0), ("ITUB4", "JSCP", 10, 0), ("HGLG11", "RENDIMENTO", 11, 0),

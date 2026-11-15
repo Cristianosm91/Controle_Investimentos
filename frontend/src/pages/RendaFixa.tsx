@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api, query } from "../api";
+import { AjudaIndicador } from "../components/AjudaIndicador";
 import { classeSinal, data, moeda, numero, percentual } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
 import type { ItemRendaFixa, RendaFixa as TRendaFixa } from "../tipos";
@@ -50,26 +51,26 @@ export function RendaFixa() {
         <>
           <div className="cards">
             <div className="card">
-              <span>Aplicado</span>
+              <span>Aplicado <AjudaIndicador titulo="Aplicado em renda fixa" texto="Soma dos custos das aplicações de renda fixa consideradas." /></span>
               <strong>{moeda(r.custo)}</strong>
             </div>
             <div className="card">
-              <span>Valor bruto</span>
+              <span>Valor bruto <AjudaIndicador titulo="Valor bruto" texto="Soma dos valores brutos das aplicações. O rendimento mostrado abaixo é o valor bruto menos o custo aplicado." /></span>
               <strong>{moeda(r.bruto)}</strong>
               <small className={classeSinal(rendimento)}>Rendimento {moeda(rendimento)}</small>
             </div>
             <div className="card">
-              <span>IR + IOF se resgatar hoje</span>
+              <span>IR + IOF se resgatar hoje <AjudaIndicador titulo="IR e IOF estimados" texto="Soma do IR e IOF estimados por aplicação para resgate na data atual. É uma estimativa." /></span>
               <strong>{moeda(r.impostos)}</strong>
             </div>
             <div className="card">
-              <span>Valor líquido hoje</span>
+              <span>Valor líquido hoje <AjudaIndicador titulo="Valor líquido hoje" texto="Valor bruto das aplicações menos os impostos estimados para resgate hoje. O percentual compara o líquido com o bruto." /></span>
               <strong>{moeda(r.liquido)}</strong>
               <small className="sutil">{percentual(r.bruto ? r.liquido / r.bruto : null)} do bruto</small>
             </div>
             {r.liquido_vencimento !== null && (
               <div className="card">
-                <span>Líquido projetado nos vencimentos</span>
+                <span>Líquido projetado nos vencimentos <AjudaIndicador titulo="Líquido projetado nos vencimentos" texto="Soma das projeções líquidas dos títulos com rendimento automático e data de vencimento; não é valor garantido." /></span>
                 <strong>{moeda(r.liquido_vencimento)}</strong>
                 <small className="sutil">títulos com rendimento automático e vencimento</small>
               </div>

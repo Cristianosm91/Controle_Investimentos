@@ -203,22 +203,22 @@ export function Carteiras() {
               {form.ativos.map((l, i) => (
                 <tr key={i}>
                   <td>
-                    <input required list="lista-ativos-carteira" value={l.ticker} onChange={(e) => mudarLinha(i, { ticker: e.target.value.toUpperCase() })} />
+                    <input required list="lista-ativos-carteira" aria-label={`Ativo da linha ${i + 1}`} value={l.ticker} onChange={(e) => mudarLinha(i, { ticker: e.target.value.toUpperCase() })} />
                   </td>
                   <td>
-                    <input type="number" step="any" min="0" max="100" placeholder="restante" value={l.peso} onChange={(e) => mudarLinha(i, { peso: e.target.value })} />
+                    <input type="number" step="any" min="0" max="100" placeholder="restante" aria-label={`Peso no book (%) da linha ${i + 1}`} value={l.peso} onChange={(e) => mudarLinha(i, { peso: e.target.value })} />
                   </td>
                   <td>
-                    <input type="number" step="any" min="0" value={l.preco_teto} onChange={(e) => mudarLinha(i, { preco_teto: e.target.value })} />
+                    <input type="number" step="any" min="0" aria-label={`Preço-teto da linha ${i + 1}`} value={l.preco_teto} onChange={(e) => mudarLinha(i, { preco_teto: e.target.value })} />
                   </td>
                   <td>
-                    <input type="number" step="1" value={l.ranking} onChange={(e) => mudarLinha(i, { ranking: e.target.value })} />
+                    <input type="number" step="1" aria-label={`Ranking da linha ${i + 1}`} value={l.ranking} onChange={(e) => mudarLinha(i, { ranking: e.target.value })} />
                   </td>
                   <td>
-                    <input type="checkbox" checked={l.entra_preco_teto} onChange={(e) => mudarLinha(i, { entra_preco_teto: e.target.checked })} />
+                    <input type="checkbox" aria-label={`Usa teto na linha ${i + 1}`} checked={l.entra_preco_teto} onChange={(e) => mudarLinha(i, { entra_preco_teto: e.target.checked })} />
                   </td>
                   <td>
-                    <button type="button" className="link perigo" onClick={() => setForm({ ...form, ativos: form.ativos.filter((_, j) => j !== i) })}>
+                    <button type="button" className="link perigo" aria-label={`Remover a linha ${i + 1}`} onClick={() => setForm({ ...form, ativos: form.ativos.filter((_, j) => j !== i) })}>
                       ×
                     </button>
                   </td>

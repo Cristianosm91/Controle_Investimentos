@@ -6,7 +6,7 @@ import { FormProvento } from "../components/FormLancamentos";
 import { ImportarExtrato } from "../components/ImportarExtrato";
 import { ListaPaginada, type ColunaLista } from "../components/ListaPaginada";
 import { MatrizProventos } from "../components/MatrizProventos";
-import { useAtivos, useDominio } from "../cadastros";
+import { useAtivos, useCorretoras, useDominio } from "../cadastros";
 import { data, moeda } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
 import type { Provento } from "../tipos";
@@ -17,11 +17,13 @@ export function Proventos() {
   const { filtro, investidores } = useInvestidor();
   const { data: dominio } = useDominio();
   const { data: ativos = [] } = useAtivos();
+  const { data: corretoras } = useCorretoras();
   const [edicao, setEdicao] = useState<Provento | "novo" | null>(null);
   const [aba, setAba] = useState<"lancamentos" | "matriz" | "agenda">("lancamentos");
   const [classe, setClasse] = useState("");
   const [importando, setImportando] = useState(false);
   const apontamento = parametros.get("apontamento");
+  const codigoQualidade = parametros.get("codigo");
   const regraQualidade = parametros.get("regra");
   const explicacaoQualidade = parametros.get("explicacao");
   const retornoQualidade = parametros.get("retorno");
@@ -88,7 +90,8 @@ export function Proventos() {
         colunas={colunas}
         classeFiltro={classe}
         aoMudarClasse={setClasse}
-        filtrosFixos={apontamento ? { apontamento } : undefined}
+        corretoras={corretoras}
+        filtrosFixos={apontamento ? { apontamento, ...(codigoQualidade ? { codigo: codigoQualidade } : {}) } : undefined}
         chave={(p) => p.id}
         cabecalho={
           <>
@@ -127,7 +130,13 @@ export function Proventos() {
         )}
       />
       )}
-      {edicao && <FormProvento provento={edicao === "novo" ? undefined : edicao} aoFechar={() => setEdicao(null)} />}
+      {edicao && (
+        <FormProvento
+          provento={edicao === "novo" ? undefined : edicao}
+          ocultarAluguel
+          aoFechar={() => setEdicao(null)}
+        />
+      )}
       {importando && <ImportarExtrato aoFechar={() => setImportando(false)} />}
     </>
   );

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type MouseEvent } from "react";
-import { mesAno, moeda, moedaCompacta } from "../formato";
+import { data, mesAno, moeda, moedaCompacta } from "../formato";
 import { Dica, useDica } from "./Dica";
 
 export interface SerieGrafico {
@@ -55,8 +55,13 @@ function escala(minDados: number, maxDados: number, alvoMarcas = 5) {
   let max = maxDados;
   if (min === max) {
     const folga = Math.abs(min) * 0.1 || 1;
-    min = min >= 0 ? Math.max(0, min - folga) : min - folga;
-    max = max <= 0 ? Math.min(0, max + folga) : max + folga;
+    if (min >= 0) {
+      min = Math.max(0, min - folga);
+      max += folga;
+    } else {
+      min -= folga;
+      max = Math.min(0, max + folga);
+    }
   }
   const passo = passoRedondo((max - min) / (alvoMarcas - 1));
   const inicio = Math.floor(min / passo) * passo;
@@ -79,15 +84,82 @@ function rotulosX(total: number): number[] {
   return lista;
 }
 
+/** Datas mensais (uma por mês) aparecem como "mar./2024"; diárias, como dd/mm/aaaa. */
+function formatoDatas(datas: string[]): (iso: string) => string {
+  const meses = new Set(datas.map((d) => d.slice(0, 7)));
+  return meses.size === datas.length ? mesAno : data;
+}
+
+function resumoGrafico(titulo: string | undefined, datas: string[], series: { nome: string }[]): string {
+  const rotulo = formatoDatas(datas);
+  const periodo =
+    datas.length > 1 ? `de ${rotulo(datas[0])} a ${rotulo(datas[datas.length - 1])}` : `em ${rotulo(datas[0])}`;
+  const nomes = series.map((s) => s.nome).filter(Boolean).join(", ");
+  return `${titulo ?? "Gráfico"}${nomes ? ` — ${nomes}` : ""}, ${periodo}. Valores em "Ver dados do gráfico".`;
+}
+
+/** Alternativa textual ao gráfico: a mesma série em tabela, acessível por teclado e leitor de tela. */
+function DadosGrafico({
+  titulo,
+  datas,
+  series,
+  formatar,
+}: {
+  titulo?: string;
+  datas: string[];
+  series: { nome: string; valores: (number | null)[] }[];
+  formatar: (v: number) => string;
+}) {
+  const [aberto, setAberto] = useState(false);
+  const rotulo = formatoDatas(datas);
+  const valor = formatoDica(formatar);
+  return (
+    <details className="grafico-dados nao-imprimir" data-exportar="ignorar" onToggle={(e) => setAberto(e.currentTarget.open)}>
+      <summary>Ver dados do gráfico</summary>
+      {aberto && (
+        <div className="grafico-dados-rolagem" tabIndex={0} role="region" aria-label={`Dados: ${titulo ?? "gráfico"}`}>
+          <table className="tabela">
+            {titulo && <caption className="visualmente-oculto">{titulo}</caption>}
+            <thead>
+              <tr>
+                <th scope="col">Data</th>
+                {series.map((s) => (
+                  <th key={s.nome} scope="col" className="num">
+                    {s.nome}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {datas.map((d, i) => (
+                <tr key={`${d}-${i}`}>
+                  <th scope="row">{rotulo(d)}</th>
+                  {series.map((s) => (
+                    <td key={s.nome} className="num">
+                      {s.valores[i] === null || s.valores[i] === undefined ? "—" : valor(s.valores[i]!)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </details>
+  );
+}
+
 interface PropsLinhas {
   datas: string[];
   series: SerieGrafico[];
   formatar: (v: number) => string;
   altura?: number;
   zero?: boolean;
+  /** Nome acessível do gráfico (ex.: o título do painel). */
+  titulo?: string;
 }
 
-export function GraficoLinhas({ datas, series, formatar, altura = 210, zero = false }: PropsLinhas) {
+export function GraficoLinhas({ datas, series, formatar, altura = 210, zero = false, titulo }: PropsLinhas) {
   const [foco, setFoco] = useState<number | null>(null);
   const dica = useDica();
   const todos = series.flatMap((s) => s.valores.filter((v): v is number => v !== null));
@@ -128,7 +200,13 @@ export function GraficoLinhas({ datas, series, formatar, altura = 210, zero = fa
 
   return (
     <div className="grafico" ref={ref}>
-      <svg viewBox={`0 0 ${largura} ${altura}`} onMouseMove={mover} onMouseLeave={sair} role="img">
+      <svg
+        viewBox={`0 0 ${largura} ${altura}`}
+        onMouseMove={mover}
+        onMouseLeave={sair}
+        role="img"
+        aria-label={resumoGrafico(titulo, datas, series)}
+      >
         {marcas.map((v) => (
           <g key={v}>
             <line x1={MARGEM.esquerda} x2={largura - MARGEM.direita} y1={y(v)} y2={y(v)} className="grade" />
@@ -175,6 +253,7 @@ export function GraficoLinhas({ datas, series, formatar, altura = 210, zero = fa
         ))}
         {foco !== null && <span className="sutil">{mesAno(datas[foco])}</span>}
       </div>
+      <DadosGrafico titulo={titulo} datas={datas} series={series} formatar={formatar} />
       {foco !== null && (
         <Dica posicao={dica.posicao}>
           <div className="dica-titulo">{mesAno(datas[foco])}</div>
@@ -197,9 +276,21 @@ interface PropsBarras {
   formatar: (v: number) => string;
   cor?: string;
   altura?: number;
+  /** Nome acessível do gráfico (ex.: o título do painel). */
+  titulo?: string;
+  /** Nome da série na tabela de dados alternativa. */
+  rotuloValor?: string;
 }
 
-export function GraficoBarras({ datas, valores, formatar, cor = "var(--primaria)", altura = 170 }: PropsBarras) {
+export function GraficoBarras({
+  datas,
+  valores,
+  formatar,
+  cor = "var(--primaria)",
+  altura = 170,
+  titulo,
+  rotuloValor = "Valor",
+}: PropsBarras) {
   const [foco, setFoco] = useState<number | null>(null);
   const dica = useDica();
   const { ref, largura: larguraTotal } = useLarguraGrafico(Boolean(valores.length));
@@ -230,7 +321,13 @@ export function GraficoBarras({ datas, valores, formatar, cor = "var(--primaria)
 
   return (
     <div className="grafico" ref={ref}>
-      <svg viewBox={`0 0 ${larguraTotal} ${altura}`} onMouseMove={mover} onMouseLeave={sair} role="img">
+      <svg
+        viewBox={`0 0 ${larguraTotal} ${altura}`}
+        onMouseMove={mover}
+        onMouseLeave={sair}
+        role="img"
+        aria-label={resumoGrafico(titulo, datas, [])}
+      >
         {marcas.map((v) => (
           <g key={v}>
             <line x1={MARGEM.esquerda} x2={larguraTotal - MARGEM.direita} y1={y(v)} y2={y(v)} className="grade" />
@@ -256,6 +353,7 @@ export function GraficoBarras({ datas, valores, formatar, cor = "var(--primaria)
           </text>
         ))}
       </svg>
+      <DadosGrafico titulo={titulo} datas={datas} series={[{ nome: rotuloValor, valores }]} formatar={formatar} />
       {foco !== null && (
         <Dica posicao={dica.posicao}>
           <div className="dica-titulo">{mesAno(datas[foco])}</div>

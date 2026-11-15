@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api, query } from "../api";
+import { AjudaIndicador } from "../components/AjudaIndicador";
+import { AjudaInfo } from "../components/AjudaInfo";
 import { classeSinal, data, moeda, numero, percentual } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
 import type { Ativo, PremissasValuation, Valuation as ValuationTipo } from "../tipos";
@@ -13,6 +15,23 @@ type CampoConfiguracao = { chave: CampoPremissa; rotulo: string; unidade: string
 type BuscaPremissas = { premissas: PremissasValuation; avisos: string[] };
 
 const CAMPOS_AUTOMATICOS: CampoPremissa[] = ["lpa", "vpa", "dividendo_anual", "roe", "payout", "g"];
+
+const AJUDA_PREMISSAS: Record<CampoPremissa, string> = {
+  lpa: "Lucro líquido por ação. Exemplo: lucro atribuível de R$ 1 bilhão dividido por 200 milhões de ações = R$ 5 por ação.",
+  vpa: "Patrimônio líquido por ação. Exemplo: patrimônio líquido de R$ 4 bilhões dividido por 200 milhões de ações = R$ 20 por ação.",
+  dividendo_anual: "Soma dos dividendos por ação nos últimos 12 meses. Exemplo: quatro pagamentos de R$ 0,50 = R$ 2,00 por ação.",
+  roe: "Retorno sobre o patrimônio líquido, em percentual. Exemplo: ROE de 15% significa R$ 0,15 de lucro para cada R$ 1 de patrimônio.",
+  payout: "Parcela do lucro distribuída aos acionistas, em percentual. Exemplo: payout de 60% indica distribuição de R$ 0,60 a cada R$ 1 de lucro.",
+  g: "Crescimento anual perpétuo estimado depois do período projetado. Exemplo: 3% ao ano; use uma premissa conservadora.",
+  ke: "Taxa anual usada para descontar os fluxos de caixa ao valor presente. Exemplo: custo de capital próprio de 12% ao ano.",
+  pl_historico: "Múltiplo preço/lucro-alvo baseado no histórico da empresa. Exemplo: P/L-alvo de 10 significa preço igual a 10 vezes o lucro por ação.",
+  pl_setor: "Múltiplo preço/lucro-alvo de referência para o setor. Exemplo: P/L setorial de 12 significa preço igual a 12 vezes o lucro por ação.",
+  fcfe_1: "Fluxo de caixa livre para o acionista por ação no ano 1. Exemplo: R$ 2,00 por ação projetados para o próximo ano.",
+  fcfe_2: "Fluxo de caixa livre para o acionista por ação no ano 2. Exemplo: R$ 2,20 por ação projetados para daqui a dois anos.",
+  fcfe_3: "Fluxo de caixa livre para o acionista por ação no ano 3. Exemplo: R$ 2,40 por ação projetados para daqui a três anos.",
+  fcfe_4: "Fluxo de caixa livre para o acionista por ação no ano 4. Exemplo: R$ 2,60 por ação projetados para daqui a quatro anos.",
+  fcfe_5: "Fluxo de caixa livre para o acionista por ação no ano 5. Exemplo: R$ 2,80 por ação projetados para daqui a cinco anos.",
+};
 
 const CAMPOS: CampoConfiguracao[] = [
   { chave: "lpa", rotulo: "LPA", unidade: "por ação", passo: "any" },
@@ -29,6 +48,12 @@ const CAMPOS: CampoConfiguracao[] = [
   { chave: "fcfe_3", rotulo: "FCFE por ação · ano 3", unidade: "por ação", passo: "any" },
   { chave: "fcfe_4", rotulo: "FCFE por ação · ano 4", unidade: "por ação", passo: "any" },
   { chave: "fcfe_5", rotulo: "FCFE por ação · ano 5", unidade: "por ação", passo: "any" },
+];
+
+const GRUPOS_CAMPOS: { titulo: string; chaves: CampoPremissa[] }[] = [
+  { titulo: "Fundamentos", chaves: ["lpa", "vpa", "dividendo_anual", "roe", "payout"] },
+  { titulo: "Premissas de valuation", chaves: ["ke", "g", "pl_historico", "pl_setor"] },
+  { titulo: "FCFE", chaves: ["fcfe_1", "fcfe_2", "fcfe_3", "fcfe_4", "fcfe_5"] },
 ];
 
 const CAMPOS_PERCENTUAIS = new Set<CampoPremissa>(["roe", "payout", "g", "ke"]);
@@ -202,21 +227,21 @@ export function Valuation() {
         <>
           <div className="valuation-resumo">
             <div className="painel">
-              <span className="sutil">Cotação atual</span>
+              <span className="sutil">Cotação atual <AjudaIndicador titulo="Cotação atual" texto="Última cotação disponível para o ativo na moeda apresentada." /></span>
               <strong>{moeda(detalhe.cotacao, detalhe.moeda)}</strong>
             </div>
             <div className="painel">
-              <span className="sutil">Mediana dos modelos disponíveis</span>
+              <span className="sutil">Mediana dos modelos disponíveis <AjudaIndicador titulo="Mediana dos modelos" texto="Mediana dos preços justos dos modelos calculáveis com os dados e premissas disponíveis; não é recomendação nem preço-alvo." /></span>
               <strong>{moeda(detalhe.analise.preco_mediano, detalhe.moeda)}</strong>
             </div>
             <div className="painel">
-              <span className="sutil">Diferença para a mediana</span>
+              <span className="sutil">Diferença para a mediana <AjudaIndicador titulo="Diferença para a mediana" texto="Mediana dos preços justos dividida pela cotação, menos um; apresentada em percentual." /></span>
               <strong className={classeSinal(detalhe.analise.upside_mediano)}>
                 {percentual(detalhe.analise.upside_mediano)}
               </strong>
             </div>
             <div className="painel">
-              <span className="sutil">Modelos calculáveis</span>
+              <span className="sutil">Modelos calculáveis <AjudaIndicador titulo="Modelos calculáveis" texto="Quantidade de modelos com resultado disponível em relação ao total de modelos." /></span>
               <strong>
                 {numero(detalhe.analise.modelos_disponiveis, 0)} / {numero(detalhe.analise.total_modelos, 0)}
               </strong>
@@ -252,20 +277,37 @@ export function Valuation() {
                 {buscarPremissas.isPending ? "BUSCANDO…" : "BUSCAR PREMISSAS"}
               </button>
               {mensagemBusca && <p className="sutil" role="status">{mensagemBusca}</p>}
-              <div className="valuation-campos">
-                {CAMPOS.map(({ chave, rotulo, unidade, passo }) => (
-                  <label key={chave}>
-                    {rotulo}
-                    <span className="valuation-unidade">{unidade}</span>
-                    <input
-                      type="number"
-                      step={passo}
-                      value={formulario[chave]}
-                      onChange={(evento) =>
-                        setFormulario((atual) => ({ ...atual, [chave]: evento.target.value }))
-                      }
-                    />
-                  </label>
+              <div className="valuation-grupos">
+                {GRUPOS_CAMPOS.map((grupo) => (
+                  <section key={grupo.titulo} className="valuation-grupo">
+                    <h3>{grupo.titulo}</h3>
+                    <div className="valuation-campos">
+                      {grupo.chaves.map((chave) => {
+                        const { rotulo, unidade, passo } = CAMPOS.find((campo) => campo.chave === chave)!;
+                        return (
+                          <label key={chave}>
+                            <span className="valuation-campo-titulo">
+                              {rotulo}
+                              <AjudaInfo
+                                className="valuation-ajuda-premissa"
+                                data-tooltip={AJUDA_PREMISSAS[chave]}
+                                aria-label={`Ajuda sobre ${rotulo}: ${AJUDA_PREMISSAS[chave]}`}
+                              />
+                            </span>
+                            <span className="valuation-unidade">{unidade}</span>
+                            <input
+                              type="number"
+                              step={passo}
+                              value={formulario[chave]}
+                              onChange={(evento) =>
+                                setFormulario((atual) => ({ ...atual, [chave]: evento.target.value }))
+                              }
+                            />
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </section>
                 ))}
               </div>
               <button className="valuation-salvar" disabled={salvar.isPending}>
@@ -289,7 +331,12 @@ export function Valuation() {
                       <tr key={modelo.id}>
                         <td>
                           {modelo.rotulo}
-                          {modelo.motivo && <div className="sutil">{modelo.motivo}</div>}
+                          {modelo.preco_justo === null && (
+                            <div className="valuation-modelo-indisponivel">
+                              <span className="etiqueta valuation-indisponivel-badge">Indisponível</span>
+                              {modelo.motivo && <span className="sutil">{modelo.motivo}</span>}
+                            </div>
+                          )}
                         </td>
                         <td className="num">{moeda(modelo.preco_justo, detalhe.moeda)}</td>
                         <td className="num">
@@ -319,62 +366,78 @@ export function Valuation() {
             <h2>TIR e TWR do ativo</h2>
             <div className="valuation-resumo valuation-retorno">
               <div>
-                <span className="sutil">TIR anual</span>
+                <span className="sutil">TIR anual <AjudaIndicador titulo="TIR anual do ativo" texto="Taxa interna de retorno anualizada a partir das operações, proventos líquidos e valor de mercado final em reais." /></span>
                 <strong className={classeSinal(detalhe.rentabilidade.tir_aa)}>
                   {percentual(detalhe.rentabilidade.tir_aa)}
                 </strong>
               </div>
               <div>
-                <span className="sutil">TIR mensal equivalente</span>
+                <span className="sutil">TIR mensal equivalente <AjudaIndicador titulo="TIR mensal equivalente" texto="Taxa mensal equivalente à TIR anual, calculada por capitalização composta." /></span>
                 <strong className={classeSinal(detalhe.rentabilidade.tir_am)}>
                   {percentual(detalhe.rentabilidade.tir_am)}
                 </strong>
               </div>
               <div>
-                <span className="sutil">TWR acumulado</span>
+                <span className="sutil">TWR acumulado <AjudaIndicador titulo="TWR acumulado do ativo" texto="Composição dos retornos mensais do ativo, separando o efeito dos fluxos. Na falta de cotação mensal, usa-se o custo como aproximação." /></span>
                 <strong className={classeSinal(detalhe.rentabilidade.twr_acumulado)}>
                   {percentual(detalhe.rentabilidade.twr_acumulado)}
                 </strong>
               </div>
             </div>
-            <p className="sutil valuation-ajuda">
-              Cálculos respeitam o filtro global de investidores. TIR usa operações, proventos líquidos e valor de
-              mercado final em BRL; meses sem cotação são marcados e seguem a convenção mensal do app, que usa o custo
-              como aproximação de mercado.
-            </p>
             {detalhe.rentabilidade.meses.length ? (
-              <div className="tabela-container">
-                <table className="tabela valuation-retorno-tabela">
-                  <thead>
-                    <tr>
-                      <th>Mês</th>
-                      <th className="num">Investido</th>
-                      <th className="num">Mercado</th>
-                      <th className="num">TWR mensal</th>
-                      <th className="num">TWR acumulado</th>
-                      <th>Cotação</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {detalhe.rentabilidade.meses.map((mes) => (
-                      <tr key={mes.data}>
-                        <td>{data(mes.data)}</td>
-                        <td className="num">{moeda(mes.investido)}</td>
-                        <td className="num">{moeda(mes.mercado)}</td>
-                        <td className="num">
-                          <span className={classeSinal(mes.twr)}>{percentual(mes.twr)}</span>
-                        </td>
-                        <td className="num">
-                          <span className={classeSinal(mes.twr_acumulado)}>{percentual(mes.twr_acumulado)}</span>
-                        </td>
-                        <td>{mes.sem_cotacao ? "Sem cotação · custo" : "Cotado"}</td>
+              <>
+                <details className="valuation-metodologia">
+                  <summary>Como TIR e TWR são calculados</summary>
+                  <p className="sutil valuation-ajuda">
+                    Cálculos respeitam o filtro global de investidores. TIR usa operações, proventos líquidos e valor de
+                    mercado final em BRL; meses sem cotação são marcados e seguem a convenção mensal do app, que usa o
+                    custo como aproximação de mercado.
+                  </p>
+                </details>
+                <div className="tabela-container">
+                  <table className="tabela valuation-retorno-tabela">
+                    <thead>
+                      <tr>
+                        <th>Mês</th>
+                        <th className="num">Investido</th>
+                        <th className="num">Mercado</th>
+                        <th className="num">TWR mensal</th>
+                        <th className="num">TWR acumulado</th>
+                        <th>Cotação</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {detalhe.rentabilidade.meses.map((mes) => (
+                        <tr key={mes.data}>
+                          <td>{data(mes.data)}</td>
+                          <td className="num">{moeda(mes.investido)}</td>
+                          <td className="num">{moeda(mes.mercado)}</td>
+                          <td className="num">
+                            <span className={classeSinal(mes.twr)}>{percentual(mes.twr)}</span>
+                          </td>
+                          <td className="num">
+                            <span className={classeSinal(mes.twr_acumulado)}>{percentual(mes.twr_acumulado)}</span>
+                          </td>
+                          <td>{mes.sem_cotacao ? "Sem cotação · custo" : "Cotado"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             ) : (
-              <p className="sutil">Sem operações para o ativo e os investidores selecionados.</p>
+              <div className="valuation-sem-retorno">
+                <strong>Não foi possível calcular TIR e TWR.</strong>
+                <p>Não existem operações para este ativo considerando os investidores selecionados.</p>
+                <details className="valuation-metodologia">
+                  <summary>Como TIR e TWR são calculados</summary>
+                  <p className="sutil valuation-ajuda">
+                    Cálculos respeitam o filtro global de investidores. TIR usa operações, proventos líquidos e valor de
+                    mercado final em BRL; meses sem cotação são marcados e seguem a convenção mensal do app, que usa o
+                    custo como aproximação de mercado.
+                  </p>
+                </details>
+              </div>
             )}
           </div>
         </>

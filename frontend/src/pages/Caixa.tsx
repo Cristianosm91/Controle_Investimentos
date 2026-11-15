@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api, query } from "../api";
+import { AjudaIndicador } from "../components/AjudaIndicador";
 import { AcoesLinha } from "../components/AcoesLinha";
 import { FormCaixa } from "../components/FormLancamentos";
 import { ListaPaginada, type ColunaLista } from "../components/ListaPaginada";
@@ -22,7 +23,7 @@ function Saldos() {
   return (
     <div className="painel">
       <div className="titulo-linha">
-        <h3>Saldo por corretora</h3>
+        <h3>Saldo por corretora <AjudaIndicador titulo="Saldo por corretora" texto="Soma das movimentações por corretora e moeda. Quando a integração está ativa, inclui também operações e proventos desde a data configurada. O total soma os saldos convertidos em reais." /></h3>
         <span className="sutil">
           {integrado ? (
             <>Integra compras, vendas e proventos desde {data(r.integrado_desde)}</>
@@ -79,6 +80,7 @@ export function Caixa() {
   const { data: dominio } = useDominio();
   const [edicao, setEdicao] = useState<MovCaixa | "nova" | null>(null);
   const apontamento = parametros.get("apontamento");
+  const codigoQualidade = parametros.get("codigo");
   const regraQualidade = parametros.get("regra");
   const explicacaoQualidade = parametros.get("explicacao");
   const retornoQualidade = parametros.get("retorno");
@@ -100,7 +102,7 @@ export function Caixa() {
         recurso="caixa"
         filtroInvestidores={filtro}
         filtroTicker={false}
-        filtrosFixos={apontamento ? { apontamento } : undefined}
+        filtrosFixos={apontamento ? { apontamento, ...(codigoQualidade ? { codigo: codigoQualidade } : {}) } : undefined}
         colunas={colunas}
         chave={(m) => m.id}
         cabecalho={<button onClick={() => setEdicao("nova")}>+ Nova movimentação</button>}

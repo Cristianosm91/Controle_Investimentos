@@ -66,6 +66,17 @@ def test_amortizacao_e_cisao_reduzem_custo():
     assert p.custo == D("161.5")
 
 
+def test_restituicao_de_capital_reduz_custo_e_capital_sem_alterar_quantidade():
+    movimentos = [mov("C", "10", "100"), mov("R_CAP", "0", "-150", dia=2)]
+    posicao = calcular_posicoes(movimentos)[(1, 1)]
+    capital = calcular_investimento(movimentos)
+
+    assert posicao.quantidade == 10
+    assert posicao.custo == 850
+    assert posicao.preco_medio == 85
+    assert capital.capital_por_posicao[(1, 1)] == 850
+
+
 def test_venda_apos_bonificacao_e_cisao_realiza_custo_ajustado():
     p = calcular_posicoes([
         mov("C", "10", "10"),
@@ -79,19 +90,29 @@ def test_venda_apos_bonificacao_e_cisao_realiza_custo_ajustado():
     assert p.lucro_realizado == 23
 
 
-def test_capital_historico_e_aberto_nao_diminuem_com_venda_ou_evento_sem_caixa():
+def test_capital_aberto_reduz_com_amortizacao_e_bonus_nao_altera():
     resultado = calcular_investimento([
         mov("C", "10", "10", "0.2"),
         mov("V", "-4", "15", "0.2", dia=2),
         mov("BONIFICACAO", "2", "5", dia=3),
-        mov("CISAO", "8", "-1", dia=4),
-        mov("AMORTIZACAO", "8", "-0.5", dia=5),
+        mov("AMORTIZACAO", "8", "-0.5", dia=4),
         mov("C", "1", "20", "0.2", dia=6, daytrade=True),
         mov("V", "-1", "21", dia=6, daytrade=True, ordem=1),
     ])
-    assert resultado.valor_investido == D("60.12")
-    assert resultado.valor_investido_posicoes_abertas == D("60.12")
-    assert resultado.capital_por_posicao[(1, 1)] == D("60.12")
+    assert resultado.valor_investido == D("56.12")
+    assert resultado.valor_investido_posicoes_abertas == D("56.12")
+    assert resultado.capital_por_posicao[(1, 1)] == D("56.12")
+
+
+def test_cisao_reduz_capital_transferido_e_compra_na_nova_acao_o_recompoe():
+    resultado = calcular_investimento([
+        mov("C", "10", "10"),
+        mov("CISAO", "10", "-2", dia=2),
+        mov("C", "4", "5", dia=2, ativo=2, ordem=1),
+    ])
+    assert resultado.valor_investido == D("100")
+    assert resultado.capital_por_posicao[(1, 1)] == D("80")
+    assert resultado.capital_por_posicao[(1, 2)] == D("20")
 
 
 def test_resultado_realizado_desconta_taxas_e_irrf():

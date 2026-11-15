@@ -10,11 +10,11 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from ..db import insert_upsert
-from ..models import Ativo, CotacaoMoeda, IndiceMensal, Operacao
+from ..models import Ativo, CoberturaCdi, CotacaoMoeda, IndiceMensal, Operacao
 from ..providers import indices as fontes
 from ..providers.base import AtivoRef
 from ..providers.yahoo import MERCADO_CRIPTO, ProvedorYahoo
-from . import cotahist, renda_fixa
+from . import cdi, cotahist, renda_fixa
 
 log = logging.getLogger(__name__)
 
@@ -45,6 +45,25 @@ def atualizar_indices(sessao: Session, desde: date | None = None) -> ResultadoHi
     valores: dict[date, dict[str, Decimal]] = {}
 
     with httpx.Client() as cliente:
+        primeira_base = sessao.scalar(
+            select(func.min(Ativo.data_base)).where(~Ativo.cotacao_automatica, Ativo.indexador == "CDI")
+        )
+        cobertura = sessao.scalar(select(func.min(CoberturaCdi.inicio)))
+        fim_cobertura = sessao.scalar(select(func.max(CoberturaCdi.fim)))
+        inicio_cdi = (
+            min(inicio, primeira_base)
+            if primeira_base and (cobertura is None or primeira_base < cobertura) else inicio
+        )
+        if fim_cobertura and fim_cobertura < inicio_cdi:
+            inicio_cdi = fim_cobertura + timedelta(days=1)
+        fim_cdi = hoje - timedelta(days=1)  # O dia em andamento pode ainda nao estar publicado.
+        try:
+            diarios_cdi = fontes.serie_sgs(fontes.SERIE_CDI_DIARIO, inicio_cdi, fim_cdi, cliente)
+            cdi.gravar(sessao, inicio_cdi, fim_cdi, {d: v / 100 for d, v in diarios_cdi.items()})
+            resultado.gravados["CDI diário"] = len(diarios_cdi)
+        except (fontes.ErroIndice, cdi.CdiIndisponivel) as erro:
+            log.warning("%s", erro)
+            resultado.falhas.append("CDI diário")
         for coluna, serie in fontes.SERIES_MENSAIS.items():
             try:
                 for dia, pct in fontes.serie_sgs(serie, inicio, hoje, cliente).items():
@@ -114,16 +133,58 @@ def carregar_historico_exterior(sessao: Session, desde: date | None = None) -> R
     resultado = ResultadoHistorico()
     if not ativos:
         return resultado
+    # Para CRIPTO, o Yahoo Finance só disponibiliza histórico consistente em pares USD (ex: BTC-USD).
+    # Quando o ativo estiver em BRL ou outra moeda, busca a série em USD e converte via PTAX.
+    criptos_convertidas = {a.id: a.moeda for a in ativos if a.classe == "CRIPTO" and a.moeda != "USD"}
     referencias = [
-        AtivoRef(a.ticker, MERCADO_CRIPTO if a.classe == "CRIPTO" else a.mercado, a.moeda) for a in ativos
+        AtivoRef(
+            a.ticker,
+            MERCADO_CRIPTO if a.classe == "CRIPTO" else a.mercado,
+            "USD" if a.id in criptos_convertidas else a.moeda,
+        )
+        for a in ativos
     ]
     historico = ProvedorYahoo().historico(referencias, inicio)
+
+    # Série de câmbio PTAX para converter criptos cotadas em USD para a moeda do ativo (ex: BRL).
+    cambios_usd: dict[date, Decimal] = {}
+    if criptos_convertidas:
+        datas_necessarias = {dia for serie in historico.values() for dia in serie}
+        if datas_necessarias:
+            dias_ptax = list(
+                sessao.execute(
+                    select(CotacaoMoeda.data, CotacaoMoeda.valor).where(
+                        CotacaoMoeda.moeda == "USD",
+                        CotacaoMoeda.data >= min(datas_necessarias),
+                        CotacaoMoeda.data <= max(datas_necessarias),
+                    )
+                )
+            )
+            # Ordenado por data para carry-forward caso algum dia específico (ex: fim de semana) não tenha PTAX
+            serie_ptax = sorted((dia, valor) for dia, valor in dias_ptax)
+            if serie_ptax:
+                datas_ptax = [d for d, _ in serie_ptax]
+                valores_ptax = [v for _, v in serie_ptax]
+                import bisect
+
+                for dia in datas_necessarias:
+                    pos = bisect.bisect_right(datas_ptax, dia)
+                    if pos > 0:
+                        cambios_usd[dia] = valores_ptax[pos - 1]
+
     ids = {a.ticker: a.id for a in ativos}
-    fechamentos = [
-        cotahist.Fechamento(ticker, dia, preco, Decimal(0))
-        for ticker, serie in historico.items()
-        for dia, preco in serie.items()
-    ]
+    fechamentos = []
+    for ticker, serie in historico.items():
+        ativo_id = ids.get(ticker)
+        converter_de_usd = ativo_id in criptos_convertidas
+        for dia, preco in serie.items():
+            if converter_de_usd:
+                fator = cambios_usd.get(dia)
+                if fator is None:
+                    continue
+                preco = round(preco * fator, 8)
+            fechamentos.append(cotahist.Fechamento(ticker, dia, preco, Decimal(0)))
+
     resultado.gravados["cotações"] = cotahist.gravar(
         sessao, fechamentos, ids, fonte=ProvedorYahoo.nome, preservar_fonte=cotahist.FONTE
     )
@@ -149,6 +210,6 @@ def _combinar(sessao: Session, etapas, dias: int | None) -> ResultadoHistorico:
         total.gravados.update(r.gravados)
         total.falhas.extend(r.falhas)
     # Índices novos mudam as cotas estimadas da renda fixa automática.
-    if recalculados := renda_fixa.atualizar(sessao):
+    if recalculados := renda_fixa.atualizar(sessao, falhas=total.falhas):
         total.gravados["renda fixa"] = len(recalculados)
     return total

@@ -35,6 +35,7 @@ export interface Posicao {
   lucro_realizado: number;
   lucro_daytrade: number;
   proventos: number;
+  aluguel: number;
   proventos_12m: number | null;
   yoc_12m: number | null;
   tir_aa: number | null;
@@ -67,6 +68,8 @@ export interface Operacao {
   daytrade: boolean;
   observacao: string | null;
   origem: string;
+  transferencia_pareada_id: number | null;
+  ticker_transferencia: string | null;
 }
 
 export interface Provento {
@@ -342,6 +345,7 @@ export interface Corretora {
   id: number;
   nome: string;
   cnpj: string | null;
+  apelidos?: { nome: string }[];
 }
 
 export interface Ptax {
@@ -363,7 +367,11 @@ export interface Tarefa {
   mensagem: string | null;
   duracao_s: number | null;
   proxima: string | null;
+  /** "parcial" = concluída com falhas de fonte; ausente/null = ainda não executada (ou backend antigo). */
+  status?: StatusTarefa | null;
 }
+
+export type StatusTarefa = "ok" | "parcial" | "falha";
 
 export interface Backup {
   nome: string;
@@ -451,6 +459,7 @@ export interface ItemAluguel {
 export type Benchmark = "ibov" | "ifix" | "cdi" | "ipca";
 
 export interface MesRentabilidade {
+  aluguel: number;
   data: string;
   investido: number;
   mercado: number;
@@ -670,6 +679,8 @@ export interface CategoriaMesIR {
   categoria: string;
   vendas: number;
   lucro: number;
+  lucro_liquido: number;
+  irrf: number;
   isento: boolean;
   base: number;
   aliquota: number | null;
@@ -865,4 +876,18 @@ export interface Meta {
   aporte_necessario: number;
   rendimento_usado: number | null;
   serie: { mes: string; pessimista: number; base: number; otimista: number }[];
+}
+
+/** GET /investidores/{id}/exclusao — prévia da exclusão completa (PRI-001). */
+export interface PreviaExclusaoInvestidor {
+  investidor: { id: number; nome: string };
+  /** Quantidade de registros por rótulo legível (ex.: "Operações": 12). */
+  contagens: Record<string, number>;
+  backup_disponivel: boolean;
+}
+
+/** DELETE /investidores/{id}/completo — resultado da exclusão completa. */
+export interface ResultadoExclusaoInvestidor {
+  backup: string;
+  removidos: Record<string, number>;
 }

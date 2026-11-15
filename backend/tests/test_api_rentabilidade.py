@@ -48,6 +48,8 @@ def test_resumo_separa_aluguel_btc_e_filtra_por_classe(cliente, carteira):
         "data_pagamento": (carteira["inicio"] + timedelta(days=5)).isoformat(),
         "evento": "ALUGUEL", "valor": 100, "taxas": 10, "irrf": 5,
     })
+    assert cliente.get("/api/proventos").json()["total"] == 1
+    assert cliente.get("/api/proventos", params={"evento": "ALUGUEL"}).json()["total"] == 1
 
     r = cliente.get("/api/rentabilidade/resumo", params={"classe": "FII"}).json()
     assert r["investido"] == 500
@@ -55,6 +57,12 @@ def test_resumo_separa_aluguel_btc_e_filtra_por_classe(cliente, carteira):
     assert r["aluguel_total"] == 85
     mensal = cliente.get("/api/rentabilidade/mensal", params={"classe": "FII"}).json()
     assert mensal[-1]["investido"] == 500
+    mes_aluguel = next(mes for mes in mensal if mes["aluguel"] == 85)
+    assert mes_aluguel["proventos"] == 0 and mes_aluguel["fluxo"] == 415
+    posicao = next(p for p in cliente.get("/api/posicoes").json() if p["ticker"] == "HGLG11")
+    assert posicao["proventos"] == 0 and posicao["aluguel"] == 85
+    matriz = cliente.get("/api/proventos/matriz", params={"ano": carteira["inicio"].year, "classe": "FII"}).json()
+    assert matriz["total"] == 0
 
 
 def test_resumo_vazio(cliente):

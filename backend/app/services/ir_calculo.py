@@ -3,7 +3,7 @@
 import unicodedata
 from collections import defaultdict
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 
@@ -107,6 +107,7 @@ class Fato:
     vendas: Decimal = ZERO
     lucro: Decimal = ZERO
     irrf: Decimal = ZERO
+    lucro_liquido: Decimal | None = None
 
 
 Fatos = dict[tuple[date, str], Fato]
@@ -120,11 +121,13 @@ def fatos_por_mes(
 ) -> tuple[Fatos, set[str]]:
     """Agrupa vendas, lucro realizado e IRRF por (mês, categoria). Devolve também os tickers vendidos fora da apuração."""
     carteira = Carteira()
+    carteira_liquida = Carteira()
     fatos: Fatos = defaultdict(Fato)
     ignorados: set[str] = set()
     for op in sorted(operacoes, key=lambda o: (o.movimento.data, o.movimento.ordem)):
         m = op.movimento
-        lucro = carteira.aplicar(m)
+        lucro = carteira.aplicar(replace(m, irrf=ZERO))
+        liquido = carteira_liquida.aplicar(replace(m, irrf=op.irrf))
         venda = m.evento in _SAIDAS
         if not venda and not op.irrf:
             continue
@@ -139,10 +142,13 @@ def fatos_por_mes(
         ):
             continue
         f = fatos[(mes(m.data), categoria)]
+        if f.lucro_liquido is None:
+            f.lucro_liquido = ZERO
         f.irrf += op.irrf * m.cambio
         if venda:
             f.vendas += -m.quantidade * m.preco * m.cambio
             f.lucro += lucro
+            f.lucro_liquido += liquido
     return dict(fatos), ignorados
 
 
@@ -157,6 +163,8 @@ class ResultadoCategoria:
     base: Decimal  # lucro tributável após compensar prejuízo
     aliquota: Decimal | None
     imposto: Decimal
+    irrf: Decimal = ZERO
+    lucro_liquido: Decimal = ZERO
 
 
 @dataclass
@@ -234,7 +242,11 @@ def apurar_mensal(
         for c in CATEGORIAS_MENSAIS:
             aliquota = regra_cat[c].aliquota if regra_cat[c] else None
             imposto = centavos(base[c] * aliquota) if aliquota is not None else ZERO
-            resultados.append(ResultadoCategoria(c, doc[c].vendas, doc[c].lucro, isento[c], base[c], aliquota, imposto))
+            liquido = doc[c].lucro_liquido
+            resultados.append(ResultadoCategoria(
+                c, doc[c].vendas, doc[c].lucro, isento[c], base[c], aliquota, imposto, doc[c].irrf,
+                liquido if liquido is not None else doc[c].lucro - doc[c].irrf,
+            ))
 
         imposto = sum((r.imposto for r in resultados), ZERO)
         irrf = sum((doc[c].irrf for c in CATEGORIAS_MENSAIS), ZERO)

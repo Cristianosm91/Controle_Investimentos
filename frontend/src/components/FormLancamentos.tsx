@@ -8,6 +8,7 @@ import type { Ativo, Cota, MovCaixa, Operacao, Provento } from "../tipos";
 import { CampoAtivo, CampoCorretora, CampoEvento, CampoInvestidor, CamposMoedaCambio } from "./Campos";
 import { CampoData } from "./CampoData";
 import { Modal } from "./Modal";
+import { AjudaIndicador } from "./AjudaIndicador";
 
 const hoje = () => new Date().toLocaleDateString("sv-SE"); // aaaa-mm-dd no fuso local
 const opcional = (v: string) => (v === "" ? null : Number(v));
@@ -70,7 +71,7 @@ function MolduraForm({ titulo, aoFechar, aoEnviar, salvando, erro, rodape, child
 
 /** Convenção de sinal da API (dominio.py); o formulário trabalha sempre com valores positivos. */
 const QTD_NEGATIVA = ["V", "VENDA_SUBSCRICAO"];
-const PRECO_NEGATIVO = ["AMORTIZACAO", "CISAO"];
+const PRECO_NEGATIVO = ["AMORTIZACAO", "CISAO", "R_CAP"];
 const QTD_COM_SINAL: Record<string, string> = {
   DESDOBRAMENTO: "positivo = desdobramento; negativo = grupamento",
   TRANSFERENCIA: "positivo = entrada; negativo = saída",
@@ -125,8 +126,12 @@ function useCotaPersonalizado(ativo: Ativo | undefined, dataIso: string, ativoPa
 }
 
 export function FormOperacao({ operacao, aoFechar }: { operacao?: Operacao; aoFechar: () => void }) {
+  const cliente = useQueryClient();
   const investidorPadrao = useInvestidorPadrao();
   const { data: ativos = [] } = useAtivos();
+  const [vincularDestino, setVincularDestino] = useState(true);
+  const [destinoAtivoId, setDestinoAtivoId] = useState("");
+  const [destinoQuantidade, setDestinoQuantidade] = useState("");
   const [f, setF] = useState<FormOp>(
     operacao
       ? paraFormOp(operacao)
@@ -142,9 +147,33 @@ export function FormOperacao({ operacao, aoFechar }: { operacao?: Operacao; aoFe
     [],
   );
   const salvar = useSalvar("operacoes", operacao?.id, aoFechar);
+  const salvarTroca = useMutation({
+    mutationFn: (dados: {
+      investidor_id: number;
+      ativo_origem_id: number;
+      ativo_destino_id: number;
+      corretora_id: number | null;
+      data: string;
+      quantidade_origem: number;
+      quantidade_destino: number;
+      preco_origem: number;
+      taxas: number;
+      irrf: number;
+      moeda: string;
+      cambio: number;
+      observacao: string | null;
+    }) => api.post<Operacao[]>("/operacoes/troca-ticker", dados),
+    onSuccess: () => {
+      cliente.invalidateQueries({ queryKey: ["operacoes"] });
+      invalidarDerivados(cliente);
+      aoFechar();
+    },
+  });
 
   const ativo = ativos.find((a) => String(a.id) === f.ativo_id);
+  const destinoAtivo = ativos.find((a) => String(a.id) === destinoAtivoId);
   const ehCompraVenda = f.evento === "C" || f.evento === "V";
+  const trocaVinculada = !operacao && f.evento === "TRANSFERENCIA" && vincularDestino;
   const cota = useCotaPersonalizado(ativo, f.data, ehCompraVenda);
   useEffect(() => {
     if (precoAuto && cota.data) setF((a) => ({ ...a, preco: String(cota.data.cota) }));
@@ -152,16 +181,35 @@ export function FormOperacao({ operacao, aoFechar }: { operacao?: Operacao; aoFe
 
   const qtd = Number(f.quantidade || 0);
   const preco = Number(f.preco || 0);
-  const total = Math.abs(qtd * preco) * Number(f.cambio || 1) + Number(f.taxas || 0) * Number(f.cambio || 1);
+  const valorBase = f.evento === "R_CAP" ? Math.abs(preco) : Math.abs(qtd * preco);
+  const total = valorBase * Number(f.cambio || 1) + Number(f.taxas || 0) * Number(f.cambio || 1);
 
-  const enviar = () =>
+  const enviar = () => {
+    if (trocaVinculada) {
+      salvarTroca.mutate({
+        investidor_id: Number(f.investidor_id),
+        ativo_origem_id: Number(f.ativo_id),
+        ativo_destino_id: Number(destinoAtivoId),
+        corretora_id: opcional(f.corretora_id),
+        data: f.data,
+        quantidade_origem: Math.abs(qtd),
+        quantidade_destino: Number(destinoQuantidade),
+        preco_origem: Math.abs(preco),
+        taxas: Number(f.taxas || 0),
+        irrf: Number(f.irrf || 0),
+        moeda: f.moeda,
+        cambio: f.moeda === "BRL" ? 1 : Number(f.cambio),
+        observacao: f.observacao || null,
+      });
+      return;
+    }
     salvar.mutate({
       investidor_id: Number(f.investidor_id),
       ativo_id: Number(f.ativo_id),
       corretora_id: opcional(f.corretora_id),
       data: f.data,
       evento: f.evento,
-      quantidade: QTD_NEGATIVA.includes(f.evento) ? -Math.abs(qtd) : qtd,
+      quantidade: f.evento === "R_CAP" ? 0 : QTD_NEGATIVA.includes(f.evento) ? -Math.abs(qtd) : qtd,
       preco: PRECO_NEGATIVO.includes(f.evento) ? -Math.abs(preco) : preco,
       taxas: Number(f.taxas || 0),
       irrf: Number(f.irrf || 0),
@@ -170,14 +218,15 @@ export function FormOperacao({ operacao, aoFechar }: { operacao?: Operacao; aoFe
       daytrade: ehCompraVenda && f.daytrade,
       observacao: f.observacao || null,
     });
+  };
 
   return (
     <MolduraForm
       titulo={operacao ? "Editar operação" : "Nova operação"}
       aoFechar={aoFechar}
       aoEnviar={enviar}
-      salvando={salvar.isPending}
-      erro={salvar.error}
+      salvando={salvar.isPending || salvarTroca.isPending}
+      erro={salvar.error ?? salvarTroca.error}
       rodape={<span className="sutil empurra">Total: {fmtMoeda(total)}</span>}
     >
       <CampoInvestidor valor={f.investidor_id} aoMudar={(v) => mudar({ investidor_id: v })} />
@@ -189,31 +238,62 @@ export function FormOperacao({ operacao, aoFechar }: { operacao?: Operacao; aoFe
         ativoId={f.ativo_id}
         aoMudar={(a) => mudar(a ? { ativo_id: String(a.id), moeda: a.moeda, cambioAuto: true, ...(a.moeda === "BRL" && { cambio: "1" }) } : { ativo_id: "" })}
       />
-      <CampoEvento tipo="eventos_operacao" valor={f.evento} aoMudar={(v) => mudar({ evento: v })} />
+      <CampoEvento
+        tipo="eventos_operacao"
+        valor={f.evento}
+        aoMudar={(v) => mudar({ evento: v, ...(v === "R_CAP" && { quantidade: "0" }) })}
+      />
+      {!operacao && f.evento === "TRANSFERENCIA" && (
+        <label className="check largura-total">
+          <input
+            type="checkbox"
+            checked={vincularDestino}
+            onChange={(e) => setVincularDestino(e.target.checked)}
+          />
+          Informar e vincular o ticker de destino agora
+        </label>
+      )}
       <label>
-        Quantidade
+        {trocaVinculada ? "Quantidade de saída" : "Quantidade"}
         <input
           required
           type="number"
           step="any"
-          min={f.evento in QTD_COM_SINAL ? undefined : "0"}
+          min={trocaVinculada ? "0.00000001" : f.evento in QTD_COM_SINAL ? undefined : "0"}
+          readOnly={f.evento === "R_CAP"}
           value={f.quantidade}
           onChange={(e) => mudar({ quantidade: e.target.value })}
         />
-        {f.evento in QTD_COM_SINAL && <small className="sutil">{QTD_COM_SINAL[f.evento]}</small>}
+        {trocaVinculada ? (
+          <small className="sutil">A quantidade será registrada como saída; a nova perna será criada automaticamente.</small>
+        ) : f.evento in QTD_COM_SINAL ? (
+          <small className="sutil">{QTD_COM_SINAL[f.evento]}</small>
+        ) : null}
       </label>
       <label>
-        {PRECO_NEGATIVO.includes(f.evento) ? "Valor devolvido por cota" : "Preço unitário"}
+        {f.evento === "R_CAP"
+          ? "Valor devolvido"
+          : PRECO_NEGATIVO.includes(f.evento)
+          ? "Valor devolvido por cota"
+          : trocaVinculada
+            ? "Custo médio por cota de origem"
+            : "Preço unitário"}
         <input
           type="number"
           step="any"
           min="0"
+          required
           value={f.preco}
           onChange={(e) => {
             setPrecoAuto(false);
             mudar({ preco: e.target.value });
           }}
         />
+        {trocaVinculada && (
+          <small className="sutil">
+            O custo total de origem será preservado; o custo unitário do destino é ajustado à quantidade recebida.
+          </small>
+        )}
         {cota.data && (
           <small className="sutil">
             Ativo personalizado: cota em {fmtData(cota.data.data)} = {numero(cota.data.cota, 6)}; quantidade = valor ÷ cota
@@ -230,14 +310,41 @@ export function FormOperacao({ operacao, aoFechar }: { operacao?: Operacao; aoFe
         <input type="number" step="any" min="0" value={f.taxas} onChange={(e) => mudar({ taxas: e.target.value })} />
       </label>
       <label>
-        IRRF
+        <span>IRRF <AjudaIndicador titulo="IRRF da operação" texto="IRRF é Imposto de Renda Retido na Fonte. Na bolsa, a retenção conhecida como dedo-duro costuma ser 0,005% sobre as vendas comuns ou 1% sobre o lucro do day trade. Informe o valor da nota, na moeda do lançamento. Reduz o lucro líquido da carteira; no fiscal é crédito do imposto, não despesa dedutível da base." /></span>
         <input type="number" step="any" min="0" value={f.irrf} onChange={(e) => mudar({ irrf: e.target.value })} />
       </label>
       <CamposMoedaCambio moeda={f.moeda} cambio={f.cambio} data={f.data} automatico={f.cambioAuto} aoMudar={mudarCambio} />
+      {trocaVinculada && (
+        <>
+          <CampoAtivo
+            ativoId={destinoAtivoId}
+            aoMudar={(a) => setDestinoAtivoId(a ? String(a.id) : "")}
+          />
+          <label>
+            Quantidade de entrada
+            <input
+              required
+              type="number"
+              step="any"
+              min="0.00000001"
+              value={destinoQuantidade}
+              onChange={(e) => setDestinoQuantidade(e.target.value)}
+            />
+          </label>
+          {destinoAtivo && ativo && destinoAtivo.moeda !== ativo.moeda && (
+            <small className="negativo largura-total">Origem e destino precisam usar a mesma moeda para esta troca vinculada.</small>
+          )}
+        </>
+      )}
       <CampoCorretora valor={f.corretora_id} aoMudar={(v) => mudar({ corretora_id: v })} />
       <label className="largura-total">
         Observação
-        <input maxLength={200} value={f.observacao} onChange={(e) => mudar({ observacao: e.target.value })} />
+        <input
+          maxLength={trocaVinculada ? 120 : 200}
+          value={f.observacao}
+          onChange={(e) => mudar({ observacao: e.target.value })}
+        />
+        {trocaVinculada && <small className="sutil">O sistema acrescentará os tickers de origem e destino à observação.</small>}
       </label>
       {ehCompraVenda && (
         <label className="check">
@@ -270,10 +377,12 @@ interface FormProv {
 export function FormProvento({
   provento: p,
   eventoInicial = "DIVIDENDO",
+  ocultarAluguel = false,
   aoFechar,
 }: {
   provento?: Provento;
   eventoInicial?: string;
+  ocultarAluguel?: boolean;
   aoFechar: () => void;
 }) {
   const investidorPadrao = useInvestidorPadrao();
@@ -328,7 +437,12 @@ export function FormProvento({
         ativoId={f.ativo_id}
         aoMudar={(a) => mudar(a ? { ativo_id: String(a.id), moeda: a.moeda, cambioAuto: true, ...(a.moeda === "BRL" && { cambio: "1" }) } : { ativo_id: "" })}
       />
-      <CampoEvento tipo="eventos_provento" valor={f.evento} aoMudar={(v) => mudar({ evento: v })} />
+      <CampoEvento
+        tipo="eventos_provento"
+        valor={f.evento}
+        aoMudar={(v) => mudar({ evento: v })}
+        excluir={ocultarAluguel ? ["ALUGUEL"] : undefined}
+      />
       <label>
         Pagamento
         <CampoData required valor={f.data_pagamento} aoMudar={(v) => mudar({ data_pagamento: v, cambioAuto: true })} />
@@ -342,7 +456,7 @@ export function FormProvento({
         <input required type="number" step="any" min="0" value={f.valor} onChange={(e) => mudar({ valor: e.target.value })} />
       </label>
       <label>
-        IRRF
+        <span>IRRF <AjudaIndicador titulo="IRRF do provento" texto="Imposto de Renda Retido na Fonte sobre o rendimento, informado na moeda do lançamento. É descontado do valor bruto para chegar ao líquido. As alíquotas e o tratamento dependem do tipo de rendimento; não é necessariamente a retenção dedo-duro da bolsa." /></span>
         <input type="number" step="any" min="0" value={f.irrf} onChange={(e) => mudar({ irrf: e.target.value })} />
       </label>
       <label>

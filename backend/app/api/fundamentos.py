@@ -5,7 +5,8 @@ from fastapi import APIRouter, Query
 from sqlalchemy import and_, func, select
 
 from ..models import Ativo, Fundamento
-from ..providers.fundamentus import FONTES
+from ..providers import fundamentus, yahoo_fundamentos
+from ..providers.fundamentus import FonteFundamentos
 from ..schemas import FonteFundamentosOut, FundamentoOut
 from .deps import SessaoDep
 
@@ -14,7 +15,16 @@ router = APIRouter(prefix="/fundamentos", tags=["fundamentos"])
 
 @router.get("/fontes", response_model=list[FonteFundamentosOut])
 def listar_fontes():
-    return [FonteFundamentosOut(**asdict(fonte)) for fonte in FONTES]
+    fontes = [
+        *fundamentus.FONTES,
+        FonteFundamentos(
+            id="yahoo_finance",
+            nome=yahoo_fundamentos.FONTE,
+            disponivel=True,
+            motivo="Indicadores básicos de ativos dos EUA; cobertura variável e uso pessoal conforme termos do Yahoo.",
+        ),
+    ]
+    return [FonteFundamentosOut(**asdict(fonte)) for fonte in fontes]
 
 
 @router.get("", response_model=list[FundamentoOut])

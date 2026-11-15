@@ -9,7 +9,7 @@ from sqlalchemy.pool import StaticPool
 from app.api.fundamentos import listar_fundamentos
 from app.db import Base
 from app.models import Ativo, Fundamento
-from app.providers import fundamentus
+from app.providers import fundamentus, yahoo_fundamentos
 from app.services import fundamentos as servico
 
 
@@ -77,6 +77,7 @@ def test_endpoint_fontes_informa_disponibilidade(cliente):
     fontes = {fonte["id"]: fonte for fonte in resposta.json()}
     assert fontes["fundamentus"]["disponivel"] is True
     assert fontes["investidor10"]["disponivel"] is False
+    assert fontes["yahoo_finance"]["disponivel"] is True
     assert "fundamentos" in {tarefa["nome"] for tarefa in tarefas}
 
 
@@ -140,6 +141,100 @@ def test_atualizar_preserva_resultados_quando_uma_fonte_falha(monkeypatch):
         resultado = servico.atualizar(sessao, cliente=object(), hoje=date(2026, 10, 31))
 
         assert resultado.atualizados == 1
-        assert resultado.falhas == ["Ações: fonte indisponível"]
+        assert resultado.falhas == ["Ações: fonte indisponível; não verificados: PETR4"]
+        assert resultado.sem_dados == []
         assert sessao.scalar(select(func.count()).select_from(Fundamento)) == 1
+    engine.dispose()
+
+
+def test_atualizar_distingue_ticker_ausente_mercado_classe_e_ticker_historico(monkeypatch):
+    engine = create_engine("sqlite://", poolclass=StaticPool)
+    Base.metadata.create_all(engine)
+    with Session(engine) as sessao:
+        sessao.add_all(
+            [
+                Ativo(ticker="PETR4", classe="AÇÃO", mercado="BVMF"),
+                Ativo(ticker="ETF11", classe="AÇÃO", mercado="BVMF"),
+                Ativo(ticker="BRDT3", classe="AÇÃO", mercado="BVMF"),
+                Ativo(ticker="VIIA3", classe="AÇÃO", mercado="BVMF"),
+                Ativo(ticker="ZZZZ3", classe="AÇÃO", mercado="BVMF"),
+                Ativo(ticker="AMZN", classe="AÇÃO", mercado="NASDAQ"),
+            ]
+        )
+        sessao.flush()
+        monkeypatch.setattr(fundamentus, "buscar_acoes", lambda _cliente: {"PETR4": {"roe": D("27.7")}})
+        monkeypatch.setattr(
+            fundamentus,
+            "buscar_fiis",
+            lambda _cliente: {"ETF11": {"fii_ffo_yield": D("9.61")}},
+        )
+        monkeypatch.setattr(
+            yahoo_fundamentos,
+            "buscar",
+            lambda _tickers: ({"AMZN": {"preco_lucro": D("31")}}, {}),
+        )
+
+        resultado = servico.atualizar(sessao, cliente=object(), hoje=date(2026, 10, 31))
+
+        assert resultado.atualizados == 2
+        assert resultado.sem_dados == ["ZZZZ3"]
+        assert resultado.mercados_nao_suportados == []
+        assert resultado.classes_incompativeis == ["ETF11 cadastrado como AÇÃO, encontrado na tabela de FIIs"]
+        assert resultado.tickers_historicos == [
+            "BRDT3 (possível atual: VBBR3)",
+            "VIIA3 (possível atual: BHIA3)",
+        ]
+        assert "sem dados na fonte: ZZZZ3" in resultado.resumo()
+        assert "corrija manualmente" in resultado.resumo()
+    engine.dispose()
+
+
+def test_atualizar_usa_yahoo_quando_nao_ha_ativos_b3(monkeypatch):
+    engine = create_engine("sqlite://", poolclass=StaticPool)
+    Base.metadata.create_all(engine)
+    with Session(engine) as sessao:
+        sessao.add(Ativo(ticker="AMZN", classe="AÇÃO", mercado="NASDAQ"))
+        sessao.flush()
+        monkeypatch.setattr(
+            fundamentus,
+            "buscar_acoes",
+            lambda _cliente: pytest.fail("não deve consultar ações da B3"),
+        )
+        monkeypatch.setattr(
+            fundamentus,
+            "buscar_fiis",
+            lambda _cliente: pytest.fail("não deve consultar FIIs da B3"),
+        )
+        monkeypatch.setattr(yahoo_fundamentos, "buscar", lambda _tickers: ({"AMZN": {"preco_lucro": D("31")}}, {}))
+
+        resultado = servico.atualizar(sessao, cliente=object())
+
+        assert resultado.atualizados == 1
+        assert resultado.mercados_nao_suportados == []
+        assert resultado.falhas == []
+    engine.dispose()
+
+
+def test_atualizar_grava_fundamentos_yahoo_como_fonte_separada(monkeypatch):
+    engine = create_engine("sqlite://", poolclass=StaticPool)
+    Base.metadata.create_all(engine)
+    with Session(engine) as sessao:
+        sessao.add(Ativo(ticker="AMZN", classe="AÇÃO", mercado="NASDAQ"))
+        sessao.flush()
+        monkeypatch.setattr(yahoo_fundamentos, "buscar", lambda _tickers: (
+            {"AMZN": {"preco_lucro": D("31.2"), "dividend_yield": D("1.1")}}, {}
+        ))
+        monkeypatch.setattr(
+            fundamentus,
+            "buscar_acoes",
+            lambda _cliente: pytest.fail("não deve consultar a fonte B3"),
+        )
+
+        resultado = servico.atualizar(sessao, hoje=date(2026, 10, 31))
+        fundamento = sessao.scalar(select(Fundamento).where(Fundamento.fonte == yahoo_fundamentos.FONTE))
+
+        assert resultado.atualizados == 1
+        assert fundamento is not None
+        assert fundamento.preco_lucro == D("31.2")
+        assert fundamento.dividend_yield == D("1.1")
     engine.dispose()

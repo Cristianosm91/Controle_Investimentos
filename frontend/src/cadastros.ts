@@ -4,12 +4,22 @@ import type { Ativo, Book, Corretora, Dominio, Estrategia, Parametros, Ptax } fr
 
 const UMA_HORA = 60 * 60 * 1000;
 
+export function confirmarCorrecaoMoeda(ticker: string, anterior: string, nova: string): boolean {
+  return confirm(
+    `Corrigir a moeda de ${ticker} de ${anterior} para ${nova}? ` +
+    "Todos os lançamentos deste ativo, de todos os investidores, serão corrigidos. " +
+    "Preços, taxas, IRRF e valores não serão convertidos: 3 na moeda antiga passará a ser 3 na nova. " +
+    "O câmbio será recalculado pela PTAX de cada data. Será criado um backup antes da alteração. " +
+    "Use apenas para corrigir moeda cadastrada errada, não para converter investimentos.",
+  );
+}
+
 /** Telas calculadas a partir de lançamentos, cotações e configurações. */
 export function invalidarDerivados(cliente: QueryClient) {
   for (const chave of [
     "posicoes", "resumo", "rentabilidade", "proventos-matriz", "alocacao", "caixa-saldos", "ir-apuracao", "ir-dirpf", "cripto",
     "cripto-monitor", "aluguel", "renda-fixa", "proventos-agenda", "exposicao-corretoras", "alertas", "qualidade-dados", "metas",
-    "lotes", "radar",
+    "lotes", "radar", "cota",
   ]) {
     cliente.invalidateQueries({ queryKey: [chave] });
   }

@@ -4,7 +4,7 @@
 
 **Controle de investimentos pessoal e multi-investidor — carteira, proventos, rentabilidade e imposto de renda, rodando localmente no seu computador.**
 
-![Versão](https://img.shields.io/badge/versão-1.2.1-2E7D32)
+![Versão](https://img.shields.io/badge/versão-1.6.0-2E7D32)
 ![Status](https://img.shields.io/badge/status-estável-2E7D32)
 ![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115%2B-009688?logo=fastapi&logoColor=white)
@@ -34,7 +34,22 @@ O **InvestHub+** é uma aplicação web **local** que substitui planilhas de con
 - **apuração mensal de IR**, DARF 6015 e relatório de apoio à **DIRPF**;
 - ferramentas de análise: **Radar**, **Status do ativo**, **Valuation** e **Cripto**.
 
-Tudo roda em `127.0.0.1`: os dados ficam no seu computador, e as únicas chamadas externas são consultas públicas de cotações e índices.
+Tudo roda em `127.0.0.1`: os dados ficam no seu computador, e as únicas chamadas externas são consultas públicas de cotações, câmbio, índices, fundamentos e catálogo de criptos.
+
+### Novidades da versão 1.6.0
+
+A versão refina a experiência visual e inclui suporte à restituição de capital nas operações. O [CHANGELOG](CHANGELOG.md)
+contém a relação completa.
+
+### Novidades da versão 1.4.0
+
+A barra lateral pode ser recolhida para ampliar a área de conteúdo, com preferência salva entre acessos e menu em drawer em telas menores.
+
+Modelos personalizados de operações e proventos, classe opcional na planilha de operações, edição de classe e bolsa,
+desfazer a importação recém-gravada, seleção com Shift e filtros por corretora. A coleta de fundamentos agora diferencia
+os motivos de ausência e inclui indicadores básicos do Yahoo Finance para ativos dos EUA. A SEC EDGAR permanece
+adiada; a coleta real do Yahoo neste ambiente teve erros de certificado/HTTP 401 e não foi validada com sucesso.
+Detalhes e limitações estão no [CHANGELOG](CHANGELOG.md).
 
 ### Por que usar
 
@@ -96,7 +111,7 @@ cd Controle_Investimentos
 iniciar.bat
 ```
 
-Pronto: o navegador abre em **http://127.0.0.1:8000**. Na primeira execução o `iniciar.bat` prepara tudo sozinho (ambiente Python, dependências, compilação da interface e banco de dados). Para encerrar, pressione `Ctrl+C` no terminal ou rode `parar.bat`.
+Pronto: o navegador abre em **http://127.0.0.1:8000**. Na primeira execução o `iniciar.bat` prepara o ambiente Python, as dependências e o banco de dados, e pergunta se você quer recompilar a interface ou usar o build existente. Para encerrar, pressione `Ctrl+C` no terminal ou rode `parar.bat`.
 
 > Os dados ficam em `%LOCALAPPDATA%\InvestHub\investhub.db`, fora de pastas sincronizadas. Nada precisa ser configurado para começar.
 
@@ -112,20 +127,26 @@ Em **⚙️ Configurações → Investidores**, cadastre cada pessoa (nome e CPF
 
 ### 2. Traga o histórico
 
-Escolha a forma que combina com você (é possível combinar as três):
+Escolha a forma que combina com você (é possível combinar as origens):
 
 | Origem | Onde | Quando usar |
 |---|---|---|
 | **Planilha antiga** | Linha de comando ([Importando a planilha](#importando-a-planilha)) | Migração inicial a partir da planilha de controle |
 | **Extratos da B3** | Botão **Importar extrato B3** em *Operações* e *Proventos* | Relatórios *Negociação*, *Movimentação* e *Proventos recebidos* da Área do Investidor |
+| **Modelos personalizados** | Links de download em *Operações* e *Proventos*; importação no mesmo diálogo de extratos | Planilhas do app, com classe opcional nas operações e campos de proventos |
 | **Extrato de aluguel** | Botão de importação em *Aluguel (BTC)* | Extrato da conta da corretora (`.xlsx`/`.csv`) |
 | **Digitação** | *Operações*, *Proventos* e *Caixa* | Lançamentos do dia a dia |
 
 Todas as importações mostram uma **prévia** antes de gravar e marcam linhas *Já existe* ou *Verificar* — reimportar o mesmo arquivo não duplica nada.
+Após gravar um lote no diálogo de extratos, **Desfazer esta importação** remove seus lançamentos mediante confirmação.
+Ao fechar o diálogo, os lotes continuam disponíveis em **Configurações → Importações**. Desfazer não exclui os cadastros
+de ativos ou corretoras criados durante a importação.
 
 ### 3. Carregue cotações e índices
 
 Na primeira inicialização após importar, o app baixa sozinho o histórico da B3 (COTAHIST) e o complementar (exterior, criptos, PTAX e índices). Se algo ficar pendente, use **Configurações → Atualizações** ou o aviso **Carregar histórico de cotações** em *Rentabilidade*. Depois disso, os jobs automáticos mantêm tudo em dia.
+Fundamentos têm atualização semanal às segundas-feiras, às 8h (horário de São Paulo), e execução manual em
+**Configurações → Atualizações → Fundamentos B3 (Fundamentus) e ativos dos EUA (Yahoo Finance)**.
 
 ### 4. Organize a carteira
 
@@ -133,10 +154,25 @@ Em **Configurações**:
 
 - **Estratégias & Books** — defina estratégias (ex.: *Dividendos*, *Crescimento*) e books, com o peso de cada um e o mapeamento classe → book (com exceções por ativo).
 - **Carteiras** — peso-alvo, preço-teto e ranking dos ativos.
+- **Corretoras** — visualize e edite os cadastros compartilhados. Para unir duplicatas, edite a corretora de origem,
+  selecione a corretora que será mantida e confirme. Operações, proventos e caixa de todos os investidores passam
+  para o destino; os nomes anteriores ficam como apelidos para as importações. A união não tem desfazer automático:
+  faça backup antes. CNPJs diferentes impedem a união até correção manual.
 - **Ativos personalizados** — renda fixa com rendimento automático (CDI, SELIC, IPCA, IGP-M, prefixado) ou saldo manual.
+- **Classes dos ativos** — lista as posições abertas do filtro de investidores por padrão; troque para **Todos os ativos** e busque pelo ticker para corrigir também ativos sem posição aberta. Classe, bolsa e moeda são editáveis. Classe e bolsa alteram só o campo escolhido. A correção de moeda exige confirmação e backup quando há lançamentos: relabela todas as operações e proventos do ativo, de todos os investidores, sem converter preços, taxas, IRRF ou valores, e recalcula o câmbio pela PTAX de cada data (BRL = 1). Use apenas quando os números já foram informados na moeda correta e o cadastro estava errado: 3 BRL passa a ser 3 USD, não 3 ÷ PTAX. Sem PTAX ou backup, nada é alterado. Movimentos de Caixa não possuem vínculo com ativo e não são modificados. Para ativos internacionais, selecione a bolsa real (NASDAQ, NYSE, NYSEARCA, NYSEAMERICAN ou BATS); BVMF usa o sufixo `.SA` no Yahoo. Após salvar, execute as atualizações de cotações, histórico e fundamentos. O cadastro é compartilhado: a classe afeta o histórico, a alocação e a apuração fiscal de todos os investidores que usam esse ativo.
 - **Parâmetros** e **Imposto de renda** — data de início do caixa automático, regras fiscais com vigência e prejuízo inicial.
 
+Em **Qualidade dos dados**, possíveis duplicatas de corretoras são avisos globais, não uma união automática: são
+comparados nomes sem diferença de acentos, maiúsculas e espaços extras, ou uma primeira palavra isolada contra um
+nome completo, como `XP` e `XP Investimentos`. A comparação não identifica todas as duplicidades e pode sugerir
+instituições distintas; confira antes de unir. Se uma importação encontrar um nome ambíguo, corrija os cadastros.
+Antes de atualizar o schema, faça backup; a migração de apelidos não admite downgrade automático, pois isso descartaria
+os nomes preservados. Para retornar à versão anterior, use um backup anterior compatível.
+
 ### 5. Acompanhe no dia a dia
+
+Nos quadros e gráficos que exibem **?**, passe o mouse ou navegue até o botão pelo teclado para consultar
+a origem e a forma de cálculo do indicador. Pressione Esc para fechar a explicação.
 
 | Quero... | Vá em |
 |---|---|
@@ -194,27 +230,27 @@ Em **🧾 Imposto de Renda**, escolha o CPF e o ano: a tela mostra a apuração 
 
 | Área | O que faz |
 |---|---|
-| **Multi-investidor** | Cadastro de investidores (com CPF mascarado) e grupos (ex.: Família). Seletor global filtra todas as páginas: um investidor, um grupo ou todos consolidados. |
+| **Multi-investidor** | Cadastro de investidores (com CPF mascarado) e grupos (ex.: Família). Seletor global filtra todas as páginas: um investidor, um grupo ou todos consolidados. **Excluir com todos os dados** (Configurações → Investidores) apaga o investidor e seus lançamentos, proventos, caixa, DARFs, prejuízo inicial e metas exclusivas, depois de gerar um backup verificado (`…-antes-exclusao-investidor-manual.db`); exige digitar o nome para confirmar e é bloqueada quando não há backup disponível (PostgreSQL). Ativos, corretoras e grupos são preservados. |
 | **Resumo** | Patrimônio, lucro aberto/total, TIR, proventos e YoC dos últimos 12 meses, rentabilidade (TWR) no mês/ano/12 meses/desde o início comparada a IBOV, IFIX, CDI e IPCA, retorno real (descontado o IPCA), maiores altas e baixas do dia. |
 | **Rentabilidade** | TWR acumulado × referências, retorno real no período e série "Carteira real", evolução patrimonial (mercado × investido), resultado mensal e mapa de calor ano × mês, com seletor de período. |
 | **Portfólio** | Posições abertas com quantidade, preço médio, cotação, valor investido/mercado, lucro do dia, lucro aberto, proventos e peso. Tabela ordenável, agrupamento por estratégia, book, carteira, classe, setor ou moeda com subtotais, gráficos de exposição (book, classe, setor, moeda, ativo e corretora), visão consolidada ou separada por investidor e, opcionalmente, saldo em caixa somado ao patrimônio. Filtro de classes (só uma, algumas ou todas exceto uma) e colunas opcionais com o preço justo do último valuation salvo (mediana, um modelo ou todos), com detalhe por ativo ao clicar. |
-| **Operações** | Lançamento, edição e exclusão pela interface; histórico com filtros por ticker e período; compra, venda, day trade e eventos societários. Câmbio preenchido automaticamente pela PTAX; em ativos personalizados, o preço vem da cota da data. |
-| **Proventos** | Lançamento, edição e exclusão de dividendos, JCP, rendimentos, bonificações e amortizações, com IRRF e conversão cambial. Matriz mensal ano × mês e ativo × mês. **Agenda e projeção**: pagamentos lançados a receber e projeção dos próximos 12 meses (valor por cota na data-com × quantidade atual), com YoC projetado por ativo. |
+| **Operações** | Lançamento, edição e exclusão pela interface; histórico com filtros por ticker, classe, todos os eventos, corretora e período; seleção individual ou por intervalo com Shift e exclusão múltipla. Trocas de ticker podem criar e vincular as pernas de saída/entrada em conjunto ou ser lançadas individualmente e vinculadas depois. Compra, venda, day trade e eventos societários; IRRF em coluna própria. Eventos longos aparecem abreviados (Desd./Grup., Troca Ticker e Venda subscr.), com legenda no botão “?” do cabeçalho; a exportação mantém os nomes completos. Observações longas são truncadas visualmente e podem ser lidas ao passar o mouse. Câmbio preenchido automaticamente pela PTAX; em ativos personalizados, o preço vem da cota da data. |
+| **Proventos** | Lançamento, edição e exclusão de dividendos, JCP, rendimentos, bonificações e amortizações, com IRRF e conversão cambial; filtros por ticker, classe, corretora e período, seleção com Shift e exclusão múltipla. Matriz mensal ano × mês e ativo × mês. **Agenda e projeção**: pagamentos lançados a receber e projeção dos próximos 12 meses (valor por cota na data-com × quantidade atual), com YoC projetado por ativo. |
 | **Renda fixa** | Para ativos personalizados: valor bruto, IOF e IR regressivo por aplicação (resgates PEPS), valor líquido hoje, próximos vencimentos e líquido projetado no vencimento; marcação de isentos (LCI, LCA, CRI, CRA, poupança). |
 | **Metas** | Objetivos de patrimônio ou de renda mensal de proventos, por investidor ou grupo: progresso, projeção com aportes e rentabilidade real em três cenários, data estimada para atingir e aporte necessário para o prazo. |
 | **Alertas** | Sino no topo, calculado localmente: DARF do mês anterior em aberto, renda fixa vencendo ou vencida, preço-alvo do Radar atingido, books fora do alvo, proventos dos próximos 7 dias e erros nos dados. Limiares em Configurações → Parâmetros. |
 | **Aluguel (BTC)** | Remuneração bruta, taxa de intermediação, IRRF e líquido do aluguel de ações (doador) por ativo e por mês, com filtro de ano; lista e cadastro dos lançamentos; importação do extrato da conta da corretora (.xlsx/.csv) com prévia e detecção de duplicidade. |
 | **Caixa** | Aportes, saques, créditos e débitos por investidor e corretora, com saldo por corretora e moeda. A partir de uma data configurável, compras, vendas, amortizações e proventos líquidos movimentam o saldo automaticamente. |
 | **Alocação** | Peso-alvo (estratégia × book × peso do ativo na carteira) × atual por estratégia, book e ativo; simulador de aporte (só comprar ou rebalanceamento completo, respeitando o preço-teto) com valor e quantidade sugeridos. |
-| **Radar** | Watchlist de ativos da B3 (com ou sem posição): cotação, preço-alvo com alerta, fundamentos (Fundamentus), variações de 1/7/14 dias, drawdown de 60 dias, faixa de 52 semanas, estimativa de Graham e YoC. |
+| **Radar** | Watchlist com cadastro de novos tickers B3 e acompanhamento de ativos existentes: cotação, preço-alvo com alerta, fundamentos B3 (Fundamentus) e indicadores básicos dos EUA (Yahoo Finance, cobertura variável e uso pessoal conforme os termos da fonte), variações de 1/7/14 dias, drawdown de 60 dias, faixa de 52 semanas, estimativa de Graham e YoC. |
 | **Status do ativo** | Drill-down por ativo, carteira ou book: investido, mercado, lucro aberto, proventos 12 meses, YoC, trades swing/day trade, distribuição do resultado e linha do tempo de operações e proventos. |
 | **Valuation** | Graham, Bazin, DCF (FCFE 5 anos), Gordon, P/L histórico e setorial e P/VP justificado, com premissas editáveis salvas por ativo; TIR/XIRR e TWR mensal do ativo. Não é recomendação de investimento. |
 | **Imposto de Renda** | Apuração mensal por CPF (ações, BDR, ETF, opções, day trade, FII) com isenção de R$ 20 mil, compensação de prejuízo por grupo, abatimento de IRRF e DARF 6015 com acúmulo abaixo de R$ 10; registro de DARFs pagos; exterior (GCAP até 2023, anual pela Lei 14.754/2023 desde 2024); relatório de apoio à DIRPF com exportação CSV e impressão/PDF. |
-| **Configurações** | Investidores, estratégias e books (com classe → book e exceções por ativo), carteiras (peso-alvo, preço-teto, ranking), ativos personalizados (renda fixa com rendimento por CDI/SELIC/IPCA/IGP-M/prefixado ou saldo manual, vencimento e isenção de IR), parâmetros (inclusive limiares dos alertas), imposto de renda (regras fiscais com vigência, prejuízo inicial), qualidade dos dados, importações (desfazer lote), status das atualizações e backup. |
-| **Cotações** | Atualização automática no pregão (Yahoo Finance, B3 e EUA), fechamento oficial da B3 (COTAHIST) e câmbio pela PTAX do Banco Central. Histórico diário desde a primeira operação. Status das atualizações em Configurações. |
-| **Importação** | Importa a planilha de controle existente (`.xlsx`) de forma idempotente e concilia o resultado com os valores calculados pela própria planilha. Importa os relatórios **Negociação**, **Movimentação** e **Proventos recebidos** da Área do Investidor da B3 (botão *Importar extrato B3* em Operações e Proventos). Cada arquivo importado forma um lote que pode ser desfeito. |
+| **Configurações** | Investidores, estratégias e books (com classe → book e exceções por ativo), carteiras (peso-alvo, preço-teto, ranking), ativos personalizados (renda fixa com rendimento por CDI/SELIC/IPCA/IGP-M/prefixado ou saldo manual, vencimento e isenção de IR), classes e bolsas das posições abertas, parâmetros (inclusive limiares dos alertas), imposto de renda (regras fiscais com vigência, prejuízo inicial), qualidade dos dados, importações (desfazer lote), status das atualizações e backup. |
+| **Cotações** | Atualização automática no pregão (Yahoo Finance, B3 e EUA), fechamento oficial da B3 (COTAHIST) e câmbio pela PTAX do Banco Central. Histórico diário desde a primeira operação. Status das atualizações em Configurações, com três estados: **Concluída**, **Concluída com falhas** (alguma fonte falhou ou respondeu vazio; detalhes abaixo do status) e **Falhou**. No Portfólio e no Resumo, ativos com cotação automática anterior ao último pregão esperado (dia útil anterior; para cripto, mais de 1 dia) mostram o selo **"Cotação de dd/mm"** e um aviso com a quantidade de ativos desatualizados; feriados da bolsa não são considerados. |
+| **Importação** | Importa a planilha de controle existente (`.xlsx`) de forma idempotente e concilia o resultado com os valores calculados pela própria planilha. Importa modelos personalizados de operações/proventos e relatórios **Negociação**, **Movimentação** e **Proventos recebidos** da B3, com prévia e correção de linhas. O lote dos extratos/modelos pode ser desfeito imediatamente no diálogo ou em Configurações. |
 | **Exportação** | Botões **CSV** e **XLSX** no topo de todas as páginas: exportam as tabelas visíveis (uma aba por tabela no XLSX, com moeda, percentual, número e data tipados); listas paginadas saem completas, com o filtro atual. |
-| **Backup** | Backup automático diário (mantém os 10 mais recentes) e manual em `%LOCALAPPDATA%\InvestHub\backups`; download e restauração validada (cópia do banco atual antes de restaurar — mantidas as 10 mais recentes — e migração automática de backups antigos). Backups manuais nunca são apagados automaticamente. |
+| **Backup** | Backup automático diário (mantém os 10 mais recentes) e manual em `%LOCALAPPDATA%\InvestHub\backups`; todo backup é verificado com `PRAGMA integrity_check` (arquivo inválido é descartado, sem apagar backups válidos anteriores). Cópia opcional de cada backup para outra pasta/disco (`INVESTHUB_BACKUP_COPIA_DIR`). Download e restauração validada (cópia do banco atual antes de restaurar — mantidas as 10 mais recentes — e migração automática de backups antigos; se a migração do backup restaurado falhar, o banco anterior volta automaticamente). O `iniciar.bat` gera um backup verificado (`…-antes-migracao-manual.db`) antes de aplicar migrações pendentes. Backups manuais nunca são apagados automaticamente; dados excluídos continuam nos backups existentes. |
 | **Cripto** | Busca no catálogo CoinGecko, vínculo por identificador canônico, preços USD/BRL, variações 24h/7d/30d, capitalização, histórico e posições. CoinGecko principal; Kraken como fallback somente de preço para moedas com vínculo verificado. Monitor mensal de vendas/ganhos por investidor, sem calcular imposto ou DARF. |
 
 ### Cripto: fontes e limites
@@ -239,7 +275,48 @@ Em **🧾 Imposto de Renda**, escolha o CPF e o ano: a tela mostra a apuração 
 
 ### Modelos para preencher
 
-Sem o relatório em mãos, baixe o modelo pelos links **Baixar o modelo para preencher** no próprio modal de importação: *Negociação*, *Movimentação* e *Proventos recebidos* (Operações/Proventos → **Importar extrato B3**) e *Extrato de aluguel (BTC)* (Aluguel → **Importar extrato da corretora**). Cada `.xlsx` tem a aba de dados no layout que o importador reconhece (cabeçalho, listas suspensas e formatos de data/valor) e a aba **Instruções** com o significado de cada coluna e um exemplo — o exemplo não é importado. Endpoint: `GET /api/modelos/{b3-negociacao|b3-movimentacao|b3-proventos|aluguel}`.
+Baixe os modelos personalizados nos links de *Operações* e *Proventos*, ou os modelos B3 no diálogo
+**Importar extrato B3**. O modelo de aluguel fica em *Aluguel → Importar extrato da corretora*.
+Cada `.xlsx` contém uma aba de dados e a aba **Instruções**, com significado das colunas e exemplos que não são importados automaticamente.
+
+| Modelo | Identificador na API | Campos e comportamento |
+|---|---|---|
+| Operações personalizado | `planilha-operacoes` | `ativo`, `classe` opcional, `date`, `evento`, `qtd`, `preco`, `taxas`, `corretora`, `irrf`, `moeda`. Aceita os eventos documentados na aba Instruções. |
+| Proventos personalizado | `proventos-planilha-personalizada` | `ativo`, `date`, `evento`, `valor`, `irrf`, `taxas`, `moeda`, `corretora`, `date_com`, `obs`. Tipos específicos são convertidos para os eventos documentados pelo app. |
+| Relatórios B3 | `b3-negociacao`, `b3-movimentacao`, `b3-proventos` | Layout dos relatórios correspondentes; a prévia informa linhas não importáveis. |
+| Extrato de aluguel | `aluguel` | Remuneração de aluguel, taxas e IRRF no layout reconhecido pelo importador. |
+
+Download: `GET /api/modelos/{identificador}`. Importe operações/proventos personalizados pelo mesmo diálogo dos extratos.
+Arquivos antigos de operações **sem a coluna classe continuam aceitos**. A classe explícita é aplicada somente a ativos novos;
+sem ela, o importador usa a inferência existente. Use `STOCK`, `REIT` ou `ETF_US` e a moeda real para o exterior.
+Isso não identifica automaticamente a bolsa: confira **Classes dos ativos** e selecione o mercado correto antes de atualizar.
+A prévia permite editar campos de linhas rejeitadas e revalidar o arquivo.
+
+### Seleção e exclusão de lançamentos
+
+Em **Operações** e **Proventos**, filtre por corretora, ticker, classe e período antes de selecionar.
+Clique nas caixas para alternar linhas individualmente (inclusive com Ctrl/Cmd); Shift+clique seleciona um intervalo
+na página atual. A caixa do cabeçalho marca ou desmarca a página inteira. **Excluir selecionados** pede confirmação e
+informa eventuais falhas por registro. Não confunda excluir lançamentos com desfazer um lote: a exclusão manual não tem desfazer.
+
+### Fundamentos: fontes, cobertura e falhas
+
+- **B3:** Fundamentus, tabelas de ações e FIIs/Fiagro; a classe cadastrada define a tabela esperada.
+- **EUA:** Yahoo Finance via `yfinance` nos mercados NASDAQ, NYSE, NYSEARCA, NYSEAMERICAN e BATS.
+  São gravados os indicadores disponíveis, como P/L, P/VP, DY, P/S, ROE, margens, liquidez corrente e valor de mercado.
+  Não há assinatura ou chave de API paga; o uso dos dados deve respeitar os [termos do Yahoo](https://github.com/ranaroussi/yfinance#legal-stuff).
+- A fonte e a data do snapshot são retornadas em `/api/fundamentos`. A data de referência do Yahoo é a data da coleta,
+  **não a data do balanço**. Não há garantia de dados completos, atuais ou de acesso contínuo.
+- FFO/AFFO de REITs e métricas específicas de ETFs não são calculados; campos ausentes ficam indisponíveis.
+- O resultado da tarefa separa **sem dados na fonte**, **falhas de consulta**, **mercados não suportados**,
+  **classe incompatível** quando detectável nas tabelas e **ticker histórico**.
+- Para BRDT3 e VIIA3 ausentes na fonte, são sugeridos VBBR3 e BHIA3, respectivamente. O app não troca tickers,
+  movimenta posições ou aplica eventos societários automaticamente; confira o histórico antes de qualquer correção manual.
+- Respostas vazias do Yahoo são reportadas como falha. Neste ambiente, a consulta real apresentou erro de certificado e
+  HTTP 401; não desative a verificação TLS para contornar isso. A integração foi validada por testes com respostas controladas.
+- **SEC EDGAR:** integração adiada; não é usada como fallback nesta versão. Investidor10 também permanece indisponível.
+- As consultas SGS repetem até três tentativas em falhas transitórias de transporte, HTTP 429 ou 5xx;
+  erros persistentes continuam sendo informados pela tarefa.
 
 ---
 
@@ -274,7 +351,7 @@ flowchart LR
 |---|---|
 | Backend | Python 3.12+, FastAPI, SQLAlchemy 2, Alembic, Pydantic 2 |
 | Dados | SQLite (padrão) ou PostgreSQL, pandas, openpyxl |
-| Cotações | yfinance, httpx (BCB PTAX/SGS, B3 COTAHIST e índices, Fundamentus, CoinGecko/Kraken), APScheduler |
+| Cotações e fundamentos | yfinance (Yahoo Finance), httpx (BCB PTAX/SGS, B3 COTAHIST e índices, Fundamentus, CoinGecko/Kraken), APScheduler |
 | Frontend | React 18, TypeScript, Vite, React Router, TanStack Query |
 | Qualidade | pytest, ruff, `tsc` |
 
@@ -299,14 +376,25 @@ cd Controle_Investimentos
 iniciar.bat
 ```
 
-Na primeira execução o `iniciar.bat`:
+Ao executar o `iniciar.bat`, escolha uma das opções:
 
-1. cria o ambiente virtual Python (`.venv`) e instala as dependências;
-2. instala as dependências do frontend e compila a interface;
-3. aplica as migrações do banco;
-4. abre `http://127.0.0.1:8000` no navegador.
+1. **Recompilar a interface e iniciar** — compila o frontend com as alterações atuais
+   antes de abrir o aplicativo. Requer Node.js/npm.
+2. **Iniciar sem recompilar** — usa a interface que já está em `frontend\dist`;
+   essa opção não incorpora alterações recentes no frontend.
 
-Nas execuções seguintes, a interface é recompilada automaticamente sempre que algum arquivo do frontend (`frontend\src`, `package.json`, configurações do Vite/TypeScript) for mais recente que o build em `frontend\dist`. Se o `npm` não estiver disponível, o app sobe com o build existente e exibe um aviso.
+Na primeira execução, o script também cria o ambiente virtual Python (`.venv`) e
+instala as dependências do backend. Se ainda não houver um build em
+`frontend\dist\index.html`, será necessário escolher a opção de recompilação. Em
+seguida, o script faz um backup verificado, aplica as migrações do banco e abre
+`http://127.0.0.1:8000` no navegador. Se a recompilação falhar, o script não inicia
+o aplicativo com um build possivelmente desatualizado.
+
+O frontend usa o registro público do npm por padrão. O lockfile versionado deve conter
+apenas endereços desse registro; configurações pessoais e `node_modules` permanecem
+locais. Variáveis de ambiente e opções do npm podem sobrescrever a configuração do projeto.
+Para verificar o lockfile, execute
+`.\.venv\Scripts\python.exe -m pytest backend\tests\test_registro_npm.py`.
 
 ### Instalação manual
 
@@ -346,7 +434,7 @@ git pull
 iniciar.bat
 ```
 
-O `iniciar.bat` reinstala dependências novas, aplica as migrações pendentes e recompila a interface. Recomenda-se gerar um backup manual em **Configurações → Backup** antes de atualizar.
+O `iniciar.bat` instala as dependências na criação do ambiente (`.venv`), gera um backup verificado quando há migrações pendentes, aplica as migrações e recompila a interface. Se o backup falhar, o app não inicia. Recomenda-se também gerar um backup manual em **Configurações → Backup** antes de atualizar.
 
 ### Configuração
 
@@ -361,6 +449,9 @@ Copie `.env.example` para `.env` se quiser alterar o padrão:
 | `INVESTHUB_COTAHIST_HORA` | `21` | Hora da busca do fechamento oficial da B3 (repete às 8h) |
 | `INVESTHUB_PTAX_DIAS_UTEIS_ANTES` | `0` | Defasagem da PTAX sugerida nos lançamentos (0 = data do fato gerador) |
 | `INVESTHUB_HOSTS_PERMITIDOS` | `["127.0.0.1", "localhost"]` | Hosts aceitos no cabeçalho `Host` e na origem de requisições de escrita (proteção contra sites maliciosos abertos no navegador) |
+| `INVESTHUB_BACKUP_COPIA_DIR` | *(vazio)* | Pasta adicional (outro disco, pendrive ou pasta sincronizada) que recebe uma cópia verificada de cada backup; falha na cópia é registrada sem invalidar o backup principal |
+| `INVESTHUB_LOG_DIR` | pasta do banco + `\logs` | Pasta do log `investhub.log` (rotação de 5 MB × 5 arquivos; caminhos com o usuário do Windows são mascarados). Lida só como variável de ambiente do sistema, não do `.env` |
+| `INVESTHUB_LOG_LEVEL` | `INFO` | Nível do log (`DEBUG`, `INFO`, `WARNING`, `ERROR`). Lida só como variável de ambiente do sistema |
 
 > O banco fica propositalmente fora de pastas sincronizadas (OneDrive, Dropbox), pois a sincronização de um SQLite aberto pode corrompê-lo.
 
@@ -511,8 +602,7 @@ Compara mês a mês as vendas e o lucro por categoria e o DARF com a aba `apura�
 ├── dev.bat                 # Modo desenvolvimento
 ├── parar.bat               # Encerra o backend
 ├── lint.bat                # Verificações antes do commit (ruff, pytest, tsc)
-├── CHANGELOG.md            # Histórico de versões
-└── PLANO_DESENVOLVIMENTO.md
+└── CHANGELOG.md            # Histórico de versões
 ```
 
 ---
@@ -523,22 +613,32 @@ Custo, preço médio e lucro são apurados **em BRL**, convertendo cada moviment
 
 | Evento | Efeito na posição |
 |---|---|
-| Compra | Soma quantidade; custo += quantidade × preço + taxas |
+| Compra | Soma quantidade; custo da carteira += quantidade × preço + taxas + IRRF |
 | Venda | Reduz quantidade pelo PM; lucro = valor líquido − PM × quantidade |
 | Bonificação | Entra pela quantidade e custo atribuído |
 | Desdobramento / Grupamento | Altera só a quantidade; custo total mantido |
 | Transferência (troca de ticker, incorporação) | Sai sem lucro do ticker antigo; entra pelo custo no novo |
-| Amortização / Cisão | Reduz o custo sem alterar a quantidade |
+| Amortização / Cisão | Reduz o custo sem alterar a quantidade; a amortização reduz o valor investido pelo capital devolvido e a cisão pelo montante informado |
+| Restituição de capital (`R.CAP`) | Lançar quantidade zero e valor total devolvido; reduz custo e capital investido sem alterar a quantidade |
 | Venda de direito de subscrição | Lucro integral, sem afetar a posição |
 | Day trade | Não altera a posição; lucro apurado separadamente |
 
 Posições são calculadas **por investidor e ativo**; a visão consolidada soma quantidades e custos e recalcula o PM ponderado.
+O custo e o lucro econômico da carteira incluem o desembolso de IRRF. No fiscal, o custo e o lucro
+antes do IRRF são mantidos separados: a retenção é crédito do imposto, não despesa dedutível da base.
 
 ### Rentabilidade
 
-- **TWR (Time-Weighted Return)** mensal: isola o efeito de aportes e saques, medindo o desempenho da carteira em si; é comparado a IBOV, IFIX, CDI e IPCA.
+- **TWR mensal aproximado**, conforme a planilha: `lucro do mês ÷ (mercado inicial + máximo(fluxo líquido, 0))`; não é TWR diário rigoroso. É comparado a IBOV, IFIX, CDI e IPCA. O método atual foi preservado.
 - **TIR/XIRR**: retorno do dinheiro efetivamente investido, considerando datas e valores de cada aporte, resgate e provento.
 - O valor de mercado de meses passados usa o fechamento histórico (COTAHIST, Yahoo para o exterior) e a PTAX do fim de cada mês.
+
+**Modified Dietz (avaliado, não aplicado):** pondera cada aporte/saque pelo tempo restante no período:
+`(mercado final − mercado inicial − soma dos fluxos) ÷ (mercado inicial + soma(peso × fluxo))`.
+Tende a aproximar melhor quando os fluxos ocorrem em datas diferentes. Exemplo: início R$ 1.000,
+fim R$ 2.100, aporte R$ 1.000 com apenas 10% do período restante: método atual 5%, Dietz ≈ 9,09%.
+Não garante maior precisão em todo cenário, nem equivale a TWR diário; fluxos grandes, volatilidade
+e denominador nulo/negativo exigem tratamento específico. Sua adoção permanece uma decisão futura.
 
 ### Alocação
 
@@ -548,11 +648,36 @@ Posições são calculadas **por investidor e ativo**; a visão consolidada soma
 
 ### Ativos personalizados
 
-Funcionam como cotas: cada aplicação é uma compra de *valor ÷ cota da data* ao preço da cota. Na renda fixa automática a cota vale 1 na data-base e é corrigida pelo índice mensal do BCB (pró-rata por dias corridos) × % do índice e pela taxa a.a. (base 365); mês sem índice publicado repete o último conhecido. No saldo manual, a cota é saldo informado ÷ quantidade.
+Funcionam como cotas: cada aplicação é uma compra de *valor ÷ cota da data* ao preço da cota.
+Na renda fixa automática a cota vale 1 na data-base.
+
+- **CDI:** utiliza a [série diária SGS 12 do BCB](https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados?formato=json&dataInicial=02/01/2025&dataFinal=03/01/2025),
+  em % a.d., convertida para fração. O fator é o produto de `1 + CDI diário × percentual contratado`
+  em cada data publicada, incluindo a data inicial e excluindo a data final. Eventual taxa adicional
+  efetiva a.a. usa `(1 + taxa)^(1/252)` em cada um desses dias. Não aplica taxa em dias sem boletim
+  dentro de um intervalo consultado com sucesso, nem repete índice mensal para completar histórico
+  ausente. O cálculo usa `Decimal`; cotas persistidas mantêm a precisão de oito casas do modelo.
+  Após o vencimento informado, a cota CDI deixa de crescer.
+- **Histórico:** os jobs de índices completo e recente carregam CDI diário; a primeira carga
+  considera a data-base mais antiga dos ativos CDI, e a rotina recente preenche atrasos desde a
+  última cobertura. Não há conversão do histórico de lançamentos na migração. Até carregar o CDI,
+  a consulta de cota/renda fixa informa erro acionável, e a atualização fica com falhas, não “sucesso”.
+- **SELIC, IPCA, IGP-M e prefixado:** preservam o método anterior (índice mensal pró-rata por dias
+  corridos e taxa a.a. em base 365); mês sem índice mensal publicado repete o último conhecido.
+- **Correção de saldo:** informe o **saldo bruto total do ativo**, antes de IR/IOF, somando todos
+  os investidores. A cota naquela data será `saldo ÷ quantidade aberta`. Em ativos automáticos,
+  os rendimentos seguintes partem dessa cota; o histórico anterior e outras correções são
+  preservados. Reinformar a mesma data substitui só aquela referência. Não altere para modo
+  manual apenas para corrigir uma divergência. Correções automáticas não aceitam datas futuras,
+  anteriores à data-base ou posteriores ao vencimento CDI.
+
+O CDI diário aproxima a convenção de títulos bancários pós-fixados, mas não certifica igualdade
+com todo extrato: arredondamentos, calendário/horário de liquidação e condições contratuais podem
+diferir. Confira o saldo bruto do banco e use a correção datada se necessário.
 
 ### Renda fixa líquida
 
-Cada compra é uma aplicação com prazo próprio; resgates consomem as mais antigas (PEPS). Sobre o rendimento de cada aplicação incidem o **IOF** regressivo nos primeiros 29 dias e o **IR** regressivo sobre o rendimento menos o IOF: 22,5% até 180 dias, 20% até 360, 17,5% até 720 e 15% acima (zero para ativos marcados como isentos). A projeção no vencimento usa a cota estimada na data (último índice repetido) e as alíquotas daquele prazo.
+Cada compra é uma aplicação com prazo próprio; resgates consomem as mais antigas (PEPS). Sobre o rendimento de cada aplicação incidem o **IOF** regressivo nos primeiros 29 dias e o **IR** regressivo sobre o rendimento menos o IOF: 22,5% até 180 dias, 20% até 360, 17,5% até 720 e 15% acima (zero para ativos marcados como isentos). A projeção no vencimento usa a cota estimada na data e as alíquotas daquele prazo. CDI futuro é desconhecido: parte do saldo atual corrigido pelo CDI diário e mantém a estimativa mensal anterior somente para o período futuro (último índice mensal repetido), separada do saldo efetivo. Não é valor bancário garantido.
 
 ### Retorno real, projeção de proventos e metas
 
@@ -572,7 +697,7 @@ Estimativa por CPF; confira no e-CAC/GCAP antes de recolher. Alíquotas e isenç
 |---|---|
 | Categorias | Ações 15% (isentas com vendas de ações ≤ R$ 20 mil no mês), BDR, ETF e opções 15%, day trade 20%, FII/Fiagro 20%. Parâmetros: BDR como ação; somar ao limite de R$ 20 mil as vendas de day trade, opções e/ou BDR e ETF; venda de direito de subscrição de FII até 28/09/2021 como isenta. |
 | Prejuízo | Compensa só dentro do grupo: operações comuns (ações, BDR, ETF, opções), day trade, FII. Prejuízo de mês isento continua compensável. |
-| IRRF | 0,005% e 1% (day trade), conforme lançado nas operações, abatem o imposto do mês; o saldo passa aos meses seguintes até dezembro. |
+| IRRF | Imposto de Renda Retido na Fonte; na bolsa, a retenção conhecida como “dedo-duro” costuma ser 0,005% sobre vendas comuns ou 1% sobre o lucro do day trade. Os valores lançados abatem o imposto, não a base tributável. A tela mostra lucro líquido após IRRF igual ao da carteira, base fiscal separada, retenção, crédito utilizado e saldo acumulado a compensar. Saldo acumulado é o último saldo, não a soma dos saldos mensais; o transporte termina em dezembro, com o restante a conferir na declaração anual. Retenções de proventos/exterior não integram os cards da apuração mensal de bolsa. |
 | DARF | Código 6015; valor abaixo de R$ 10 acumula para o mês seguinte; DARFs pagos abatem o mês de apuração. |
 | Exterior | Até 2023: ganho de capital mensal (isento com vendas ≤ R$ 35 mil no mês); dividendos só informativos (carnê-leão). Desde 2024 (Lei 14.754/2023): lucros e dividendos no ano a 15%, com compensação de prejuízo e crédito do imposto pago no exterior limitado ao imposto sobre os dividendos. |
 | DIRPF | Bens e direitos pelo custo em 31/12 dos dois anos, dividendos (código 09), rendimentos de FII, JCP e aluguel de ações (BTC) líquidos, lucro isento de ações, prejuízo e IRRF a transportar. O grupo/código dos bens deve ser escolhido no programa da Receita. |
@@ -594,22 +719,25 @@ Principais recursos:
 | `GET` | `/api/saude` | Status e versão da aplicação |
 | `GET` | `/api/posicoes?investidores=1,2&agrupar=ativo` | Carteira consolidada ou por investidor |
 | `POST` | `/api/cotacoes/atualizar` | Atualiza cotações e câmbio agora |
-| `GET/POST/PUT/DELETE` | `/api/operacoes` | Operações (paginadas e filtráveis) |
-| `GET/POST/PUT/DELETE` | `/api/proventos` | Proventos |
+| `GET/POST/PUT/DELETE` | `/api/operacoes` | Operações paginadas; listagem aceita investidores, ticker, classe, evento, período e `corretora_id` |
+| `POST` · `POST/DELETE` | `/api/operacoes/troca-ticker` · `/api/operacoes/{id}/vinculo-transferencia` | Cria as duas pernas vinculadas ou vincula/desvincula operações de transferência existentes |
+| `GET/POST/PUT/DELETE` | `/api/proventos` | Proventos paginados; listagem aceita investidores, ticker, classe, período e `corretora_id` |
 | `GET/POST/PUT/DELETE` | `/api/caixa` | Movimentações de caixa (entrada > 0, saída < 0) |
 | `GET` | `/api/caixa/saldos` | Saldo por corretora e moeda |
 | `GET` | `/api/alocacao?aporte=&modo=comprar\|rebalancear&respeitar_teto=` | Alocação alvo × atual e simulador de aporte |
 | `GET/POST/PUT/DELETE` | `/api/estrategias` · `/api/books` · `/api/carteiras` | Estratégias, books (com classes) e carteiras |
 | `GET` · `PUT` | `/api/books/excecoes` · `/api/ativos/{id}/books` | Exceções de book por ativo |
 | `GET` · `PUT` | `/api/parametros` | Parâmetros de cálculo |
-| `GET` · `POST` | `/api/ativos/{id}/cota?data=` · `/api/ativos/{id}/saldo` | Cota de ativo personalizado; saldo manual |
+| `PUT` · `PATCH` | `/api/ativos/{id}` · `/api/ativos/{id}/classe` | Edição completa ou parcial; mudar moeda com lançamentos exige `confirmar_correcao_moeda: true`, backup e PTAX, sem conversão de valores |
+| `GET` · `POST` | `/api/ativos/{id}/cota?data=` · `/api/ativos/{id}/saldo` | Cota de ativo personalizado; saldo manual ou correção datada de saldo bruto automático |
 | `GET` | `/api/cambio/ptax?moeda=USD&data=2026-10-02` | PTAX oficial (compra/venda) da data |
 | `GET` / `POST` | `/api/atualizacoes` · `/api/atualizacoes/{tarefa}` | Status e disparo das atualizações em segundo plano |
 | `GET` | `/api/rentabilidade/mensal?inicio=&fim=` | Série mensal: investido, mercado, fluxo, lucro, TWR e referências |
 | `GET` | `/api/rentabilidade/resumo` | Patrimônio, TIR, proventos 12m, YoC, TWR e retorno real por janela |
 | `GET` | `/api/proventos/matriz?ano=` | Proventos líquidos ano × mês (ou ativo × mês de um ano) |
 | `GET` · `POST` | `/api/aluguel` · `/api/aluguel/extrato/previa` · `/api/aluguel/extrato/importar` | Resumo do aluguel (BTC) e importação do extrato |
-| `POST` | `/api/extratos/b3/previa` · `/api/extratos/b3/importar` | Prévia e importação dos relatórios da B3 |
+| `POST` | `/api/extratos/b3/previa` · `/api/extratos/b3/importar` | Prévia/revalidação e importação dos relatórios B3 e modelos personalizados de operações/proventos |
+| `GET` | `/api/modelos/{nome}` | Download dos modelos personalizados, B3 e aluguel |
 | `GET/POST/DELETE` | `/api/radar` | Watchlist do Radar |
 | `PUT` | `/api/radar/{ativo_id}/alvo` | Preço-alvo do ativo no Radar (gera alerta) |
 | `GET` | `/api/renda-fixa` | Renda fixa: bruto, IOF, IR regressivo, líquido e projeção no vencimento |
@@ -619,7 +747,7 @@ Principais recursos:
 | `GET` | `/api/alertas` | Alertas calculados (DARF, vencimentos, preço-alvo, alocação, proventos, dados) |
 | `GET` | `/api/qualidade-dados` | Verificações de qualidade e completude dos dados |
 | `GET` · `POST` | `/api/lotes` · `/api/lotes/{id}/desfazer` | Lotes de importação e desfazer |
-| `GET` | `/api/fundamentos` | Fundamentos (Fundamentus) |
+| `GET` | `/api/fundamentos` · `/api/fundamentos/fontes` | Snapshots mais recentes por ativo/fonte (Fundamentus ou Yahoo Finance) e disponibilidade dos conectores |
 | `GET` | `/api/status` | Status do ativo, carteira ou book |
 | `GET` · `PUT` | `/api/valuation/{ativo_id}` · `/api/valuation/{ativo_id}/premissas` | Valuation e premissas salvas (cada gravação entra no histórico) |
 | `POST` | `/api/valuation/ativo` | Localiza ou cadastra o ticker digitado e busca cotação/fundamentos |
@@ -633,6 +761,7 @@ Principais recursos:
 | `GET/POST/DELETE` | `/api/backups` · `/api/backups/{nome}/restaurar` | Lista, cria, baixa, exclui e restaura backups |
 | `GET/POST/PUT/DELETE` | `/api/investidores` | Investidores |
 | `GET/POST/PUT/DELETE` | `/api/ativos` | Cadastro de ativos |
+| `PATCH` | `/api/ativos/{id}/classe` | Altera somente `classe` e/ou `mercado`; sem corpo vazio, preserva moeda e lançamentos, protege criptos vinculadas |
 
 A lista completa, com esquemas de entrada e saída, está no Swagger (`/docs`).
 
@@ -649,7 +778,29 @@ cd backend
 ..\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Antes de commitar, rode `lint.bat` na raiz: lint do backend (ruff, regras em `backend/ruff.toml`), testes e checagem de tipos do frontend (`npm run lint`).
+Antes de commitar, rode `lint.bat` na raiz: lint do backend (ruff, regras em `backend/ruff.toml`), testes (inclusive migrações: modelos × schema e ida e volta), checagem de tipos do frontend (`npm run lint`) e build da interface (`npm run build`).
+
+### Testes ponta a ponta (E2E)
+
+A interface tem uma suíte [Playwright](https://playwright.dev/) em `frontend/e2e/` (smoke de todas as rotas, fluxos
+críticos — investidor, operações, exclusão em lote, proventos, backup e restauração, IR, exclusão completa de
+investidor, confirmações, importação de extrato — e verificação de acessibilidade com axe-core). Ela não faz parte do
+`lint.bat`, por levar alguns minutos:
+
+```bat
+e2e.bat                 :: suíte completa
+e2e.bat --grep @smoke   :: só o smoke
+```
+
+- Cada execução sobe a API em `127.0.0.1:8765` com um **banco SQLite descartável** (`frontend/.e2e-dados/`, ou
+  `E2E_DADOS_DIR`), jobs desligados, **dados fictícios** e acesso à rede externa bloqueado no navegador e no backend.
+- Não rode o `lint.bat` ao mesmo tempo: o build recria `frontend/dist`, que o servidor de testes usa.
+- Na primeira vez, instale o navegador com `npx playwright install chromium` na pasta `frontend`. Em rede corporativa
+  com inspeção de certificados, defina antes `set NODE_OPTIONS=--use-system-ca`. Sem o Chromium, a suíte tenta o Edge
+  local (`E2E_CHANNEL=msedge`), que pode ser bloqueado por política em modo headless.
+- Variáveis opcionais: `E2E_CHANNEL` (`chromium`, `msedge`, `chrome`), `E2E_HEADED=1` (janela visível), `E2E_PORTA`, `E2E_PYTHON`.
+- Relatório em `frontend/playwright-report/index.html`; traces e screenshots de falhas em `frontend/test-results/`.
+- Tipos dos testes: `npm --prefix frontend run e2e:tipos`.
 
 Os testes cobrem preço médio, venda, eventos societários, câmbio, day trade e consolidação entre investidores (com casos derivados de valores reais da planilha), além da leitura do COTAHIST, da escolha da PTAX, dos índices, do TWR (linhas reais da aba `dashboard.`), do XIRR, da alocação/simulador, da renda fixa automática, da apuração de IR (isenção, compensação por grupo, IRRF, DARF mínimo, vigência das regras, exterior), do radar, fundamentos, valuation, cripto, aluguel, extratos da B3, exportação, backup e migrações, e das APIs de lançamentos, caixa, configurações, rentabilidade e IR (banco em memória).
 
@@ -734,19 +885,26 @@ O app em execução usa só o Python; o Node.js serve apenas para **compilar a i
 | 5 | Radar, criptomoedas, status do ativo, valuation | ✅ Concluída |
 | 6 | Importação de extratos da B3, exportações e backup | ✅ Concluída — **v1.0.0** |
 
-**Próximos passos (opcionais):** autenticação para uso em rede, relatório diário por e-mail e PWA. Detalhes em [PLANO_DESENVOLVIMENTO.md](PLANO_DESENVOLVIMENTO.md).
+**Após as fases:** v1.1.0 adicionou planejamento e melhorias de análise; v1.2.x aprimorou operações/importação.
+A v1.3.0 consolidou os modelos personalizados, seleção/filtros, classe/bolsa e fundamentos básicos dos EUA.
+A v1.4.0 trouxe melhorias de navegação, operações e valuation. A v1.5.0 consolida as melhorias e correções
+subsequentes; veja o [CHANGELOG](CHANGELOG.md).
 
+**Próximos passos (opcionais):** autenticação para uso em rede, relatório diário por e-mail e PWA.
+**Adiado:** SEC EDGAR e métricas específicas de REITs/ETFs. Validar acesso real ao Yahoo antes de depender da coleta.
 ---
 
 ## Privacidade e segurança
 
 - Todos os dados ficam **no seu computador** (ou no PostgreSQL que você escolher); nada é enviado a servidores próprios.
-- As únicas chamadas externas são consultas públicas de cotação (tickers e moedas).
+- As únicas chamadas externas são consultas públicas de cotações, câmbio, índices, fundamentos e catálogo de criptos (tickers, moedas e termos de busca); posições, CPF e lançamentos não são enviados a essas fontes.
 - A API escuta apenas em `127.0.0.1`.
 - A API recusa requisições com cabeçalho `Host` desconhecido e gravações vindas de outros sites abertos no navegador (proteção contra CSRF e *DNS rebinding*).
 - Uploads só são aceitos como `application/octet-stream`, e as respostas proíbem que outros sites enquadrem a interface (`X-Frame-Options`/CSP `frame-ancestors`) ou embutam a API.
 - Planilhas enviadas são recusadas se expandirem além de 200 MB ou passarem de 100 mil linhas; backups com triggers ou views (que o app não cria) não são restaurados.
 - CPF é exibido sempre mascarado na interface.
+- Erros inesperados da API retornam uma mensagem amigável com um `erro_id` (também no cabeçalho `X-Request-ID`); o detalhe técnico fica só no log local, sem dados pessoais nem o usuário do Windows. Mensagens de status das atualizações não exibem SQL, URLs ou pastas.
+- Dados excluídos (inclusive pela exclusão completa de investidor) permanecem nos backups já gerados; apague os backups manualmente se precisar removê-los de vez.
 - Planilhas, banco de dados e arquivos `.env` estão no `.gitignore`.
 
 ---

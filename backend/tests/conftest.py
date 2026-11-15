@@ -5,7 +5,11 @@ import pytest
 
 # Antes de importar o app: testes nunca tocam o banco real nem iniciam jobs.
 os.environ["INVESTHUB_JOBS_ATIVOS"] = "false"
-os.environ["INVESTHUB_DB_PATH"] = os.path.join(tempfile.mkdtemp(prefix="investhub-testes-"), "testes.db")
+_PASTA_TESTES = tempfile.mkdtemp(prefix="investhub-testes-")
+os.environ["INVESTHUB_DB_PATH"] = os.path.join(_PASTA_TESTES, "testes.db")
+# Um `.env` local não pode desviar backups ou logs dos testes para pastas reais.
+os.environ["INVESTHUB_BACKUP_COPIA_DIR"] = ""
+os.environ["INVESTHUB_LOG_DIR"] = os.path.join(_PASTA_TESTES, "logs")
 # O TestClient envia `Host: testserver`.
 os.environ["INVESTHUB_HOSTS_PERMITIDOS"] = '["127.0.0.1", "localhost", "testserver"]'
 

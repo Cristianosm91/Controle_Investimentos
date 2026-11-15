@@ -66,6 +66,63 @@ def _compra(session: Session, investidor: Investidor, ticker: str) -> Operacao:
     return operacao
 
 
+def test_transferencia_com_valores_lancados_iguais_nao_acusa_diferenca_de_pm():
+    engine = _banco()
+    with Session(engine) as session:
+        investidor = Investidor(nome="Investidor teste")
+        origem = Ativo(ticker="RAIZ4", classe="AÇÃO")
+        destino = Ativo(ticker="RAIZ55", classe="AÇÃO")
+        session.add_all((investidor, origem, destino))
+        session.flush()
+        compra = Operacao(
+            investidor_id=investidor.id,
+            ativo_id=origem.id,
+            data=date(2026, 1, 5),
+            evento="C",
+            quantidade=Decimal("2500"),
+            preco=Decimal("2.925076"),
+            moeda="BRL",
+            cambio=Decimal("1"),
+        )
+        saida = Operacao(
+            investidor_id=investidor.id,
+            ativo_id=origem.id,
+            data=date(2026, 11, 8),
+            evento="TRANSFERENCIA",
+            quantidade=Decimal("-2500"),
+            preco=Decimal("2.92"),
+            moeda="BRL",
+            cambio=Decimal("1"),
+        )
+        entrada = Operacao(
+            investidor_id=investidor.id,
+            ativo_id=destino.id,
+            data=date(2026, 11, 8),
+            evento="TRANSFERENCIA",
+            quantidade=Decimal("2500"),
+            preco=Decimal("2.92"),
+            moeda="BRL",
+            cambio=Decimal("1"),
+        )
+        session.add_all((compra, saida, entrada))
+        session.flush()
+        saida.transferencia_pareada_id = entrada.id
+        entrada.transferencia_pareada_id = saida.id
+        session.flush()
+
+        verificacoes = qualidade.verificar(session)
+
+        assert compra.quantidade * compra.preco == Decimal("7312.690000")
+        assert abs(saida.quantidade * saida.preco) == abs(entrada.quantidade * entrada.preco)
+        assert not any(v.codigo == "transferencia_divergente" for v in verificacoes)
+
+        entrada.preco = Decimal("2.93")
+        session.flush()
+        verificacao = next(v for v in qualidade.verificar(session) if v.codigo == "transferencia_divergente")
+        assert "R$ 7300.00 difere da entrada R$ 7325.00" in verificacao.itens[0]
+    engine.dispose()
+
+
 def test_apontamento_de_posicao_negativa_vincula_e_abre_somente_operacoes_relacionadas():
     engine = _banco()
     with Session(engine) as session:
@@ -183,6 +240,42 @@ def test_tratamento_persiste_sem_alterar_operacao_e_novo_apontamento_nao_herda_s
 
         reabrir_apontamento(fingerprint, session)
         assert session.get(Operacao, nova_operacao.id).quantidade == Decimal("-1")
+    engine.dispose()
+
+
+def test_corrigir_operacao_mantem_lista_com_pendencias_restantes_da_mesma_regra():
+    engine = _banco()
+    with Session(engine) as session:
+        investidor = Investidor(nome="Investidor teste")
+        session.add(investidor)
+        session.flush()
+        corrigida = _venda(session, investidor, "PETR4")
+        restante = _venda(session, investidor, "VALE3")
+        apontamento = next(
+            v for v in qualidade.verificar(session) if v.codigo == "posicao_negativa"
+        )
+        corrigida.evento = "C"
+        corrigida.quantidade = Decimal("1")
+        session.commit()
+
+        def listar(codigo):
+            return listar_operacoes(
+                sessao=session,
+                investidores=[investidor.id],
+                ticker=None,
+                classe=None,
+                inicio=None,
+                fim=None,
+                ids=None,
+                apontamento=apontamento.fingerprint,
+                codigo=codigo,
+                limite=200,
+                deslocamento=0,
+            )
+
+        assert listar(None).total == 0
+        pagina = listar("posicao_negativa")
+        assert [item.id for item in pagina.itens] == [restante.id]
     engine.dispose()
 
 

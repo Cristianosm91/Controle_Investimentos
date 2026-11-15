@@ -13,11 +13,30 @@ if not exist ".venv\Scripts\python.exe" (
     ".venv\Scripts\python.exe" -m pip install -r backend\requirements.txt || goto :erro
 )
 
-rem Recompila a interface se o build nao existir ou se algum fonte for mais novo que ele.
-powershell -NoProfile -Command "$b = Get-Item 'frontend\dist\index.html' -ErrorAction SilentlyContinue; if (-not $b) { exit 1 }; $f = Get-ChildItem 'frontend\src','frontend\index.html','frontend\package.json','frontend\package-lock.json','frontend\vite.config.ts','frontend\tsconfig.json' -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -gt $b.LastWriteTime } | Select-Object -First 1; if ($f) { exit 1 }; exit 0"
-if errorlevel 1 call :compilar || goto :erro
+echo.
+echo [1] Recompilar a interface e iniciar
+echo [2] Iniciar sem recompilar (usar o build existente)
+choice /C 12 /N /M "Escolha uma opcao [1/2]: "
+if errorlevel 2 goto :sem_compilar
+if errorlevel 1 goto :compilar_interface
+goto :erro
+
+:compilar_interface
+call :compilar
+if errorlevel 1 goto :erro
+goto :iniciar
+
+:sem_compilar
+if not exist "frontend\dist\index.html" (
+    echo Build da interface nao encontrado. Escolha recompilar para gerar os arquivos.
+    goto :erro
+)
+
+:iniciar
 
 pushd backend
+rem Backup verificado do banco antes de aplicar migracoes pendentes; se falhar, nao migra nem sobe o app.
+"..\.venv\Scripts\python.exe" -m scripts.backup_antes_migrar || goto :erro
 "..\.venv\Scripts\python.exe" -m alembic upgrade head || goto :erro
 rem Abre o navegador so quando a API responder (o Uvicorn leva alguns segundos para subir).
 start "" /b powershell -NoProfile -Command "$u = 'http://127.0.0.1:8000'; for ($i = 0; $i -lt 120; $i++) { try { Invoke-WebRequest ($u + '/api/saude') -UseBasicParsing -TimeoutSec 2 | Out-Null; break } catch { Start-Sleep -Milliseconds 500 } }; Start-Process $u"
@@ -28,36 +47,20 @@ exit /b 0
 :compilar
 where npm >nul 2>&1
 if errorlevel 1 (
-    if exist "frontend\dist\index.html" (
-        echo Aviso: npm nao encontrado; usando a interface ja compilada, que pode estar desatualizada.
-        exit /b 0
-    )
-    echo npm nao encontrado. Instale o Node.js ou ajuste NODE_DIR neste script.
+    echo npm nao encontrado. Instale o Node.js ou ajuste NODE_DIR para recompilar a interface.
     exit /b 1
 )
 echo Compilando a interface...
 pushd frontend
 if not exist "node_modules" (
-    call npm install --no-fund --no-audit || (popd & goto :sem_compilar)
+    call npm install --no-fund --no-audit || (popd & exit /b 1)
 ) else (
     powershell -NoProfile -Command "$m = Get-Item 'node_modules\.package-lock.json' -ErrorAction SilentlyContinue; if (-not $m -or (Get-Item 'package-lock.json').LastWriteTime -gt $m.LastWriteTime) { exit 1 }; exit 0"
-    if errorlevel 1 call npm install --no-fund --no-audit || (popd & goto :sem_compilar)
+    if errorlevel 1 call npm install --no-fund --no-audit || (popd & exit /b 1)
 )
-call npm run build || (popd & goto :sem_compilar)
+call npm run build || (popd & exit /b 1)
 popd
 exit /b 0
-
-:sem_compilar
-rem A API nao depende do Node.js: sem ele, a interface ja compilada continua utilizavel.
-if exist "frontend\dist\index.html" (
-    echo.
-    echo Aviso: nao foi possivel compilar a interface - o Node.js pode estar indisponivel.
-    echo Usando a interface ja compilada, que pode estar desatualizada. Recompile com "npm run build" em frontend.
-    echo.
-    exit /b 0
-)
-echo Nao foi possivel compilar a interface e nao ha versao compilada em frontend\dist.
-exit /b 1
 
 :erro
 echo.

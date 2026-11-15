@@ -32,6 +32,7 @@ export function QualidadeDados() {
   const destinos = (v: Verificacao) => {
     const parametros = new URLSearchParams({
       apontamento: v.fingerprint,
+      codigo: v.codigo,
       regra: v.titulo,
       explicacao: v.descricao,
       retorno: `${localizacao.pathname}${localizacao.search}`,
@@ -42,7 +43,7 @@ export function QualidadeDados() {
       v.provento_ids.length ? { caminho: `/proventos?${consulta}`, rotulo: "Proventos" } : null,
       v.caixa_ids.length ? { caminho: `/caixa?${consulta}`, rotulo: "Caixa" } : null,
     ].filter((link): link is { caminho: string; rotulo: string } => link !== null);
-    return links.length ? links : v.link ? [{ caminho: v.link, rotulo: "Abrir" }] : [];
+    return links.length ? links : v.link ? [{ caminho: v.link, rotulo: v.codigo === "corretoras_duplicadas" ? "Corretoras" : "detalhes" }] : [];
   };
 
   return (
@@ -55,7 +56,7 @@ export function QualidadeDados() {
       </div>
       <p className="sutil">
         Pendências que distorcem posição, preço médio, rentabilidade ou IR, para os investidores selecionados no topo. Erros devem ser
-        corrigidos; os demais itens melhoram a precisão das telas.
+        corrigidos; os demais itens melhoram a precisão das telas. Duplicidades de corretoras são verificadas globalmente.
       </p>
       {error && <div className="erro">{(error as Error).message}</div>}
       {tratamento.error && <div className="erro">{(tratamento.error as Error).message}</div>}
@@ -78,7 +79,7 @@ export function QualidadeDados() {
             </h3>
             {links.map((link) => (
               <Link key={link.caminho} to={link.caminho} className="link">
-                Abrir {link.rotulo} →
+                {link.rotulo === "Abrir" ? "Abrir" : `Abrir ${link.rotulo}`} →
               </Link>
             ))}
           </div>
@@ -109,7 +110,7 @@ export function QualidadeDados() {
                   })
                 }
               >
-                {v.status === "aberto" ? "TRATAR APONTAMENTO" : "REABRIR APONTAMENTO"}
+                {v.status === "aberto" ? "IGNORAR APONTAMENTO" : "REABRIR APONTAMENTO"}
               </button>
             )}
           </div>

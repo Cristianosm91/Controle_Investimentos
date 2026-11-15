@@ -4,6 +4,7 @@ import { api } from "../api";
 import { paraFracao, paraPercentual } from "../cadastros";
 import { CampoData } from "../components/CampoData";
 import { GraficoLinhas } from "../components/Graficos";
+import { AjudaIndicador } from "../components/AjudaIndicador";
 import { Modal } from "../components/Modal";
 import { useExclusaoEmLote } from "../components/ExclusaoEmLote";
 import { data, mesAno, moeda, moedaCompacta, percentual } from "../formato";
@@ -202,13 +203,13 @@ function CartaoMeta({ meta, aoEditar, caixaSelecao }: { meta: Meta; aoEditar: ()
         <div className="meta-progresso-barra" style={{ width: `${progresso * 100}%` }} />
       </div>
       <p>
-        Hoje: <strong>{moeda(meta.valor_atual)}</strong>
+        Hoje: <AjudaIndicador titulo="Progresso da meta" texto="O progresso divide o valor atual pelo alvo. Para patrimônio usa o valor de mercado das posições, ou o custo se faltar cotação; para renda, a média mensal dos proventos líquidos dos últimos 12 meses." /> <strong>{moeda(meta.valor_atual)}</strong>
         {sufixo} · <strong>{percentual(meta.progresso)}</strong> do alvo
       </p>
 
       <div className="cards">
         <div className="card">
-          <span>Projeção na data-alvo</span>
+          <span>Projeção na data-alvo <AjudaIndicador titulo="Projeção na data-alvo" texto="Projeta o patrimônio atual com a rentabilidade real e os aportes mensais informados. Para meta de renda, converte o patrimônio projetado usando o rendimento anual. É uma estimativa." /></span>
           <strong className={meta.atinge ? undefined : "negativo"}>
             {moeda(meta.projetado_base)}
             {sufixo}
@@ -219,18 +220,20 @@ function CartaoMeta({ meta, aoEditar, caixaSelecao }: { meta: Meta; aoEditar: ()
           </small>
         </div>
         <div className="card">
-          <span>Atinge o alvo em</span>
+          <span>Atinge o alvo em <AjudaIndicador titulo="Data estimada da meta" texto="Primeiro mês em que a projeção atinge o alvo, mantendo aporte e rentabilidade informados, limitado a 50 anos." /></span>
           <strong>{meta.data_estimada ? mesAno(meta.data_estimada) : "não atinge em 50 anos"}</strong>
           <small className="sutil">mantendo aporte e rentabilidade</small>
         </div>
         <div className="card">
-          <span>Aporte necessário para o prazo</span>
+          <span>Aporte necessário para o prazo <AjudaIndicador titulo="Aporte necessário" texto="Aporte mensal calculado para atingir o alvo na data definida, usando o patrimônio atual e a rentabilidade informada." /></span>
           <strong>{moeda(meta.aporte_necessario)}/mês</strong>
           <small className="sutil">{meta.aporte_necessario <= meta.aporte_mensal ? "o aporte atual é suficiente" : "acima do aporte atual"}</small>
         </div>
       </div>
 
+      <p className="sutil">Cenários da meta <AjudaIndicador titulo="Cenários da meta" texto="As linhas projetam a evolução mensal com o aporte e a rentabilidade informados; os cenários otimista e pessimista variam a taxa anual em mais ou menos 2 pontos percentuais. A linha de alvo mostra a meta." /></p>
       <GraficoLinhas
+        titulo={`Projeção da meta `}
         datas={meta.serie.map((p) => p.mes)}
         formatar={moedaCompacta}
         series={[

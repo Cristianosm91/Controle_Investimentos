@@ -127,8 +127,8 @@ def _rendimentos(sessao: Session, investidor_id: int, ano: int, meses: list[MesI
     ativos: dict[int, Ativo] = {}
     for p, a in sessao.execute(consulta):
         categoria = categoria_ir(a.classe, a.moeda, False)
-        if categoria == "EXTERIOR" or p.evento == "AMORTIZACAO":
-            continue  # exterior vai na apuração anual; amortização devolve capital (reduz custo)
+        if categoria == "EXTERIOR" or p.evento in ("AMORTIZACAO", "R_CAP"):
+            continue  # exterior vai na apuração anual; devoluções de capital reduzem o custo
         if p.evento in ("JSCP", "ALUGUEL"):
             chave = ("EXCLUSIVO", EXCLUSIVO_JCP if p.evento == "JSCP" else EXCLUSIVO_BTC)
             valor = (p.valor - p.irrf) * p.cambio

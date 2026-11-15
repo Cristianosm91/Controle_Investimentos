@@ -1,10 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import { invalidarDerivados } from "../cadastros";
-import type { Tarefa } from "../tipos";
+import type { StatusTarefa, Tarefa } from "../tipos";
 
 const dataHora = (iso: string | null) =>
   iso ? new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "—";
+
+// Ícone + texto (não só cor) para distinguir sucesso, conclusão com falhas de fonte e falha.
+const STATUS: Record<StatusTarefa, { icone: string; rotulo: string; etiqueta: string; texto: string }> = {
+  ok: { icone: "✓", rotulo: "Concluída", etiqueta: "etiqueta", texto: "sutil" },
+  parcial: { icone: "⚠", rotulo: "Concluída com falhas", etiqueta: "etiqueta severidade-aviso", texto: "" },
+  falha: { icone: "✕", rotulo: "Falhou", etiqueta: "etiqueta severidade-erro", texto: "negativo" },
+};
+
+const statusDe = (t: Tarefa): StatusTarefa => t.status ?? (t.sucesso ? "ok" : "falha");
 
 const ACAO: Record<string, string> = {
   cotacoes: "Atualizar agora",
@@ -15,6 +24,18 @@ const ACAO: Record<string, string> = {
   cripto: "Atualizar cripto",
   backup: "Fazer backup",
 };
+
+function ResultadoTarefa({ tarefa }: { tarefa: Tarefa }) {
+  const s = STATUS[statusDe(tarefa)];
+  return (
+    <>
+      <span className={s.etiqueta} style={{ marginLeft: 0 }}>
+        <span aria-hidden="true">{s.icone}</span> {s.rotulo}
+      </span>
+      {tarefa.mensagem && <div className={s.texto || undefined}>{tarefa.mensagem}</div>}
+    </>
+  );
+}
 
 export function PainelAtualizacoes() {
   const cliente = useQueryClient();
@@ -64,7 +85,7 @@ export function PainelAtualizacoes() {
                 ) : t.sucesso === null ? (
                   "—"
                 ) : (
-                  <span className={t.sucesso ? "sutil" : "negativo"}>{t.mensagem}</span>
+                  <ResultadoTarefa tarefa={t} />
                 )}
               </td>
               <td>{dataHora(t.proxima)}</td>

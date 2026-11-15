@@ -86,6 +86,7 @@ def test_caixa_por_evento():
     assert r.caixa(mov(date(2024, 1, 1), "C", "10", "10", "1")) == -101
     assert r.caixa(mov(date(2024, 1, 1), "V", "-10", "12", "1")) == 119
     assert r.caixa(mov(date(2024, 1, 1), "AMORTIZACAO", "10", "-0.5")) == 5
+    assert r.caixa(mov(date(2024, 1, 1), "R_CAP", "0", "-50")) == 50
     assert r.caixa(mov(date(2024, 1, 1), "DESDOBRAMENTO", "10")) == 0
     assert r.caixa(mov(date(2024, 1, 1), "C", "2", "10", cambio="5")) == -100
 

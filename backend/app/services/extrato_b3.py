@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 from ..dominio import MOEDAS
 from ..models import Ativo, Corretora, Investidor, LoteImportacao, Operacao, Provento
 from ..seguranca import LINHAS_MAXIMAS, tamanho_descompactado_excedido
+from . import corretoras as cadastro_corretoras
 from . import lotes
 
 ORIGEM_B3 = "b3"
@@ -35,6 +36,13 @@ _TOLERANCIA_VALOR = Decimal("0.05")
 
 class ExtratoInvalido(Exception):
     pass
+
+
+def _encontrar_corretora(indice, nome):
+    try:
+        return cadastro_corretoras.encontrar(indice, nome)
+    except cadastro_corretoras.CorretoraAmbigua as erro:
+        raise ExtratoInvalido(str(erro)) from erro
 
 
 def _normalizar(texto) -> str:
@@ -51,7 +59,12 @@ _PROVENTOS = {
     "reembolso": "REEMBOLSO_JSCP",
 }
 # Movimentação → operação (somente créditos).
-_OPERACOES_MOVIMENTACAO = {"amortizacao": "AMORTIZACAO", "desdobro": "DESDOBRAMENTO"}
+_OPERACOES_MOVIMENTACAO = {
+    "amortizacao": "AMORTIZACAO",
+    "desdobro": "DESDOBRAMENTO",
+    "r.cap": "R_CAP",
+    "restituicao de capital": "R_CAP",
+}
 _MOTIVOS_IGNORADOS = {
     "transferencia - liquidacao": "Liquidação de compra/venda: use o relatório de Negociação",
     "emprestimo": "Aluguel de ações (BTC): lance em Proventos → Aluguel",
@@ -85,9 +98,10 @@ _COLUNAS_PROVENTOS = {
     "quantidade": "quantidade", "preco unitario": "preco", "valor liquido": "valor",
 }
 _COLUNAS_PLANILHA_OPERACOES = {
-    "ativo": "ticker", "date": "data", "evento": "evento", "qtd": "quantidade", "preco": "preco",
-    "taxas": "taxas", "corretora": "instituicao", "irrf": "irrf", "moeda": "moeda",
+    "ativo": "ticker", "classe": "classe", "date": "data", "evento": "evento", "qtd": "quantidade",
+    "preco": "preco", "taxas": "taxas", "corretora": "instituicao", "irrf": "irrf", "moeda": "moeda",
 }
+_COLUNAS_OPCIONAIS = {"classe"}
 _COLUNAS_PLANILHA_PROVENTOS = {
     "ativo": "ticker", "date": "data", "evento": "evento", "valor": "valor", "irrf": "irrf",
     "taxas": "taxas", "moeda": "moeda", "corretora": "instituicao", "date_com": "data_com",
@@ -211,8 +225,10 @@ def _mapear_cabecalho(linhas: list[tuple]) -> tuple[str, int, dict[str, int]]:
     for indice, linha in enumerate(linhas[:20]):
         nomes = {_normalizar(c): i for i, c in enumerate(linha) if c is not None}
         for relatorio, colunas in _RELATORIOS:
-            if all(nome in nomes for nome in colunas):
-                return relatorio, indice, {campo: nomes[nome] for nome, campo in colunas.items()}
+            if all(nome in nomes for nome in colunas if nome not in _COLUNAS_OPCIONAIS):
+                return relatorio, indice, {
+                    campo: nomes[nome] for nome, campo in colunas.items() if nome in nomes
+                }
     raise ExtratoInvalido(
         "Formato não reconhecido. Use os relatórios Negociação, Movimentação ou Proventos recebidos da Área do "
         "Investidor da B3, ou a planilha de operações do app (.xlsx)."
@@ -277,7 +293,8 @@ def ler(conteudo: bytes, correcoes: dict[int, dict[str, str]] | None = None) -> 
             linha.campos = {
                 campo: _texto_campo(valor.get(campo))
                 for campo in (
-                    "ticker", "data", "evento", "quantidade", "preco", "taxas", "instituicao", "irrf", "moeda",
+                    "ticker", "classe", "data", "evento", "quantidade", "preco", "taxas", "instituicao", "irrf",
+                    "moeda",
                 )
             }
             linhas.append(linha)
@@ -334,6 +351,7 @@ def _linha_planilha_operacoes(numero, dia, valor, qtd, preco, instituicao) -> Li
     from ..dominio import EVENTOS_PLANILHA_NAO_SUPORTADOS, EVENTOS_PLANILHA_OPERACOES
 
     ticker = str(valor["ticker"] or "").strip().upper()
+    classe = str(valor.get("classe") or "").strip().upper()
     evento_bruto = str(valor.get("evento") or "").strip().upper()
     evento = EVENTOS_PLANILHA_OPERACOES.get(evento_bruto)
     moeda = str(valor.get("moeda") or "BRL").strip().upper()
@@ -354,6 +372,8 @@ def _linha_planilha_operacoes(numero, dia, valor, qtd, preco, instituicao) -> Li
         linha.status, linha.motivo = "ignorado", f"Linha {numero}: data ausente ou inválida"
     elif not re.fullmatch(r"[A-Z0-9]{1,16}", ticker):
         linha.status, linha.motivo = "ignorado", f"Linha {numero}: ativo inválido ou ausente"
+    elif len(classe) > 20:
+        linha.status, linha.motivo = "ignorado", f"Linha {numero}: classe deve ter até 20 caracteres"
     elif not evento_bruto:
         linha.status, linha.motivo = "ignorado", f"Linha {numero}: coluna Evento vazia"
     elif campos_invalidos:
@@ -402,6 +422,9 @@ def _linha_planilha_operacoes(numero, dia, valor, qtd, preco, instituicao) -> Li
         elif evento == "AMORTIZACAO":
             quantidade_valida = qtd > 0
             preco_valido = preco < 0
+        elif evento == "R_CAP":
+            quantidade_valida = qtd == 0
+            preco_valido = preco > 0
         elif evento == "CISAO":
             quantidade_valida = qtd > 0
             preco_valido = preco <= 0
@@ -427,11 +450,12 @@ def _linha_planilha_operacoes(numero, dia, valor, qtd, preco, instituicao) -> Li
             )
         else:
             linha.tipo, linha.evento = "OPERACAO", evento
-            linha.quantidade = quantidade
-            linha.preco, linha.valor = preco, abs(qtd * preco)
+            linha.quantidade = Decimal(0) if evento == "R_CAP" else quantidade
+            linha.preco = -preco if evento == "R_CAP" else preco
+            linha.valor = preco if evento == "R_CAP" else abs(qtd * preco)
             linha.taxas, linha.irrf = taxas, irrf
             linha.daytrade = daytrade
-            linha.classe = _classe_inferida(ticker, None)
+            linha.classe = classe or _classe_inferida(ticker, None)
     return linha
 
 
@@ -504,13 +528,21 @@ def _linha_movimentacao(numero, dia, valor, qtd, preco, total, instituicao, rela
                 linha.motivo = "Reembolso de provento de ações emprestadas (BTC): confira se foi JCP ou dividendo"
     elif movimentacao in _OPERACOES_MOVIMENTACAO and credito:
         evento = _OPERACOES_MOVIMENTACAO[movimentacao]
-        if qtd <= 0 or (evento == "AMORTIZACAO" and valor_total <= 0):
+        if (evento == "R_CAP" and valor_total <= 0) or (
+            evento != "R_CAP" and (qtd <= 0 or (evento == "AMORTIZACAO" and valor_total <= 0))
+        ):
             linha.status, linha.motivo = "ignorado", "Quantidade ou valor ausente"
         else:
-            linha.tipo, linha.evento, linha.quantidade = "OPERACAO", evento, qtd
+            linha.tipo, linha.evento = "OPERACAO", evento
+            linha.quantidade = Decimal(0) if evento == "R_CAP" else qtd
             # Amortização reduz custo: preço negativo por cota (convenção do app).
-            linha.preco = -(valor_total / qtd).quantize(Decimal("0.00000001")) if evento == "AMORTIZACAO" else Decimal(0)
-            linha.valor = valor_total if evento == "AMORTIZACAO" else Decimal(0)
+            if evento == "AMORTIZACAO":
+                linha.preco = -(valor_total / qtd).quantize(Decimal("0.00000001"))
+            elif evento == "R_CAP":
+                linha.preco = -valor_total
+            else:
+                linha.preco = Decimal(0)
+            linha.valor = valor_total if evento in ("AMORTIZACAO", "R_CAP") else Decimal(0)
     else:
         linha.status = "ignorado"
         linha.motivo = _MOTIVOS_IGNORADOS.get(movimentacao) or (
@@ -584,7 +616,7 @@ def analisar(
     _comparar_existentes(sessao, investidor_id, validas)
 
     ativos = {a.ticker: a for a in sessao.scalars(select(Ativo).where(Ativo.ticker.in_({lin.ticker for lin in validas})))}
-    corretoras = {_normalizar(c.nome).upper(): c for c in sessao.scalars(select(Corretora))}
+    corretoras = cadastro_corretoras.indice(sessao)
     previa = Previa(relatorio, linhas)
     for linha in validas:
         if linha.status in ("novo", "verificar"):
@@ -592,7 +624,7 @@ def analisar(
                 previa.ativos_novos.setdefault(linha.ticker, linha.classe or "AÇÃO")
             if linha.instituicao:
                 nome = _nome_corretora(linha.instituicao)
-                if nome not in corretoras and nome not in previa.corretoras_novas:
+                if not _encontrar_corretora(corretoras, nome) and nome not in previa.corretoras_novas:
                     previa.corretoras_novas.append(nome)
     return previa
 
@@ -667,7 +699,7 @@ def importar(
     previa = analisar(sessao, investidor_id, conteudo, correcoes)
     resultado = Resultado()
     ativos = {a.ticker: a for a in sessao.scalars(select(Ativo))}
-    corretoras = {_normalizar(c.nome).upper(): c for c in sessao.scalars(select(Corretora))}
+    corretoras = cadastro_corretoras.indice(sessao)
     lote: LoteImportacao | None = None
 
     def lote_id() -> int:
@@ -695,11 +727,13 @@ def importar(
         if not linha.instituicao:
             return None
         nome = _nome_corretora(linha.instituicao)
-        if nome not in corretoras:
-            corretoras[nome] = Corretora(nome=nome)
-            sessao.add(corretoras[nome])
+        existente = _encontrar_corretora(corretoras, nome)
+        if existente is None:
+            existente = Corretora(nome=nome)
+            sessao.add(existente)
+            corretoras[cadastro_corretoras.normalizar(nome)] = {-1: existente}
             resultado.corretoras_criadas.append(nome)
-        return corretoras[nome]
+        return existente
 
     for linha in previa.linhas:
         if linha.status != "novo" and not (linha.status == "verificar" and linha.numero in incluir):

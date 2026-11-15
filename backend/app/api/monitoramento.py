@@ -45,7 +45,11 @@ def qualidade_dados(
             if tratamento.fingerprint in fingerprints_atuais:
                 continue
             investidores_registro = set(json.loads(tratamento.investidor_ids))
-            if investidores and not investidores_registro.intersection(investidores):
+            if (
+                investidores
+                and tratamento.codigo != "corretoras_duplicadas"
+                and not investidores_registro.intersection(investidores)
+            ):
                 continue
             resultado.append(
                 VerificacaoOut(

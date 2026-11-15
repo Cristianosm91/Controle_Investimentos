@@ -11,9 +11,9 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..models import Ativo, IndiceMensal, Investidor, MovCaixa, Operacao, Provento
-from . import configuracao, parametros
+from . import configuracao, corretoras, parametros
 from .carteira import carregar_posicoes, ultimas_cotacoes
-from .posicao import Carteira, Movimento, consolidar, ordenar
+from .posicao import Movimento, consolidar, ordenar
 
 _LIMITE_ITENS = 50
 
@@ -104,6 +104,18 @@ def verificar(sessao: Session, investidor_ids: Sequence[int] | None = None, hoje
             ).hexdigest()
             resultado.append(v)
 
+    for primeira, segunda in corretoras.possiveis_duplicatas(sessao):
+        adicionar(
+            Verificacao(
+                "corretoras_duplicadas", "Possível duplicidade de corretoras", "aviso",
+                "Os nomes são semelhantes. Confira os cadastros e una-os manualmente se forem a mesma instituição. "
+                "Esta verificação considera todas as corretoras, independentemente do investidor selecionado.",
+                "/configuracoes?secao=corretoras",
+            ),
+            [f"{primeira.nome} · {segunda.nome}"],
+            identidade=[(primeira.id, primeira.nome), (segunda.id, segunda.nome)],
+        )
+
     adicionar(
         Verificacao(
             "posicao_negativa", "Posição negativa", "erro",
@@ -189,7 +201,6 @@ def verificar(sessao: Session, investidor_ids: Sequence[int] | None = None, hoje
         )
         for r in operacoes
     ]
-    carteira_audit = Carteira()
     saidas_at = []
     entradas_at = []
     compras_c = []
@@ -197,19 +208,15 @@ def verificar(sessao: Session, investidor_ids: Sequence[int] | None = None, hoje
     for m in ordenar(todas_ops):
         if m.evento == "TRANSFERENCIA":
             if m.quantidade < 0:
-                p_ant = carteira_audit.posicoes.get((m.investidor_id, m.ativo_id))
-                pm_ant = p_ant.preco_medio if p_ant else Decimal(0)
-                custo_saida = abs(m.quantidade) * pm_ant
                 saidas_at.append({
                     "id": m.ordem, "inv_id": m.investidor_id, "ativo_id": m.ativo_id,
-                    "data": m.data, "qtd": abs(m.quantidade), "custo": custo_saida,
+                    "data": m.data, "qtd": abs(m.quantidade),
                     "volume": abs(m.quantidade * m.preco * m.cambio), "pareado": False,
                 })
             else:
-                custo_entrada = m.quantidade * m.preco * m.cambio
                 entradas_at.append({
                     "id": m.ordem, "inv_id": m.investidor_id, "ativo_id": m.ativo_id,
-                    "data": m.data, "qtd": m.quantidade, "custo": custo_entrada,
+                    "data": m.data, "qtd": m.quantidade,
                     "volume": abs(m.quantidade * m.preco * m.cambio), "pareado": False,
                 })
         elif m.evento == "C" and not m.daytrade:
@@ -217,7 +224,6 @@ def verificar(sessao: Session, investidor_ids: Sequence[int] | None = None, hoje
                 "id": m.ordem, "inv_id": m.investidor_id, "ativo_id": m.ativo_id,
                 "data": m.data, "volume": (m.quantidade * m.preco + m.taxas) * m.cambio,
             })
-        carteira_audit.aplicar(m)
 
     itens_custo_divergente = []
     itens_compra_troca = []
@@ -238,17 +244,17 @@ def verificar(sessao: Session, investidor_ids: Sequence[int] | None = None, hoje
             if s["inv_id"] == ent["inv_id"] and not s["pareado"] and abs((ent["data"] - s["data"]).days) <= 7
         ]
         if candidatos:
-            melhor = min(candidatos, key=lambda s: (abs(ent["custo"] - s["custo"]), abs((ent["data"] - s["data"]).days)))
+            melhor = min(candidatos, key=lambda s: (abs(ent["volume"] - s["volume"]), abs((ent["data"] - s["data"]).days)))
             melhor["pareado"] = True
             ent["pareado"] = True
-            dif = abs(ent["custo"] - melhor["custo"])
+            dif = abs(ent["volume"] - melhor["volume"])
             if dif > Decimal("0.05"):
                 tik_saida = todos_ativos[melhor["ativo_id"]].ticker
                 tik_entrada = todos_ativos[ent["ativo_id"]].ticker
                 itens_custo_divergente.append(
                     f"{tik_saida} → {tik_entrada} ({ent['data']:%d/%m/%Y}): "
-                    f"custo de saída R$ {melhor['custo']:.2f} difere da entrada "
-                    f"R$ {ent['custo']:.2f} (dif: R$ {dif:.2f})"
+                    f"valor de saída R$ {melhor['volume']:.2f} difere da entrada "
+                    f"R$ {ent['volume']:.2f} (dif: R$ {dif:.2f})"
                 )
                 ids_custo_divergente.extend((melhor["id"], ent["id"]))
                 ativos_custo_divergente.extend((melhor["ativo_id"], ent["ativo_id"]))
@@ -298,8 +304,7 @@ def verificar(sessao: Session, investidor_ids: Sequence[int] | None = None, hoje
     adicionar(
         Verificacao(
             "transferencia_divergente", "Custo de transferência divergente", "erro",
-            "Na troca de ticker (AT), o custo herdado na entrada deve ser rigorosamente igual ao PM do ticker de origem "
-            "vezes a quantidade. "
+            "Nas duas pontas da troca de ticker (AT), o valor informado deve ser igual. "
             "Diferenças distorcem o preço médio e o valor investido.",
             "/operacoes",
         ),

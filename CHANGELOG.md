@@ -6,9 +6,90 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 
 ## [Não lançado]
 
+## [1.6.0] - 2026-11-15
+
+### Adicionado
+- Reconhecimento da restituição de capital (`R.CAP`) na importação de operações e no cálculo do custo e da rentabilidade.
+- Refinamento visual e de UX nas páginas, componentes, navegação e tabelas do InvestHub+.
+
+### Corrigido
+- Evita coordenadas SVG inválidas nos gráficos quando os valores são constantes.
+
+## [1.5.0] - 2026-11-14
+
+### Adicionado
+- Correção explícita de moeda na edição do ativo: confirmação, backup verificado e PTAX histórica para operações/proventos, sem converter preços ou valores e sem alterar movimentos de caixa não vinculados.
+- Apuração de IR: lucro líquido após IRRF conciliado com a carteira, separado da base fiscal; valores retidos, compensados e acumulados, com ajuda “?” sobre o dedo-duro.
+- CDI diário oficial (SGS 12), capitalização por data publicada e taxa adicional em base 252; migração de cache sem alterar lançamentos existentes.
+- Correção datada de saldo bruto em ativos automáticos, preservada nas atualizações e usada como referência para os próximos rendimentos.
+- Ajuda contextual em quadros, gráficos e indicadores de Resumo, Portfólio, Rentabilidade, Proventos, Aluguel, Caixa, Cripto, Metas, Alocação, Radar, Renda fixa, Status do ativo, Imposto de Renda e Valuation; acessível também por foco no teclado.
+- Configurações → Corretoras: edição e união manual com transferência de lançamentos, preservação de apelidos e proteção contra CNPJs conflitantes.
+- Qualidade dos dados: avisos globais de possíveis duplicidades de corretoras, com acesso ao cadastro.
+- Configurações → Investidores: **Excluir com todos os dados**, com contagem do que será apagado, confirmação digitando o nome e backup verificado obrigatório antes da exclusão (`GET /api/investidores/{id}/exclusao`, `DELETE /api/investidores/{id}/completo`).
+- Backup automático verificado antes de aplicar migrações pendentes no `iniciar.bat`.
+- Cópia opcional de cada backup para outra pasta (`INVESTHUB_BACKUP_COPIA_DIR`).
+- Log em arquivo com rotação (`investhub.log`, 5 MB × 5) e identificador de requisição (`X-Request-ID`).
+- Status das atualizações com o estado **Concluída com falhas** quando alguma fonte falha ou responde vazio.
+- Portfólio e Resumo: selo "Cotação de dd/mm" e aviso de ativos com cotação desatualizada.
+- Gráficos com descrição acessível e tabela "Ver dados do gráfico"; link "Pular para o conteúdo", título da aba por página e tela de erro com "Recarregar" no lugar de página em branco.
+- Testes de limites do IR (R$ 20 mil, R$ 35 mil, DARF mínimo, virada 2023→2024), testes de migração (modelos × schema e ida e volta) e build da interface no `lint.bat`.
+- Suíte E2E com Playwright (`e2e.bat`): smoke de todas as rotas, fluxos críticos e acessibilidade com axe-core, em banco descartável com dados fictícios. Novas dependências de desenvolvimento: `@playwright/test`, `@axe-core/playwright` e `@types/node`.
+
+### Alterado
+- CDI não usa mais pró-rata mensal/calendário 365 para o saldo efetivo; ausência de histórico é informada e o rendimento para no vencimento cadastrado. A projeção futura continua explicitamente estimada; demais indexadores e fórmula de rentabilidade mensal foram preservados.
+- Importações reconhecem nomes anteriores das corretoras unificadas e recusam nomes ambíguos. A migração de apelidos não admite downgrade automático; faça backup antes de atualizar.
+- Confirmação antes de excluir um grupo de investidores e de remover um ativo do Radar.
+- Erros inesperados da API retornam JSON com mensagem amigável e `erro_id`; mensagens de status das atualizações não exibem detalhes técnicos (SQL, URLs, pastas).
+- Acessibilidade: diálogos com foco preso e devolvido ao fechar, cabeçalhos ordenáveis do Portfólio operáveis pelo teclado, campos sem rótulo corrigidos e menu recolhido fora da navegação por Tab.
+
+### Corrigido
+- Backups passam a ser verificados com `integrity_check` após a criação; arquivo inválido é descartado sem acionar a retenção.
+- Restauração: se a migração do backup restaurado falhar, o banco anterior é recolocado automaticamente.
+- Câmbio gravado pelos jobs de cotações e cripto no mesmo minuto não gera mais erro de chave duplicada.
+- Radar: o link "Atualizações" do texto de ajuda abre a seção correta de Configurações e é sublinhado (não depende só da cor).
+- Qualidade de Dados: após corrigir uma operação, mantém na lista as demais operações ainda pendentes da mesma regra.
+
+## [1.4.0] - 2026-11-08
+
+### Adicionado
+- Barra lateral recolhível com preferência persistida, identificação dos itens por tooltip e navegação em drawer em telas menores.
+- Operações: criação conjunta das pernas de saída e entrada em trocas de ticker, com vínculo entre os lançamentos; operações de transferência existentes também podem ser vinculadas ou desvinculadas.
+- Filtro por evento na listagem de operações e na API.
+- Configurações → Classes dos ativos: opção de listar todos os ativos e buscar por ticker, incluindo cadastros sem posição aberta.
+- Valuation: dicas explicativas para as premissas de cálculo.
+
+### Alterado
+- Cadastro rápido de ativos nos campos de ticker solicita classe, mercado e moeda explicitamente.
+
+### Corrigido
+- Operações: ações Editar/Excluir alinhadas com ou sem vínculo de transferência; textos longos não ampliam as colunas.
+- Eventos compactos na tabela (Desd./Grup., Troca Ticker e Venda subscr.), com legenda no botão de ajuda do cabeçalho e nomes completos preservados na exportação.
+- Filtro de operações contempla todos os eventos do cadastro de domínio.
+- Valuation: unidades e campos das premissas alinhados mesmo quando os títulos ocupam mais de uma linha.
+
+## [1.3.0] - 2026-11-07
+
 ### Adicionado
 - Modelo personalizado de proventos com os tipos da planilha de referência e importação de IRRF, taxas, moeda, data-com e observação.
 - Nomes explícitos para modelos personalizados e modelos da B3 na importação.
+- Coluna opcional de classe no modelo personalizado de operações; arquivos antigos continuam aceitos e ativos já cadastrados preservam a classe.
+- Configurações → Classes dos ativos: edição confirmada de classe e bolsa das posições abertas, preservando moeda e lançamentos.
+- Botão para desfazer o lote recém-importado diretamente no resultado da importação.
+- Operações e Proventos: filtro por corretora e seleção de intervalos com Shift, mantendo seleção individual e exclusão múltipla.
+- Fundamentos básicos via Yahoo Finance para ações e outros ativos listados nos mercados dos EUA; a disponibilidade dos indicadores varia por ativo.
+
+### Corrigido
+- Fundamentos: resultado da atualização diferencia ativos fora dos mercados cobertos, tickers ausentes na fonte, falhas de consulta, classe incompatível e códigos históricos conhecidos; sugestões de ticker não alteram cadastros.
+- Respostas vazias do Yahoo são sinalizadas como falhas de consulta; os dados disponíveis de outros ativos são preservados.
+- Consulta SGS do Banco Central repete até três vezes em falhas transitórias de transporte, HTTP 429 ou 5xx.
+
+### Alterado
+- Versão do backend e metadados do frontend sincronizados em 1.3.0, consolidando também o modelo personalizado de proventos integrado após 1.2.1 sem incremento anterior.
+- Documentação de importação, seleção, classificação, fontes de fundamentos e API atualizada. Integração SEC EDGAR permanece adiada.
+
+### Limitações conhecidas
+- O Yahoo Finance tem cobertura variável e termos de uso pessoal; FFO/AFFO de REITs e métricas próprias de ETFs não são calculados nem substituídos por indicadores de ações.
+- A consulta real ao Yahoo neste ambiente retornou erros de certificado e HTTP 401; sucesso de coleta externa ainda não foi validado, embora os testes automatizados passem.
 
 ## [1.2.1] - 2026-11-02
 
@@ -86,8 +167,7 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 
 ## [1.0.0] - 2026-10-31
 
-Primeira versão estável: substitui a planilha de controle de investimentos (Fases 0 a 6 do
-[plano de desenvolvimento](PLANO_DESENVOLVIMENTO.md)).
+Primeira versão estável: substitui a planilha de controle de investimentos (Fases 0 a 6).
 
 ### Adicionado
 - Multi-investidor com grupos e seletor global; IR sempre por CPF.
@@ -112,7 +192,11 @@ Primeira versão estável: substitui a planilha de controle de investimentos (Fa
 - Arquivos da B3 com dimensão declarada como `A1` eram lidos só até a primeira linha.
 - Quantidades em texto pt-BR com ponto de milhar (`1.350`) eram lidas como decimais.
 
-[Não lançado]: https://github.com/Cristianosm91/Controle_Investimentos/compare/v1.2.1...HEAD
+[Não lançado]: https://github.com/Cristianosm91/Controle_Investimentos/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/Cristianosm91/Controle_Investimentos/compare/v1.5.0...v1.6.0
+[1.5.0]: https://github.com/Cristianosm91/Controle_Investimentos/compare/v1.4.0...v1.5.0
+[1.4.0]: https://github.com/Cristianosm91/Controle_Investimentos/compare/v1.3.0...v1.4.0
+[1.3.0]: https://github.com/Cristianosm91/Controle_Investimentos/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/Cristianosm91/Controle_Investimentos/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/Cristianosm91/Controle_Investimentos/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/Cristianosm91/Controle_Investimentos/compare/v1.0.0...v1.1.0

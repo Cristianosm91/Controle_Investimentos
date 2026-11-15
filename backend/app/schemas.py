@@ -76,11 +76,28 @@ class CorretoraIn(BaseModel):
     nome: str = Field(min_length=1, max_length=60)
     cnpj: str | None = Field(default=None, pattern=r"^\d{14}$")
 
+    @field_validator("nome")
+    @classmethod
+    def _nome_corretora(cls, valor: str) -> str:
+        valor = valor.strip()
+        if not valor:
+            raise ValueError("Informe o nome da corretora")
+        return valor
+
+
+class CorretoraUniaoIn(BaseModel):
+    destino_id: int = Field(ge=1)
+
+
+class CorretoraApelidoOut(_Saida):
+    nome: str
+
 
 class CorretoraOut(_Saida):
     id: int
     nome: str
     cnpj: str | None
+    apelidos: list[CorretoraApelidoOut] = Field(default_factory=list)
 
 
 # ---------- Ativos ----------
@@ -93,6 +110,7 @@ class AtivoIn(BaseModel):
     subsetor: str | None = None
     moeda: str = "BRL"
     mercado: str | None = "BVMF"
+    confirmar_correcao_moeda: bool = False
     cotacao_automatica: bool = True
     indexador: str | None = None
     indexador_pct: Decimal | None = Field(default=None, gt=0, description="Fração do índice (1 = 100%)")
@@ -142,6 +160,29 @@ class AtivoIn(BaseModel):
             raise ValueError("Ativo prefixado precisa de taxa a.a.")
         if self.indexador != "PRE" and self.indexador_pct is None:
             self.indexador_pct = Decimal(1)
+        return self
+
+
+class ClasseAtivoIn(BaseModel):
+    classe: str | None = Field(default=None, min_length=1, max_length=20)
+    mercado: Literal["BVMF", "NASDAQ", "NYSE", "NYSEARCA", "NYSEAMERICAN", "BATS"] | None = None
+    moeda: Literal["BRL", "USD", "EUR"] | None = None
+    confirmar_correcao_moeda: bool = False
+
+    @field_validator("classe")
+    @classmethod
+    def _classe(cls, valor: str | None) -> str:
+        if valor is None:
+            raise ValueError("Informe a classe do ativo")
+        classe = valor.strip().upper()
+        if not classe:
+            raise ValueError("Informe a classe do ativo")
+        return classe
+
+    @model_validator(mode="after")
+    def _campos(self) -> "ClasseAtivoIn":
+        if not self.model_fields_set & {"classe", "mercado", "moeda"}:
+            raise ValueError("Informe a classe, bolsa ou moeda do ativo")
         return self
 
 
@@ -376,12 +417,40 @@ class OperacaoIn(BaseModel):
             "TRANSFERENCIA": q != 0 and p >= 0,
             "AMORTIZACAO": q > 0 and p <= 0,
             "CISAO": q > 0 and p <= 0,
+            "R_CAP": q == 0 and p < 0,
         }
         if not regras[ev]:
             raise ValueError(f"Quantidade/preço incompatíveis com o evento {ev}")
         if self.daytrade and ev not in ("C", "V"):
             raise ValueError("Day trade só aceita compra (C) e venda (V)")
         return self
+
+
+class TrocaTickerIn(BaseModel):
+    investidor_id: int = Field(gt=0)
+    ativo_origem_id: int = Field(gt=0)
+    ativo_destino_id: int = Field(gt=0)
+    corretora_id: int | None = Field(default=None, gt=0)
+    data: date
+    quantidade_origem: Decimal = Field(gt=0)
+    quantidade_destino: Decimal = Field(gt=0)
+    preco_origem: Decimal = Field(ge=0)
+    taxas: Decimal = Field(default=Decimal(0), ge=0)
+    irrf: Decimal = Field(default=Decimal(0), ge=0)
+    moeda: str = "BRL"
+    cambio: Decimal = Field(default=Decimal(1), gt=0)
+    observacao: str | None = Field(default=None, max_length=120)
+
+    @model_validator(mode="after")
+    def _validar(self) -> "TrocaTickerIn":
+        if self.ativo_origem_id == self.ativo_destino_id:
+            raise ValueError("Origem e destino devem ser ativos diferentes")
+        _validar_moeda(self.moeda, self.cambio)
+        return self
+
+
+class VinculoTransferenciaIn(BaseModel):
+    operacao_id: int = Field(gt=0)
 
 
 class OperacaoOut(_Saida):
@@ -402,6 +471,8 @@ class OperacaoOut(_Saida):
     daytrade: bool
     observacao: str | None
     origem: str
+    transferencia_pareada_id: int | None = None
+    ticker_transferencia: str | None = None
 
 
 # ---------- Proventos ----------
@@ -518,6 +589,7 @@ class PosicaoOut(BaseModel):
     lucro_realizado: Num
     lucro_daytrade: Num
     proventos: Num
+    aluguel: Num
     proventos_12m: Num | None = None
     yoc_12m: Num | None = None
     tir_aa: float | None = None
@@ -603,6 +675,8 @@ class TarefaOut(BaseModel):
     mensagem: str | None
     duracao_s: float | None
     proxima: datetime | None
+    # "ok" | "parcial" (concluída com falhas de fonte) | "falha"; None = ainda não executada.
+    status: Literal["ok", "parcial", "falha"] | None = None
 
 
 class BackupOut(BaseModel):
@@ -1015,6 +1089,7 @@ class MesRentabilidadeOut(BaseModel):
     investido: Num
     mercado: Num
     proventos: Num
+    aluguel: Num
     lucro_trades: Num
     lucro_daytrade: Num
     fluxo: Num
@@ -1140,6 +1215,8 @@ class CategoriaMesOut(BaseModel):
     categoria: str
     vendas: Num
     lucro: Num
+    lucro_liquido: Num
+    irrf: Num
     isento: bool
     base: Num
     aliquota: Num | None
@@ -1395,3 +1472,24 @@ class MetaOut(BaseModel):
     aporte_necessario: Num
     rendimento_usado: Num | None
     serie: list[PontoMetaOut]
+
+
+class BackupGeradoOut(BackupOut):
+    # Falha não fatal ao copiar para a pasta secundária (INVESTHUB_BACKUP_COPIA_DIR).
+    aviso_copia: str | None = None
+
+
+class InvestidorRefOut(BaseModel):
+    id: int
+    nome: str
+
+
+class ExclusaoInvestidorResumoOut(BaseModel):
+    investidor: InvestidorRefOut
+    contagens: dict[str, int]
+    backup_disponivel: bool
+
+
+class ExclusaoInvestidorOut(BaseModel):
+    backup: str
+    removidos: dict[str, int]
