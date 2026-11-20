@@ -10,6 +10,12 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 - Operações de cripto preservam moeda e valores originais em BRL, USD, EUR ou GBP; câmbio PTAX histórico para USD, taxas em moeda separada e preferência de exibição por moeda.
 - Trocas vinculadas entre criptomoedas gravam as duas pernas com o câmbio e os metadados históricos da operação.
 
+## [1.6.1] - 2026-11-20
+
+### Alterado
+- Melhora os rótulos, o alinhamento e a responsividade dos filtros de operações, proventos e rentabilidade.
+- Aprimora o contraste dos estados de interação e a navegação por teclado no seletor de investidores.
+
 ## [1.6.0] - 2026-11-15
 
 ### Adicionado
@@ -196,7 +202,8 @@ Primeira versão estável: substitui a planilha de controle de investimentos (Fa
 - Arquivos da B3 com dimensão declarada como `A1` eram lidos só até a primeira linha.
 - Quantidades em texto pt-BR com ponto de milhar (`1.350`) eram lidas como decimais.
 
-[Não lançado]: https://github.com/Cristianosm91/Controle_Investimentos/compare/v1.6.0...HEAD
+[Não lançado]: https://github.com/Cristianosm91/Controle_Investimentos/compare/v1.6.1...HEAD
+[1.6.1]: https://github.com/Cristianosm91/Controle_Investimentos/compare/v1.6.0...v1.6.1
 [1.6.0]: https://github.com/Cristianosm91/Controle_Investimentos/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/Cristianosm91/Controle_Investimentos/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/Cristianosm91/Controle_Investimentos/compare/v1.3.0...v1.4.0

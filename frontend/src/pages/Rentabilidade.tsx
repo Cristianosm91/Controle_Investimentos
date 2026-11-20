@@ -163,15 +163,17 @@ export function Rentabilidade() {
     <section>
       <div className="titulo-linha">
         <h1>Rentabilidade</h1>
-        <div className="abas sem-borda">
-          {PERIODOS.map((p) => (
-            <button key={p.id} className={p.id === periodo ? "aba ativa" : "aba"} onClick={() => setPeriodo(p.id)}>
-              {p.rotulo}
-            </button>
-          ))}
-          <label>
-            Classe
-            <select aria-label="Filtrar rentabilidade por classe" value={classe} onChange={(e) => setClasse(e.target.value)}>
+        <div className="abas-controles">
+          <div className="abas sem-borda">
+            {PERIODOS.map((p) => (
+              <button key={p.id} className={p.id === periodo ? "aba ativa" : "aba"} onClick={() => setPeriodo(p.id)}>
+                {p.rotulo}
+              </button>
+            ))}
+          </div>
+          <label className="campo-filtro campo-filtro-inline">
+            <span>Classe</span>
+            <select value={classe} onChange={(e) => setClasse(e.target.value)}>
               <option value="">Todas as classes</option>
               {[...new Set(ativos.map((ativo) => ativo.classe))].sort().map((c) => (
                 <option key={c} value={c}>

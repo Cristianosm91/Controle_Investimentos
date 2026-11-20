@@ -97,6 +97,7 @@ button.perigo {
 button:not(:disabled):hover {
   background-color: var(--primaria-hover);
   border-color: var(--primaria-hover);
+  color: #fff;
 }
 
 button.secundario:not(:disabled):hover {
@@ -418,6 +419,12 @@ select {
   border-color: var(--borda);
 }
 
+button.seletor-botao:not(:disabled):hover {
+  background: var(--primaria-suave);
+  border-color: #bfdbfe;
+  color: var(--texto);
+}
+
 .seletor-menu {
   position: absolute;
   right: 0;
@@ -480,6 +487,13 @@ select {
 
 .titulo-linha h1 {
   margin: 0;
+}
+
+.titulo-linha > .acoes.filtros {
+  flex: 1 1 100%;
+  justify-content: flex-start;
+  align-items: flex-end;
+  gap: 0.75rem;
 }
 
 .acoes {
@@ -738,6 +752,27 @@ button.ajuda-info svg {
   width: min(320px, 80vw);
 }
 
+.filtros input[placeholder^="Ex.:"] {
+  width: min(320px, 80vw);
+}
+
+.campo-filtro {
+  display: grid;
+  align-content: start;
+  gap: 0.3rem;
+  min-width: 0;
+  color: var(--sutil);
+  font-size: 0.85rem;
+}
+
+.campo-filtro > select {
+  min-width: 11rem;
+}
+
+.campo-filtro > .campo-data {
+  width: 100%;
+}
+
 .linha-correcao td {
   background: var(--painel);
 }
@@ -754,6 +789,36 @@ button.ajuda-info svg {
   flex-wrap: wrap;
 }
 
+.abas-controles {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.titulo-linha > .abas-controles {
+  flex: 1 1 100%;
+}
+
+.abas-controles > .abas {
+  flex: 1 1 30rem;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.abas-controles > .campo-filtro {
+  flex: 0 1 13rem;
+  margin-left: auto;
+}
+
+.abas-controles > .campo-filtro.campo-filtro-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex: 0 0 auto;
+}
+
 .aba {
   background: none;
   color: var(--sutil);
@@ -765,6 +830,35 @@ button.ajuda-info svg {
 .aba.ativa {
   color: var(--primaria);
   border-bottom-color: var(--primaria);
+}
+
+button.aba:not(:disabled):hover {
+  background: var(--primaria-suave);
+  border-bottom-color: transparent;
+  color: var(--primaria-hover);
+}
+
+button.aba.ativa:not(:disabled):hover {
+  border-bottom-color: var(--primaria-hover);
+}
+
+@media (max-width: 720px) {
+  .abas-controles {
+    align-items: stretch;
+  }
+
+  .abas-controles > .abas {
+    flex-basis: 100%;
+  }
+
+  .abas-controles > .campo-filtro {
+    flex: 1 1 100%;
+    margin-left: 0;
+  }
+
+  .abas-controles > .campo-filtro.campo-filtro-inline {
+    flex: 1 1 100%;
+  }
 }
 
 .formulario {

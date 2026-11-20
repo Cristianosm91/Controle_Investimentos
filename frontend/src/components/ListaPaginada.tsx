@@ -242,48 +242,50 @@ export function ListaPaginada<T>({
         <h1>{titulo}</h1>
         <div className="acoes filtros">
           {filtroTicker && (
-            <input
-              placeholder="Ativos (ex.: PETR4, VALE3)"
-              aria-label="Filtrar por um ou mais ativos"
-              value={ticker}
-              onChange={(e) => filtrar(() => setTicker(e.target.value.toUpperCase()))}
-            />
+            <label className="campo-filtro">
+              <span>Ativos</span>
+              <input
+                placeholder="Ex.: PETR4, VALE3"
+                value={ticker}
+                onChange={(e) => filtrar(() => setTicker(e.target.value.toUpperCase()))}
+              />
+            </label>
           )}
           {classes && (
-            <select
-              aria-label="Classe do ativo"
-              value={classeSelecionada}
-              onChange={(e) =>
-                filtrar(() => (aoMudarClasse ? aoMudarClasse(e.target.value) : setClasse(e.target.value)))
-              }
-            >
-              <option value="">Todas as classes</option>
-              {classes.map((opcao) => (
-                <option key={opcao.valor} value={opcao.valor}>
-                  {opcao.rotulo}
-                </option>
-              ))}
-            </select>
+            <label className="campo-filtro">
+              <span>Classe</span>
+              <select
+                value={classeSelecionada}
+                onChange={(e) =>
+                  filtrar(() => (aoMudarClasse ? aoMudarClasse(e.target.value) : setClasse(e.target.value)))
+                }
+              >
+                <option value="">Todas as classes</option>
+                {classes.map((opcao) => (
+                  <option key={opcao.valor} value={opcao.valor}>
+                    {opcao.rotulo}
+                  </option>
+                ))}
+              </select>
+            </label>
           )}
           {eventos && (
-            <select
-              aria-label="Filtrar por evento"
-              value={evento}
-              onChange={(e) => filtrar(() => setEvento(e.target.value))}
-            >
-              <option value="">Todos os eventos</option>
-              {eventos.map((opcao) => (
-                <option key={opcao.valor} value={opcao.valor}>
-                  {opcao.rotulo}
-                </option>
-              ))}
-            </select>
+            <label className="campo-filtro">
+              <span>Evento</span>
+              <select value={evento} onChange={(e) => filtrar(() => setEvento(e.target.value))}>
+                <option value="">Todos os eventos</option>
+                {eventos.map((opcao) => (
+                  <option key={opcao.valor} value={opcao.valor}>
+                    {opcao.rotulo}
+                  </option>
+                ))}
+              </select>
+            </label>
           )}
           {corretoras && (
-            <label>
-              Corretora
+            <label className="campo-filtro">
+              <span>Corretora</span>
               <select
-                aria-label="Filtrar por corretora"
                 value={corretoraId}
                 onChange={(e) => filtrar(() => setCorretoraId(e.target.value))}
               >
@@ -296,8 +298,14 @@ export function ListaPaginada<T>({
               </select>
             </label>
           )}
-          <CampoData valor={inicio} aoMudar={(v) => filtrar(() => setInicio(v))} title="Data inicial" />
-          <CampoData valor={fim} aoMudar={(v) => filtrar(() => setFim(v))} title="Data final" />
+          <label className="campo-filtro">
+            <span>Data inicial</span>
+            <CampoData valor={inicio} aoMudar={(v) => filtrar(() => setInicio(v))} title="Data inicial" />
+          </label>
+          <label className="campo-filtro">
+            <span>Data final</span>
+            <CampoData valor={fim} aoMudar={(v) => filtrar(() => setFim(v))} title="Data final" />
+          </label>
           {cabecalho}
         </div>
       </div>

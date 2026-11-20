@@ -48,7 +48,7 @@ export function Proventos() {
   ];
 
   const abas = (
-    <div className="acoes filtros">
+    <div className="abas-controles">
       <div className="abas">
         <button className={aba === "lancamentos" ? "aba ativa" : "aba"} onClick={() => setAba("lancamentos")}>
           Lançamentos
@@ -60,9 +60,9 @@ export function Proventos() {
           Agenda e projeção
         </button>
       </div>
-      <label>
-        Classe
-        <select aria-label="Filtrar proventos por classe" value={classe} onChange={(e) => setClasse(e.target.value)}>
+      <label className="campo-filtro">
+        <span>Classe</span>
+        <select value={classe} onChange={(e) => setClasse(e.target.value)}>
           <option value="">Todas as classes</option>
           {classes.map((c) => (
             <option key={c.valor} value={c.valor}>

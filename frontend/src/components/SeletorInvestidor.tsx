@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useInvestidor } from "../InvestidorContext";
 
 export function SeletorInvestidor() {
   const { investidores, grupos, selecionados, setSelecionados } = useInvestidor();
   const [aberto, setAberto] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const botaoRef = useRef<HTMLButtonElement>(null);
+  const menuId = useId();
   const ativos = investidores.filter((i) => i.ativo);
 
   useEffect(() => {
@@ -29,33 +31,54 @@ export function SeletorInvestidor() {
     setSelecionados(ativos.filter((i) => i.grupo_id === grupoId).map((i) => i.id));
 
   return (
-    <div className="seletor" ref={ref}>
-      <button className="seletor-botao" onClick={() => setAberto(!aberto)} aria-expanded={aberto}>
+    <div
+      className="seletor"
+      ref={ref}
+      onKeyDown={(e) => {
+        if (e.key === "Escape" && aberto) {
+          e.preventDefault();
+          setAberto(false);
+          botaoRef.current?.focus();
+        }
+      }}
+    >
+      <button
+        type="button"
+        ref={botaoRef}
+        className="seletor-botao"
+        onClick={() => setAberto(!aberto)}
+        aria-expanded={aberto}
+        aria-controls={menuId}
+      >
         <span className="seletor-icone">👤</span> {rotulo} ▾
       </button>
-      {aberto && (
-        <div className="seletor-menu" role="menu">
-          <label className="seletor-item">
-            <input type="checkbox" checked={selecionados.length === 0} onChange={() => setSelecionados([])} />
-            <strong>Todos</strong>
+      <div
+        className="seletor-menu"
+        id={menuId}
+        role="group"
+        aria-label="Filtrar por investidores"
+        hidden={!aberto}
+      >
+        <label className="seletor-item">
+          <input type="checkbox" checked={selecionados.length === 0} onChange={() => setSelecionados([])} />
+          <strong>Todos</strong>
+        </label>
+        {grupos.length > 0 && <div className="seletor-titulo">Grupos</div>}
+        {grupos.map((g) => (
+          <button key={g.id} className="seletor-item seletor-grupo" onClick={() => selecionarGrupo(g.id)}>
+            {g.nome}
+          </button>
+        ))}
+        <div className="seletor-titulo">Investidores</div>
+        {ativos.map((i) => (
+          <label key={i.id} className="seletor-item">
+            <input type="checkbox" checked={selecionados.includes(i.id)} onChange={() => alternar(i.id)} />
+            <span className="bolinha" style={{ background: i.cor }} />
+            {i.nome}
           </label>
-          {grupos.length > 0 && <div className="seletor-titulo">Grupos</div>}
-          {grupos.map((g) => (
-            <button key={g.id} className="seletor-item seletor-grupo" onClick={() => selecionarGrupo(g.id)}>
-              {g.nome}
-            </button>
-          ))}
-          <div className="seletor-titulo">Investidores</div>
-          {ativos.map((i) => (
-            <label key={i.id} className="seletor-item">
-              <input type="checkbox" checked={selecionados.includes(i.id)} onChange={() => alternar(i.id)} />
-              <span className="bolinha" style={{ background: i.cor }} />
-              {i.nome}
-            </label>
-          ))}
-          {ativos.length === 0 && <div className="seletor-vazio">Cadastre investidores em Configurações</div>}
-        </div>
-      )}
+        ))}
+        {ativos.length === 0 && <div className="seletor-vazio">Cadastre investidores em Configurações</div>}
+      </div>
     </div>
   );
 }
