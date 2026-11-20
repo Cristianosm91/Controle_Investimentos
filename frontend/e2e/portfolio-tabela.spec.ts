@@ -2,7 +2,7 @@ import { expect, semear, test } from "./apoio";
 
 test("tabela do portfólio mantém os dados e oferece ações e ajuda acessíveis", async ({ page, request }) => {
   const investidor = await semear.investidor(request);
-  const ativo = await semear.ativo(request);
+  const ativo = await semear.ativo(request, undefined, { setor: "Energia", subsetor: "Petróleo" });
   await semear.operacao(request, {
     investidor_id: investidor.id,
     ativo_id: ativo.id,
@@ -32,11 +32,13 @@ test("tabela do portfólio mantém os dados e oferece ações e ajuda acessívei
     "Aluguel",
     "YoC 12m",
     "TIR a.a.",
-    "Subsetor",
+    "Setor",
     "Ações",
   ]) {
     await expect(tabela.getByRole("columnheader", { name: titulo })).toBeVisible();
   }
+  await expect(linha.getByText("Energia", { exact: true })).toBeVisible();
+  await expect(linha.getByText("Petróleo", { exact: true })).toHaveCount(0);
   await expect(tabela.locator("thead .portfolio-ajuda-gatilho")).toHaveCount(4);
   await expect(linha.getByText(/c\/ renda/)).toBeVisible();
 
@@ -57,6 +59,7 @@ test("tabela do portfólio mantém os dados e oferece ações e ajuda acessívei
   const indisponibilidade = linha.getByRole("button", {
     name: `Motivo da indisponibilidade de Mercado para ${ativo.ticker}`,
   });
+  await indisponibilidade.scrollIntoViewIfNeeded();
   await indisponibilidade.focus();
   await expect(page.getByRole("tooltip")).toContainText("A cotação atual do ativo não está disponível.");
   await page.keyboard.press("Escape");

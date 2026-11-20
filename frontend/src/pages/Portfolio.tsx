@@ -297,7 +297,7 @@ function colunas(total: number, nomes: Map<number, string>, porInvestidor: boole
       valor: (p) => p.tir_aa,
       render: (p) => <Sinal valor={p.tir_aa}>{percentual(p.tir_aa)}</Sinal>,
     },
-    { chave: "subsetor", titulo: "Subsetor", valor: (p) => p.subsetor, render: (p) => <span className="sutil texto-limitado">{p.subsetor ?? "—"}</span> },
+    { chave: "setor", titulo: "Setor", valor: (p) => p.setor, render: (p) => <span className="sutil texto-limitado">{p.setor ?? "—"}</span> },
   ];
   if (porInvestidor) {
     lista.splice(1, 0, {
