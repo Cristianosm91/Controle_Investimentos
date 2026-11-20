@@ -63,6 +63,7 @@ async def previa_extrato(
     return PreviaExtratoOut(
         relatorio=previa.relatorio, linhas=[asdict(linha) for linha in previa.linhas],
         ativos_novos=previa.ativos_novos, corretoras_novas=previa.corretoras_novas,
+        comparacoes=[asdict(comparacao) for comparacao in previa.comparacoes],
     )
 
 

@@ -7,6 +7,9 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 ## [Não lançado]
 
 ### Adicionado
+- Resumo da qualidade das cotações, comparativo detalhado de divergências antes da importação, histórico local de alterações financeiras e agenda apenas de eventos futuros cadastrados.
+- Rentabilidade: exibe os componentes mensais já existentes sem criar nova fórmula de atribuição de retorno; o câmbio aplicado pode ser conferido nos relatórios.
+- Resumo orienta o primeiro cadastro e a primeira importação quando não há investidores ou posições.
 - Operações de cripto preservam moeda e valores originais em BRL, USD, EUR ou GBP; câmbio PTAX histórico para USD, taxas em moeda separada e preferência de exibição por moeda.
 - Trocas vinculadas entre criptomoedas gravam as duas pernas com o câmbio e os metadados históricos da operação.
 

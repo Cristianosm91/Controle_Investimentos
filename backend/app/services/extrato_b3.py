@@ -159,6 +159,24 @@ class Previa:
     linhas: list[Linha]
     ativos_novos: dict[str, str] = field(default_factory=dict)
     corretoras_novas: list[str] = field(default_factory=list)
+    comparacoes: list["Comparacao"] = field(default_factory=list)
+
+
+@dataclass
+class Comparacao:
+    ticker: str
+    data: date
+    evento: str
+    tipo: str
+    status: str
+    moeda: str | None
+    quantidade_extrato: Decimal | None
+    quantidade_existente: Decimal | None
+    diferenca_quantidade: Decimal | None
+    valor_extrato: Decimal | None
+    valor_existente: Decimal | None
+    diferenca_valor: Decimal | None
+    observacao: str
 
 
 # ---------- Leitura do arquivo ----------
@@ -613,11 +631,11 @@ def analisar(
             linha.status, linha.motivo = "duplicado", "Já importado anteriormente"
 
     _marcar_daytrade(validas)
-    _comparar_existentes(sessao, investidor_id, validas)
+    comparacoes = _comparar_existentes(sessao, investidor_id, validas)
 
     ativos = {a.ticker: a for a in sessao.scalars(select(Ativo).where(Ativo.ticker.in_({lin.ticker for lin in validas})))}
     corretoras = cadastro_corretoras.indice(sessao)
-    previa = Previa(relatorio, linhas)
+    previa = Previa(relatorio, linhas, comparacoes=comparacoes)
     for linha in validas:
         if linha.status in ("novo", "verificar"):
             if linha.ticker not in ativos:
@@ -629,53 +647,113 @@ def analisar(
     return previa
 
 
-def _comparar_existentes(sessao: Session, investidor_id: int, linhas: list[Linha]) -> None:
-    """Compara a soma diária (por ativo e evento) do extrato com a do banco: igual = duplicado; diferente = verificar."""
+def _comparar_existentes(sessao: Session, investidor_id: int, linhas: list[Linha]) -> list[Comparacao]:
+    """Compara valores agregados apenas para relatório, sem alterar as linhas de importação."""
     datas = [lin.data for lin in linhas if lin.data]
     if not datas:
-        return
+        return []
     inicio, fim = min(datas), max(datas)
-    existentes_op: dict[tuple, Decimal] = defaultdict(Decimal)
-    for ticker, dia, evento, qtd in sessao.execute(
-        select(Ativo.ticker, Operacao.data, Operacao.evento, Operacao.quantidade)
+    existentes_op: dict[tuple, tuple[Decimal, Decimal, set[str]]] = defaultdict(
+        lambda: (Decimal(0), Decimal(0), set())
+    )
+    for ticker, dia, evento, qtd, preco, moeda in sessao.execute(
+        select(Ativo.ticker, Operacao.data, Operacao.evento, Operacao.quantidade, Operacao.preco, Operacao.moeda)
         .join(Ativo, Ativo.id == Operacao.ativo_id)
         .where(Operacao.investidor_id == investidor_id, Operacao.data.between(inicio, fim))
     ):
-        existentes_op[(ticker, dia, evento)] += abs(qtd)
-    existentes_prov: dict[tuple, tuple[Decimal, Decimal]] = defaultdict(lambda: (Decimal(0), Decimal(0)))
-    for ticker, dia, evento, valor, irrf in sessao.execute(
-        select(Ativo.ticker, Provento.data_pagamento, Provento.evento, Provento.valor, Provento.irrf)
+        chave = (ticker, dia, evento)
+        quantidade, valor, moedas = existentes_op[chave]
+        valor_operacao = abs(preco) if evento == "R_CAP" else abs(qtd * preco)
+        existentes_op[chave] = (quantidade + abs(qtd), valor + valor_operacao, moedas | {moeda})
+    existentes_prov: dict[tuple, tuple[Decimal, Decimal, set[str]]] = defaultdict(
+        lambda: (Decimal(0), Decimal(0), set())
+    )
+    for ticker, dia, evento, valor, irrf, taxas, moeda in sessao.execute(
+        select(
+            Ativo.ticker, Provento.data_pagamento, Provento.evento, Provento.valor, Provento.irrf, Provento.taxas,
+            Provento.moeda,
+        )
         .join(Ativo, Ativo.id == Provento.ativo_id)
         .where(Provento.investidor_id == investidor_id, Provento.data_pagamento.between(inicio, fim))
     ):
-        bruto, liquido = existentes_prov[(ticker, dia, evento)]
-        existentes_prov[(ticker, dia, evento)] = (bruto + valor, liquido + valor - irrf)
+        bruto, liquido, moedas = existentes_prov[(ticker, dia, evento)]
+        existentes_prov[(ticker, dia, evento)] = (
+            bruto + valor, liquido + valor - irrf - taxas, moedas | {moeda}
+        )
 
     grupos: dict[tuple, list[Linha]] = defaultdict(list)
     for linha in linhas:
         grupos[(linha.tipo, linha.ticker, linha.data, linha.evento)].append(linha)
+    comparacoes = []
     for (tipo, ticker, dia, evento), grupo in grupos.items():
-        pendentes = [lin for lin in grupo if lin.status in ("novo", "verificar")]
-        if not pendentes:
-            continue
+        moedas_importadas = {lin.moeda for lin in grupo}
+        existentes = existentes_op if tipo == "OPERACAO" else existentes_prov
+        registro_existente = existentes.get((ticker, dia, evento), (Decimal(0), Decimal(0), set()))
+        moeda = (
+            next(iter(moedas_importadas))
+            if len(moedas_importadas) == 1 and moedas_importadas == registro_existente[2]
+            else None
+        )
         if tipo == "OPERACAO":
-            existente = existentes_op.get((ticker, dia, evento), Decimal(0))
+            existente, valor_existente, moedas_existentes = existentes_op.get(
+                (ticker, dia, evento), (Decimal(0), Decimal(0), set())
+            )
             total = sum((abs(lin.quantidade) for lin in grupo), Decimal(0))
-            igual = existente == total
+            valor_total = sum((abs(lin.valor) for lin in grupo), Decimal(0))
+            igual_valor = (
+                valor_total == 0 and valor_existente == 0
+                or moeda is not None and abs(valor_total - valor_existente) <= _TOLERANCIA_VALOR
+            )
+            igual = existente == total and igual_valor
+            tipo_comparacao = "OPERACAO"
+            compara_liquido = False
         else:
-            bruto, liquido = existentes_prov.get((ticker, dia, evento), (Decimal(0), Decimal(0)))
+            bruto, liquido, moedas_existentes = existentes_prov.get(
+                (ticker, dia, evento), (Decimal(0), Decimal(0), set())
+            )
             existente = bruto
             total = sum((lin.valor for lin in grupo), Decimal(0))
+            valor_total = total
             tolerancia = max(_TOLERANCIA_VALOR, total * Decimal("0.005"))
-            igual = abs(bruto - total) <= tolerancia or abs(liquido - total) <= tolerancia
-        if not existente:
-            continue
-        for linha in pendentes:
-            if igual:
-                linha.status, linha.motivo = "duplicado", "Já existe lançamento igual neste dia"
-            else:
-                linha.status = "verificar"
-                linha.motivo = "Já existem lançamentos deste ativo e evento no dia com quantidade/valor diferente"
+            compara_liquido = abs(liquido - total) < abs(bruto - total)
+            valor_existente = liquido if compara_liquido else bruto
+            igual = moeda is not None and min(abs(bruto - total), abs(liquido - total)) <= tolerancia
+            tipo_comparacao = "PROVENTO"
+        if existente or valor_existente:
+            valor_importado_comparavel = valor_total if moeda else None
+            valor_existente_comparavel = valor_existente if moeda else None
+            comparacoes.append(
+                Comparacao(
+                    ticker=ticker,
+                    data=dia,
+                    evento=evento,
+                    tipo=tipo_comparacao,
+                    status="duplicado" if igual else "verificar",
+                    moeda=moeda,
+                    quantidade_extrato=total if tipo == "OPERACAO" else None,
+                    quantidade_existente=existente if tipo == "OPERACAO" else None,
+                    diferenca_quantidade=total - existente if tipo == "OPERACAO" else None,
+                    valor_extrato=valor_importado_comparavel,
+                    valor_existente=valor_existente_comparavel,
+                    diferenca_valor=(
+                        valor_importado_comparavel - valor_existente_comparavel
+                        if valor_importado_comparavel is not None and valor_existente_comparavel is not None
+                        else None
+                    ),
+                    observacao=(
+                        (
+                            "Valor líquido do app (valor menos IRRF e taxas) comparado ao valor da linha."
+                            if compara_liquido
+                            else "Valor bruto do app comparado ao valor da linha."
+                        )
+                        if moeda and tipo == "PROVENTO"
+                        else "Valor bruto na moeda da linha; taxas e IRRF não entram nesta comparação."
+                        if moeda
+                        else "Valores monetários não comparados porque há mais de uma moeda ou as moedas divergem."
+                    ),
+                )
+            )
+    return sorted(comparacoes, key=lambda item: (item.data, item.ticker, item.evento))
 
 
 # ---------- Gravação ----------

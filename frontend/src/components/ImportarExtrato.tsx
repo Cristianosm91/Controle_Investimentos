@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Fragment, useMemo, useState } from "react";
 import { api, query } from "../api";
 import { invalidarDerivados, useDominio } from "../cadastros";
-import { data, numero } from "../formato";
+import { data, moeda, numero } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
 import type { LinhaExtrato, PreviaExtrato, ResultadoExtrato, StatusExtrato } from "../tipos";
 import { Modal } from "./Modal";
@@ -205,6 +205,51 @@ export function ImportarExtrato({ aoFechar }: { aoFechar: () => void }) {
                   </button>
                 ))}
               </div>
+              {previa.data.comparacoes.length > 0 && (
+                <div className="painel">
+                  <h3>Comparação com lançamentos existentes</h3>
+                  <p className="sutil">
+                    Comparação somente para conferência; nada é alterado automaticamente. Diferenças precisam ser revisadas
+                    antes de importar. Valores não são comparados quando as moedas divergem.
+                  </p>
+                  <div className="tabela-container">
+                    <table className="tabela compacta">
+                      <thead>
+                        <tr>
+                          <th scope="col">Data</th>
+                          <th scope="col">Ativo</th>
+                          <th scope="col">Evento</th>
+                          <th scope="col">Situação</th>
+                          <th scope="col" className="num">Quantidade extrato</th>
+                          <th scope="col" className="num">Quantidade app</th>
+                          <th scope="col" className="num">Valor extrato</th>
+                          <th scope="col" className="num">Valor app</th>
+                          <th scope="col">Observação</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {previa.data.comparacoes.map((item, indice) => (
+                          <tr key={`${item.data}-${item.ticker}-${item.evento}-${indice}`}>
+                            <td>{data(item.data)}</td>
+                            <td>{item.ticker}</td>
+                            <td>{item.evento}</td>
+                            <td><span className={`etiqueta status-${item.status}`}>{STATUS[item.status]}</span></td>
+                            <td className="num">{item.quantidade_extrato === null ? "—" : numero(item.quantidade_extrato, 8)}</td>
+                            <td className="num">{item.quantidade_existente === null ? "—" : numero(item.quantidade_existente, 8)}</td>
+                            <td className="num">
+                              {item.valor_extrato === null ? "—" : moeda(item.valor_extrato, item.moeda ?? "BRL")}
+                            </td>
+                            <td className="num">
+                              {item.valor_existente === null ? "—" : moeda(item.valor_existente, item.moeda ?? "BRL")}
+                            </td>
+                            <td className="sutil">{item.observacao}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
               {Object.keys(previa.data.ativos_novos).length > 0 && (
                 <p className="sutil">
                   Ativos novos:{" "}

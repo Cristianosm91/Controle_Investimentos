@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Numeric, String, UniqueConstraint, func
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -106,6 +106,24 @@ class LoteImportacao(Base):
     operacoes: Mapped[int] = mapped_column(default=0)
     proventos: Mapped[int] = mapped_column(default=0)
     caixa: Mapped[int] = mapped_column(default=0)
+
+
+class HistoricoLancamento(Base):
+    __tablename__ = "historico_lancamento"
+    __table_args__ = (
+        Index("ix_historico_lancamento_investidor_data", "investidor_id", "ocorrido_em"),
+        Index("ix_historico_lancamento_registro", "entidade", "registro_id"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    entidade: Mapped[str] = mapped_column(String(20))
+    registro_id: Mapped[int] = mapped_column(Integer)
+    acao: Mapped[str] = mapped_column(String(10))
+    investidor_id: Mapped[int | None] = mapped_column(Integer)
+    ativo_id: Mapped[int | None] = mapped_column(Integer)
+    ocorrido_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    anterior_json: Mapped[str | None] = mapped_column(Text)
+    novo_json: Mapped[str | None] = mapped_column(Text)
 
 
 class Operacao(Base):

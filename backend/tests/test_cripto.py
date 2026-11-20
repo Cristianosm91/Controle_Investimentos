@@ -1,3 +1,4 @@
+import json
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal as D
 
@@ -7,7 +8,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
 from app.db import Base
-from app.models import Ativo, Cotacao, CotacaoMoeda, CriptoMercado, Investidor, Operacao
+from app.models import Ativo, Cotacao, CotacaoMoeda, CriptoMercado, HistoricoLancamento, Investidor, Operacao
 from app.providers import cripto as fonte
 from app.providers.base import AtivoRef, CotacaoAtual
 from app.providers.yahoo import MERCADO_CRIPTO, ProvedorYahoo, simbolo_yahoo
@@ -336,6 +337,24 @@ def test_operacoes_mistas_preservam_originais_e_custo_historico(sessao, monkeypa
     assert item_brl["investido_visualizacao"] == D("7500")
     assert item_brl["mercado_visualizacao"] == D("10000")
     assert compra_brl.moeda == "BRL" and compra_brl.cripto_valor_original == D("5000")
+
+
+def test_operacoes_cripto_registram_auditoria(sessao, monkeypatch):
+    investidor, _, btc, _ = cadastrar(sessao)
+    ptax_fixa(monkeypatch, {"USD": "5", "EUR": "6", "GBP": "7"})
+    dia = date.today() - timedelta(days=3)
+    criada = nova_operacao_cripto(sessao, investidor, btc, dia, valor_original=D("100"), moeda="USD")
+
+    alterada = CriptoOperacaoIn(
+        investidor_id=investidor.id, ativo_id=btc.id, data=dia, evento="C",
+        quantidade=D("2"), moeda="USD", valor_original=D("110"),
+    )
+    cripto.salvar_operacao(sessao, alterada, criada)
+    historico = list(sessao.scalars(select(HistoricoLancamento).order_by(HistoricoLancamento.id)))
+
+    assert [item.acao for item in historico] == ["criado", "alterado"]
+    assert D(json.loads(historico[1].anterior_json)["quantidade"]) == D("1")
+    assert D(json.loads(historico[1].novo_json)["quantidade"]) == D("2")
 
 
 def test_troca_vinculada_cripto_preserva_custo_na_nova_posicao(sessao, monkeypatch):

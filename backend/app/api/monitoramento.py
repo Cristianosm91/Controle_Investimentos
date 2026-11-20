@@ -2,16 +2,38 @@ import json
 import re
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import Response
 from sqlalchemy import select
 
 from ..models import TratamentoQualidade
-from ..schemas import AlertaOut, DesfazerLoteOut, LoteImportacaoOut, VerificacaoOut
-from ..services import alertas, lotes, qualidade
+from ..schemas import AlertaOut, DesfazerLoteOut, HistoricoLancamentoOut, LoteImportacaoOut, VerificacaoOut
+from ..services import alertas, auditoria, lotes, qualidade
 from .deps import InvestidoresDep, SessaoDep
 
 router = APIRouter(tags=["monitoramento"])
+
+
+@router.get("/historico-lancamentos", response_model=list[HistoricoLancamentoOut])
+def historico_lancamentos(
+    sessao: SessaoDep,
+    investidores: InvestidoresDep,
+    limite: int = Query(default=200, ge=1, le=500),
+):
+    return [
+        HistoricoLancamentoOut(
+            id=item.id,
+            entidade=item.entidade,
+            registro_id=item.registro_id,
+            acao=item.acao,
+            investidor_id=item.investidor_id,
+            ativo_id=item.ativo_id,
+            ocorrido_em=item.ocorrido_em.replace(tzinfo=UTC) if item.ocorrido_em.tzinfo is None else item.ocorrido_em,
+            anterior=json.loads(item.anterior_json) if item.anterior_json else None,
+            novo=json.loads(item.novo_json) if item.novo_json else None,
+        )
+        for item in auditoria.listar(sessao, investidores, limite)
+    ]
 
 
 @router.get("/alertas", response_model=list[AlertaOut])

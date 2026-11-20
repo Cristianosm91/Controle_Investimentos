@@ -1,5 +1,6 @@
 """Exclusão completa de um investidor, sempre precedida de backup verificado (PRI-001)."""
 
+import json
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
@@ -20,6 +21,7 @@ from app.models import (
     Corretora,
     DarfPago,
     Grupo,
+    HistoricoLancamento,
     Investidor,
     LoteImportacao,
     Meta,
@@ -161,6 +163,12 @@ def test_exclusao_completa_gera_backup_e_remove_tudo_do_investidor(ambiente, ban
         assert sorted((m.nome, m.investidores) for m in s.scalars(select(Meta))) == [
             ("Família", str(ids["bia"])), ("Todos", None)
         ]
+        historico = s.scalars(select(HistoricoLancamento)).all()
+        assert sum(item.acao == "excluido" for item in historico) == 5
+        alterado = next(item for item in historico if item.acao == "alterado")
+        assert alterado.investidor_id == ids["bia"]
+        assert json.loads(alterado.anterior_json)["transferencia_pareada_id"] is not None
+        assert json.loads(alterado.novo_json)["transferencia_pareada_id"] is None
     for modelo in (Provento, MovCaixa, DarfPago, PrejuizoInicial):
         assert _contar(Sessao, modelo) == 0
     assert _contar(Sessao, Operacao) == 1
