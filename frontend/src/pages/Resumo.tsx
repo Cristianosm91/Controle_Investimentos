@@ -16,6 +16,13 @@ function Pct({ v }: { v: number | null | undefined }) {
   return <span className={classeSinal(v)}>{percentual(v)}</span>;
 }
 
+function idadeCotacaoDias(cotacao: string): number {
+  const [ano, mes, dia] = cotacao.slice(0, 10).split("-").map(Number);
+  const hoje = new Date();
+  const hojeUtc = Date.UTC(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+  return Math.trunc((hojeUtc - Date.UTC(ano, mes - 1, dia)) / 86_400_000);
+}
+
 export function Resumo() {
   const { filtro, investidores } = useInvestidor();
   const { data: ativos = [] } = useAtivos();
@@ -46,6 +53,17 @@ export function Resumo() {
   const cotacaoMaisRecente = [...cotacoesMonitoradas]
     .filter((p) => p.cotacao_data)
     .sort((a, b) => (b.cotacao_data ?? "").localeCompare(a.cotacao_data ?? ""))[0];
+  const idadeCotacaoMaisRecente = cotacaoMaisRecente?.cotacao_data
+    ? idadeCotacaoDias(cotacaoMaisRecente.cotacao_data)
+    : null;
+  const textoIdadeCotacao =
+    idadeCotacaoMaisRecente === null
+      ? ""
+      : idadeCotacaoMaisRecente === 0
+        ? "hoje"
+        : idadeCotacaoMaisRecente > 0
+          ? `há ${idadeCotacaoMaisRecente} dia(s)`
+          : `data futura (${Math.abs(idadeCotacaoMaisRecente)} dia(s))`;
   const primeiroAcessoSemInvestidor = posicoes.isSuccess && investidores.filter((i) => i.ativo).length === 0;
   const carteiraSemPosicoes =
     posicoes.isSuccess && investidores.some((i) => i.ativo) && (posicoes.data ?? []).length === 0;
@@ -147,8 +165,8 @@ export function Resumo() {
                     <div>
                       <dt>Última data disponível</dt>
                       <dd>
-                        {cotacaoMaisRecente
-                          ? `${data(cotacaoMaisRecente.cotacao_data)} · ${cotacaoMaisRecente.cotacao_fonte ?? "fonte não informada"}`
+                        {cotacaoMaisRecente?.cotacao_data
+                          ? `${data(cotacaoMaisRecente.cotacao_data)} · ${cotacaoMaisRecente.cotacao_fonte ?? "fonte não informada"} · ${textoIdadeCotacao}`
                           : "—"}
                       </dd>
                     </div>
