@@ -1,10 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, query } from "../api";
-import { invalidarDerivados, useAtivos } from "../cadastros";
+import { invalidarDerivados, useAtivosDisponiveis } from "../cadastros";
 import { GraficoBarras, GraficoLinhas } from "../components/Graficos";
 import { AjudaIndicador } from "../components/AjudaIndicador";
+import { FiltroMultisselecao } from "../components/FiltroMultisselecao";
 import { classeSinal, mesAno, MESES, moeda, moedaCompacta, percentual } from "../formato";
+import { filtrarAtivos, opcoesAtivos, opcoesClasses, OPCOES_MERCADO, valorFiltro } from "../filtrosAtivos";
 import { useInvestidor } from "../InvestidorContext";
 import { BENCHMARKS, CORES_BENCHMARK, NOMES_BENCHMARK } from "../referencias";
 import type { Benchmark, MesRentabilidade, Tarefa } from "../tipos";
@@ -135,21 +137,32 @@ function AvisoSemHistorico({ meses }: { meses: number }) {
 
 export function Rentabilidade() {
   const { filtro } = useInvestidor();
-  const { data: ativos = [] } = useAtivos();
-  const [classe, setClasse] = useState("");
+  const { data: ativos = [] } = useAtivosDisponiveis(filtro);
+  const [mercados, setMercados] = useState<string[] | null>(null);
+  const [classes, setClasses] = useState<string[] | null>(null);
+  const [ativoIds, setAtivoIds] = useState<string[] | null>(null);
   const [periodo, setPeriodo] = useState<Periodo>("12m");
   const [referencias, setReferencias] = useState<Benchmark[]>(["cdi", "ibov"]);
   const [verReal, setVerReal] = useState(false);
   const inicio = inicioDoPeriodo(periodo);
+  const ativosPorMercado = useMemo(() => filtrarAtivos(ativos, mercados, null), [ativos, mercados]);
+  const opcoesDeClasse = useMemo(() => opcoesClasses(ativosPorMercado), [ativosPorMercado]);
+  const ativosFiltrados = useMemo(() => filtrarAtivos(ativos, mercados, classes), [ativos, mercados, classes]);
+  const opcoesDeAtivo = useMemo(() => opcoesAtivos(ativosFiltrados), [ativosFiltrados]);
+  const filtros = {
+    mercados: valorFiltro(mercados),
+    classes: valorFiltro(classes),
+    ativo_ids: valorFiltro(ativoIds),
+  };
 
   const periodoQ = useQuery({
-    queryKey: ["rentabilidade", filtro, classe, inicio ?? "todos"],
-    queryFn: () => api.get<MesRentabilidade[]>(`/rentabilidade/mensal${query({ investidores: filtro, classe, inicio })}`),
+    queryKey: ["rentabilidade", filtro, filtros, inicio ?? "todos"],
+    queryFn: () => api.get<MesRentabilidade[]>(`/rentabilidade/mensal${query({ investidores: filtro, ...filtros, inicio })}`),
     placeholderData: (anterior) => anterior,
   });
   const todosQ = useQuery({
-    queryKey: ["rentabilidade", filtro, classe, "todos"],
-    queryFn: () => api.get<MesRentabilidade[]>(`/rentabilidade/mensal${query({ investidores: filtro, classe })}`),
+    queryKey: ["rentabilidade", filtro, filtros, "todos"],
+    queryFn: () => api.get<MesRentabilidade[]>(`/rentabilidade/mensal${query({ investidores: filtro, ...filtros })}`),
   });
 
   const meses = periodoQ.data ?? [];
@@ -171,17 +184,33 @@ export function Rentabilidade() {
               </button>
             ))}
           </div>
-          <label className="campo-filtro campo-filtro-inline">
-            <span>Classe</span>
-            <select value={classe} onChange={(e) => setClasse(e.target.value)}>
-              <option value="">Todas as classes</option>
-              {[...new Set(ativos.map((ativo) => ativo.classe))].sort().map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </label>
+          <FiltroMultisselecao
+            rotulo="Mercados"
+            resumoTodos="Todos os mercados"
+            resumoNenhum="Nenhum mercado"
+            resumoMultiplos={(quantidade) => `${quantidade} mercados selecionados`}
+            opcoes={OPCOES_MERCADO}
+            selecionados={mercados}
+            aoMudar={setMercados}
+          />
+          <FiltroMultisselecao
+            rotulo="Classes"
+            resumoTodos="Todas as classes"
+            resumoNenhum="Nenhuma classe"
+            resumoMultiplos={(quantidade) => `${quantidade} classes selecionadas`}
+            opcoes={opcoesDeClasse}
+            selecionados={classes}
+            aoMudar={setClasses}
+          />
+          <FiltroMultisselecao
+            rotulo="Ativos"
+            resumoTodos="Todos os ativos"
+            resumoNenhum="Nenhum ativo"
+            resumoMultiplos={(quantidade) => `${quantidade} ativos selecionados`}
+            opcoes={opcoesDeAtivo}
+            selecionados={ativoIds}
+            aoMudar={setAtivoIds}
+          />
         </div>
       </div>
       {periodoQ.error && <div className="erro">{(periodoQ.error as Error).message}</div>}

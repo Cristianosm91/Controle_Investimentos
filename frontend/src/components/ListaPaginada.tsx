@@ -6,6 +6,8 @@ import type { Pagina } from "../tipos";
 import { invalidarDerivados } from "../cadastros";
 import { CampoData } from "./CampoData";
 import { useFonteExportacao } from "./Exportacao";
+import { FiltroMultisselecao, type OpcaoFiltro } from "./FiltroMultisselecao";
+import { valorFiltro } from "../filtrosAtivos";
 
 const POR_PAGINA = 100;
 const LOTE_EXPORTACAO = 1000;
@@ -38,8 +40,17 @@ interface Props<T> {
   eventos?: { valor: string; rotulo: string }[];
   classeFiltro?: string;
   aoMudarClasse?: (valor: string) => void;
+  opcoesAtivos?: OpcaoFiltro[];
+  opcoesClasses?: OpcaoFiltro[];
+  mercadosSelecionados?: string[] | null;
+  aoMudarMercados?: (valores: string[] | null) => void;
+  classesSelecionadas?: string[] | null;
+  aoMudarClasses?: (valores: string[] | null) => void;
+  ativosSelecionados?: string[] | null;
+  aoMudarAtivos?: (valores: string[] | null) => void;
+  opcoesMercado?: OpcaoFiltro[];
   /** Parâmetros fixos da consulta (ex.: { evento: "ALUGUEL" }). */
-  filtrosFixos?: Record<string, string>;
+  filtrosFixos?: Record<string, string | undefined>;
 }
 
 export function ListaPaginada<T>({
@@ -58,6 +69,15 @@ export function ListaPaginada<T>({
   eventos,
   classeFiltro,
   aoMudarClasse,
+  opcoesAtivos,
+  opcoesClasses,
+  mercadosSelecionados,
+  aoMudarMercados,
+  classesSelecionadas,
+  aoMudarClasses,
+  ativosSelecionados,
+  aoMudarAtivos,
+  opcoesMercado,
   filtrosFixos,
 }: Props<T>) {
   const [ticker, setTicker] = useState("");
@@ -76,11 +96,26 @@ export function ListaPaginada<T>({
   const cliqueComShift = useRef(false);
   const cliente = useQueryClient();
   const classeSelecionada = classeFiltro ?? classe;
+  const filtroKey = JSON.stringify({
+    ticker,
+    classe: classeSelecionada,
+    evento,
+    corretoraId,
+    inicio,
+    fim,
+    mercadosSelecionados,
+    classesSelecionadas,
+    ativosSelecionados,
+    filtrosFixos,
+  });
 
   const params = {
     investidores: filtroInvestidores,
     ticker,
     ...(classes || classeFiltro !== undefined ? { classe: classeSelecionada } : {}),
+    mercados: valorFiltro(mercadosSelecionados ?? null),
+    classes: valorFiltro(classesSelecionadas ?? null),
+    ativo_ids: valorFiltro(ativosSelecionados ?? null),
     evento,
     corretora_id: corretoraId || undefined,
     inicio,
@@ -147,7 +182,7 @@ export function ListaPaginada<T>({
     setSelecionados(new Set());
     ultimaSelecao.current = null;
     setResultadoExclusao(null);
-  }, [classeFiltro, filtroInvestidores]);
+  }, [classeFiltro, filtroInvestidores, filtroKey]);
   useFonteExportacao(async () => {
     const todos: T[] = [];
     for (let deslocamento = 0; ; ) {
@@ -250,6 +285,39 @@ export function ListaPaginada<T>({
                 onChange={(e) => filtrar(() => setTicker(e.target.value.toUpperCase()))}
               />
             </label>
+          )}
+          {opcoesMercado && mercadosSelecionados !== undefined && aoMudarMercados && (
+            <FiltroMultisselecao
+              rotulo="Mercados"
+              resumoTodos="Todos os mercados"
+              resumoNenhum="Nenhum mercado"
+              resumoMultiplos={(quantidade) => `${quantidade} mercados selecionados`}
+              opcoes={opcoesMercado}
+              selecionados={mercadosSelecionados}
+              aoMudar={aoMudarMercados}
+            />
+          )}
+          {classesSelecionadas !== undefined && aoMudarClasses && (
+            <FiltroMultisselecao
+              rotulo="Classes"
+              resumoTodos="Todas as classes"
+              resumoNenhum="Nenhuma classe"
+              resumoMultiplos={(quantidade) => `${quantidade} classes selecionadas`}
+              opcoes={opcoesClasses ?? []}
+              selecionados={classesSelecionadas}
+              aoMudar={aoMudarClasses}
+            />
+          )}
+          {opcoesAtivos && ativosSelecionados !== undefined && aoMudarAtivos && (
+            <FiltroMultisselecao
+              rotulo="Ativos"
+              resumoTodos="Todos os ativos"
+              resumoNenhum="Nenhum ativo"
+              resumoMultiplos={(quantidade) => `${quantidade} ativos selecionados`}
+              opcoes={opcoesAtivos}
+              selecionados={ativosSelecionados}
+              aoMudar={aoMudarAtivos}
+            />
           )}
           {classes && (
             <label className="campo-filtro">

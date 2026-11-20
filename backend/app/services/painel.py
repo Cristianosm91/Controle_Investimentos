@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from ..models import Ativo, Provento
 from . import rentabilidade as r
 from .caixa import calcular_valor_investido
+from .filtros_ativos import ids_filtrados
 from .posicao import ZERO
 
 _BENCHMARKS = ("ibov", "ifix", "cdi", "ipca")
@@ -24,16 +25,23 @@ class LinhaMensal:
     acumulados: dict[str, Decimal | None]
 
 
-def _calcular(sessao: Session, investidor_ids: Sequence[int] | None, ate: date, classe: str | None = None):
-    ativo_ids = None
-    if classe:
-        ativo_ids = list(sessao.scalars(select(Ativo.id).where(Ativo.classe == classe)))
+def _calcular(
+    sessao: Session,
+    investidor_ids: Sequence[int] | None,
+    ate: date,
+    classe: str | None = None,
+    mercados: str | None = None,
+    classes: str | None = None,
+    ativos: str | None = None,
+):
+    classes_filtro = ",".join(filter(None, (classes, classe)))
+    ativo_ids = ids_filtrados(sessao, mercados, classes_filtro, ativos)
     dados = r.carregar_dados(sessao, investidor_ids, ativo_ids)
     proventos = [(d, v) for _, _, d, v in dados.proventos]
     alugueis = [(d, v) for _, _, d, v in dados.alugueis]
     serie = r.serie_mensal(dados.movimentos, proventos, dados.precificacao, ate, alugueis=alugueis)
     bench = r.benchmarks_mensais(r.indices(sessao), [m.data for m in serie])
-    return dados, serie, bench
+    return dados, serie, bench, ativo_ids
 
 
 def _janela(serie: list[r.Mes], bench: list[r.Benchmark], inicio: date | None, fim: date | None) -> list[LinhaMensal]:
@@ -51,9 +59,9 @@ def _janela(serie: list[r.Mes], bench: list[r.Benchmark], inicio: date | None, f
 
 def mensal(
     sessao: Session, investidor_ids: Sequence[int] | None, inicio: date | None, fim: date | None,
-    classe: str | None = None,
+    classe: str | None = None, mercados: str | None = None, classes: str | None = None, ativos: str | None = None,
 ) -> list[LinhaMensal]:
-    _, serie, bench = _calcular(sessao, investidor_ids, date.today(), classe)
+    _, serie, bench, _ = _calcular(sessao, investidor_ids, date.today(), classe, mercados, classes, ativos)
     return _janela(serie, bench, inicio, fim)
 
 
@@ -79,9 +87,16 @@ class Resumo:
     proventos_mensais: list[tuple[date, Decimal]]
 
 
-def resumo(sessao: Session, investidor_ids: Sequence[int] | None, classe: str | None = None) -> Resumo:
+def resumo(
+    sessao: Session,
+    investidor_ids: Sequence[int] | None,
+    classe: str | None = None,
+    mercados: str | None = None,
+    classes: str | None = None,
+    ativos: str | None = None,
+) -> Resumo:
     hoje = date.today()
-    dados, serie, bench = _calcular(sessao, investidor_ids, hoje, classe)
+    dados, serie, bench, ativo_ids = _calcular(sessao, investidor_ids, hoje, classe, mercados, classes, ativos)
     if not serie:
         return Resumo(None, ZERO, ZERO, ZERO, ZERO, ZERO, ZERO, None, [], [])
 
@@ -104,7 +119,10 @@ def resumo(sessao: Session, investidor_ids: Sequence[int] | None, classe: str | 
     renda = dados.proventos + dados.alugueis
     tir = r.tir(dados.movimentos, [(d, v) for _, _, d, v in renda], atual.mercado, hoje)
     investido = calcular_valor_investido(
-        sessao, investidor_ids, classes_incluidas=[classe] if classe else None
+        sessao,
+        investidor_ids,
+        classes_incluidas=[classe] if classe else None,
+        ativo_ids=ativo_ids,
     ).valor_investido
     return Resumo(
         data_referencia=r.ultima_data_cotacao(sessao),
@@ -167,7 +185,13 @@ class Matriz:
 
 
 def matriz_proventos(
-    sessao: Session, investidor_ids: Sequence[int] | None, ano: int | None, classe: str | None = None
+    sessao: Session,
+    investidor_ids: Sequence[int] | None,
+    ano: int | None,
+    classe: str | None = None,
+    mercados: str | None = None,
+    classes: str | None = None,
+    ativos: str | None = None,
 ) -> Matriz:
     """Sem ano: linhas = anos. Com ano: linhas = ativos daquele ano. Colunas = meses; valores líquidos em BRL."""
     liquido = func.sum((Provento.valor - Provento.irrf - Provento.taxas) * Provento.cambio)
@@ -182,10 +206,12 @@ def matriz_proventos(
     else:
         rotulo = extract("year", Provento.data_pagamento)
         consulta = select(rotulo, mes, liquido).where(Provento.evento != "ALUGUEL")
-    if classe:
+    classes_filtro = ",".join(filter(None, (classes, classe)))
+    ativo_ids = ids_filtrados(sessao, mercados, classes_filtro, ativos)
+    if ativo_ids is not None:
         if not ano:
             consulta = consulta.join(Ativo, Ativo.id == Provento.ativo_id)
-        consulta = consulta.where(Ativo.classe == classe)
+        consulta = consulta.where(Provento.ativo_id.in_(ativo_ids))
     if investidor_ids:
         consulta = consulta.where(Provento.investidor_id.in_(investidor_ids))
 

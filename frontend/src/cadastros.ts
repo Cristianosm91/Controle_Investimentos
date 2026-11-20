@@ -1,6 +1,6 @@
 import { useQuery, type QueryClient } from "@tanstack/react-query";
 import { api, query } from "./api";
-import type { Ativo, Book, Corretora, Dominio, Estrategia, Parametros, Ptax } from "./tipos";
+import type { Ativo, AtivoFiltro, Book, Corretora, Dominio, Estrategia, Parametros, Ptax } from "./tipos";
 
 const UMA_HORA = 60 * 60 * 1000;
 
@@ -17,7 +17,7 @@ export function confirmarCorrecaoMoeda(ticker: string, anterior: string, nova: s
 /** Telas calculadas a partir de lançamentos, cotações e configurações. */
 export function invalidarDerivados(cliente: QueryClient) {
   for (const chave of [
-    "posicoes", "resumo", "rentabilidade", "proventos-matriz", "alocacao", "caixa-saldos", "ir-apuracao", "ir-dirpf", "cripto",
+    "ativos-disponiveis", "posicoes", "resumo", "rentabilidade", "proventos-matriz", "alocacao", "caixa-saldos", "ir-apuracao", "ir-dirpf", "cripto",
     "cripto-monitor", "aluguel", "renda-fixa", "proventos-agenda", "exposicao-corretoras", "alertas", "qualidade-dados", "metas",
     "lotes", "radar", "cota",
   ]) {
@@ -48,6 +48,15 @@ export function useDominio() {
 
 export function useAtivos() {
   return useQuery({ queryKey: ["ativos"], queryFn: () => api.get<Ativo[]>("/ativos"), staleTime: UMA_HORA });
+}
+
+export function useAtivosDisponiveis(investidores: string | undefined) {
+  return useQuery({
+    queryKey: ["ativos-disponiveis", investidores],
+    queryFn: () => api.get<AtivoFiltro[]>(`/ativos/disponiveis${query({ investidores })}`),
+    staleTime: UMA_HORA,
+    placeholderData: (anterior) => anterior,
+  });
 }
 
 export function useCorretoras() {

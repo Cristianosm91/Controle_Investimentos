@@ -6,10 +6,11 @@ from sqlalchemy import exists, select
 from sqlalchemy.exc import IntegrityError
 
 from ..models import Ativo, Operacao, Provento
-from ..schemas import AtivoIn, AtivoOut, ClasseAtivoIn, CotaOut, SaldoManualIn
+from ..schemas import AtivoFiltroOut, AtivoIn, AtivoOut, ClasseAtivoIn, CotaOut, SaldoManualIn
 from ..services import moeda_ativo, renda_fixa
 from ..services.cdi import CdiIndisponivel
-from .deps import SessaoDep, obter_ou_404
+from ..services.filtros_ativos import ativos_disponiveis, classificar_mercado
+from .deps import InvestidoresDep, SessaoDep, obter_ou_404
 
 router = APIRouter(prefix="/ativos", tags=["ativos"])
 
@@ -27,6 +28,29 @@ def listar_ativos(
     if personalizados:
         consulta = consulta.where(~Ativo.cotacao_automatica)
     return sessao.scalars(consulta).all()
+
+
+@router.get("/disponiveis", response_model=list[AtivoFiltroOut])
+def listar_ativos_disponiveis(
+    sessao: SessaoDep,
+    investidores: InvestidoresDep,
+    mercados: Annotated[str | None, Query(max_length=100)] = None,
+    classes: Annotated[str | None, Query(max_length=200)] = None,
+):
+    try:
+        ativos = ativos_disponiveis(sessao, investidores, mercados, classes)
+    except ValueError as erro:
+        raise HTTPException(422, str(erro)) from erro
+    return [
+        AtivoFiltroOut(
+            id=ativo.id,
+            ticker=ativo.ticker,
+            nome=ativo.nome,
+            classe=ativo.classe,
+            mercado_tipo=classificar_mercado(ativo),
+        )
+        for ativo in ativos
+    ]
 
 
 @router.post("", response_model=AtivoOut, status_code=201)

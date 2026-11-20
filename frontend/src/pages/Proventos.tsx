@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AcoesLinha } from "../components/AcoesLinha";
 import { AgendaProventos } from "../components/AgendaProventos";
@@ -6,8 +6,10 @@ import { FormProvento } from "../components/FormLancamentos";
 import { ImportarExtrato } from "../components/ImportarExtrato";
 import { ListaPaginada, type ColunaLista } from "../components/ListaPaginada";
 import { MatrizProventos } from "../components/MatrizProventos";
-import { useAtivos, useCorretoras, useDominio } from "../cadastros";
+import { useAtivosDisponiveis, useCorretoras, useDominio } from "../cadastros";
 import { data, moeda } from "../formato";
+import { filtrarAtivos, opcoesAtivos, opcoesClasses, OPCOES_MERCADO, valorFiltro } from "../filtrosAtivos";
+import { FiltroMultisselecao } from "../components/FiltroMultisselecao";
 import { useInvestidor } from "../InvestidorContext";
 import type { Provento } from "../tipos";
 
@@ -16,11 +18,13 @@ export function Proventos() {
   const navegar = useNavigate();
   const { filtro, investidores } = useInvestidor();
   const { data: dominio } = useDominio();
-  const { data: ativos = [] } = useAtivos();
+  const { data: ativos = [] } = useAtivosDisponiveis(filtro);
   const { data: corretoras } = useCorretoras();
   const [edicao, setEdicao] = useState<Provento | "novo" | null>(null);
   const [aba, setAba] = useState<"lancamentos" | "matriz" | "agenda">("lancamentos");
-  const [classe, setClasse] = useState("");
+  const [mercados, setMercados] = useState<string[] | null>(null);
+  const [classesSelecionadas, setClassesSelecionadas] = useState<string[] | null>(null);
+  const [ativosSelecionados, setAtivosSelecionados] = useState<string[] | null>(null);
   const [importando, setImportando] = useState(false);
   const apontamento = parametros.get("apontamento");
   const codigoQualidade = parametros.get("codigo");
@@ -28,9 +32,18 @@ export function Proventos() {
   const explicacaoQualidade = parametros.get("explicacao");
   const retornoQualidade = parametros.get("retorno");
   const nome = (id: number) => investidores.find((i) => i.id === id)?.nome ?? id;
-  const classes = [...new Set(ativos.map((ativo) => ativo.classe))]
-    .sort()
-    .map((valor) => ({ valor, rotulo: valor.charAt(0) + valor.slice(1).toLowerCase() }));
+  const ativosPorMercado = useMemo(() => filtrarAtivos(ativos, mercados, null), [ativos, mercados]);
+  const opcoesDeClasse = useMemo(() => opcoesClasses(ativosPorMercado), [ativosPorMercado]);
+  const ativosFiltrados = useMemo(
+    () => filtrarAtivos(ativos, mercados, classesSelecionadas),
+    [ativos, mercados, classesSelecionadas],
+  );
+  const opcoesDeAtivo = useMemo(() => opcoesAtivos(ativosFiltrados), [ativosFiltrados]);
+  const filtrosComuns = {
+    mercados: valorFiltro(mercados),
+    classes: valorFiltro(classesSelecionadas),
+    ativo_ids: valorFiltro(ativosSelecionados),
+  };
 
   const colunas: ColunaLista<Provento>[] = [
     { titulo: "Pagamento", render: (p) => data(p.data_pagamento) },
@@ -60,17 +73,33 @@ export function Proventos() {
           Agenda e projeção
         </button>
       </div>
-      <label className="campo-filtro">
-        <span>Classe</span>
-        <select value={classe} onChange={(e) => setClasse(e.target.value)}>
-          <option value="">Todas as classes</option>
-          {classes.map((c) => (
-            <option key={c.valor} value={c.valor}>
-              {c.rotulo}
-            </option>
-          ))}
-        </select>
-      </label>
+      <FiltroMultisselecao
+        rotulo="Mercados"
+        resumoTodos="Todos os mercados"
+        resumoNenhum="Nenhum mercado"
+        resumoMultiplos={(quantidade) => `${quantidade} mercados selecionados`}
+        opcoes={OPCOES_MERCADO}
+        selecionados={mercados}
+        aoMudar={setMercados}
+      />
+      <FiltroMultisselecao
+        rotulo="Classes"
+        resumoTodos="Todas as classes"
+        resumoNenhum="Nenhuma classe"
+        resumoMultiplos={(quantidade) => `${quantidade} classes selecionadas`}
+        opcoes={opcoesDeClasse}
+        selecionados={classesSelecionadas}
+        aoMudar={setClassesSelecionadas}
+      />
+      <FiltroMultisselecao
+        rotulo="Ativos"
+        resumoTodos="Todos os ativos"
+        resumoNenhum="Nenhum ativo"
+        resumoMultiplos={(quantidade) => `${quantidade} ativos selecionados`}
+        opcoes={opcoesDeAtivo}
+        selecionados={ativosSelecionados}
+        aoMudar={setAtivosSelecionados}
+      />
     </div>
   );
 
@@ -80,7 +109,9 @@ export function Proventos() {
         <section>
           <h1>Proventos</h1>
           {abas}
-          {aba === "matriz" ? <MatrizProventos filtro={filtro} classe={classe} /> : <AgendaProventos classe={classe} />}
+          {aba === "matriz"
+            ? <MatrizProventos filtro={filtro} filtros={filtrosComuns} />
+            : <AgendaProventos filtros={filtrosComuns} />}
         </section>
       ) : (
       <ListaPaginada<Provento>
@@ -88,10 +119,12 @@ export function Proventos() {
         recurso="proventos"
         filtroInvestidores={filtro}
         colunas={colunas}
-        classeFiltro={classe}
-        aoMudarClasse={setClasse}
+        filtroTicker={false}
         corretoras={corretoras}
-        filtrosFixos={apontamento ? { apontamento, ...(codigoQualidade ? { codigo: codigoQualidade } : {}) } : undefined}
+        filtrosFixos={{
+          ...filtrosComuns,
+          ...(apontamento ? { apontamento, ...(codigoQualidade ? { codigo: codigoQualidade } : {}) } : {}),
+        }}
         chave={(p) => p.id}
         cabecalho={
           <>

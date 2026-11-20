@@ -57,9 +57,19 @@ def renda_fixa(sessao: SessaoDep, investidores: InvestidoresDep):
 
 @router.get("/proventos/agenda", response_model=AgendaProventosOut)
 def agenda(
-    sessao: SessaoDep, investidores: InvestidoresDep, classe: Annotated[str | None, Query(max_length=30)] = None
+    sessao: SessaoDep,
+    investidores: InvestidoresDep,
+    classe: Annotated[str | None, Query(max_length=30)] = None,
+    mercados: Annotated[str | None, Query(max_length=100)] = None,
+    classes: Annotated[str | None, Query(max_length=200)] = None,
+    ativo_ids: Annotated[str | None, Query(max_length=2000)] = None,
 ):
-    a = agenda_proventos.calcular(sessao, investidores, classe=classe)
+    try:
+        a = agenda_proventos.calcular(
+            sessao, investidores, classe=classe, mercados=mercados, classes=classes, ativos=ativo_ids
+        )
+    except ValueError as erro:
+        raise HTTPException(422, str(erro)) from erro
     return AgendaProventosOut(
         a_receber=[ProventoAgendaOut(**vars(i)) for i in a.a_receber],
         total_a_receber=a.total_a_receber,

@@ -69,6 +69,7 @@ def calcular_valor_investido(
     classes_excluidas: Sequence[str] | None = None,
     ate: date | None = None,
     classes_incluidas: Sequence[str] | None = None,
+    ativo_ids: Sequence[int] | None = None,
 ) -> ResultadoInvestimento:
     """Calcula o capital de aquisição ainda associado às posições abertas."""
     data_referencia = ate or date.today()
@@ -82,6 +83,8 @@ def calcular_valor_investido(
         consulta = consulta.join(Ativo).where(Ativo.classe.not_in(classes_excluidas))
     if classes_incluidas is not None:
         consulta = consulta.join(Ativo).where(Ativo.classe.in_(classes_incluidas))
+    if ativo_ids is not None:
+        consulta = consulta.where(Operacao.ativo_id.in_(ativo_ids))
     movimentos = [
         Movimento(
             r.investidor_id, r.ativo_id, r.data, r.evento, r.quantidade, r.preco, r.taxas,

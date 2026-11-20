@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { AcoesLinha } from "../components/AcoesLinha";
 import { AjudaInfo } from "../components/AjudaInfo";
@@ -9,9 +9,10 @@ import { ListaPaginada, type ColunaLista } from "../components/ListaPaginada";
 import { Modal } from "../components/Modal";
 import { VincularTransferencia } from "../components/VincularTransferencia";
 import { api } from "../api";
-import { useAtivos, useCorretoras, useDominio } from "../cadastros";
+import { useAtivosDisponiveis, useCorretoras, useDominio } from "../cadastros";
 import { invalidarDerivados } from "../cadastros";
 import { classeSinal, data, moeda, numero } from "../formato";
+import { filtrarAtivos, opcoesAtivos, opcoesClasses, OPCOES_MERCADO } from "../filtrosAtivos";
 import { useInvestidor } from "../InvestidorContext";
 import { EXPLICACAO_EVENTO } from "../eventosOperacao";
 import type { Operacao } from "../tipos";
@@ -39,8 +40,11 @@ export function Operacoes() {
   const cliente = useQueryClient();
   const { filtro, investidores } = useInvestidor();
   const { data: dominio, error: erroDominio } = useDominio();
-  const { data: ativos } = useAtivos();
+  const { data: ativos = [] } = useAtivosDisponiveis(filtro);
   const { data: corretoras } = useCorretoras();
+  const [mercados, setMercados] = useState<string[] | null>(null);
+  const [classesSelecionadas, setClassesSelecionadas] = useState<string[] | null>(null);
+  const [ativosSelecionados, setAtivosSelecionados] = useState<string[] | null>(null);
   const [edicao, setEdicao] = useState<Operacao | "nova" | null>(null);
   const [vinculo, setVinculo] = useState<Operacao | null>(null);
   const [importando, setImportando] = useState(false);
@@ -78,12 +82,19 @@ export function Operacoes() {
   const explicacaoQualidade = parametros.get("explicacao");
   const retornoQualidade = parametros.get("retorno");
   const nome = (id: number) => investidores.find((i) => i.id === id)?.nome ?? id;
-  const classes = [...new Set(ativos?.map((ativo) => ativo.classe) ?? [])]
-    .sort()
-    .map((valor) => ({
-      valor,
-      rotulo: NOMES_CLASSES[valor] ?? valor.charAt(0) + valor.slice(1).toLowerCase(),
-    }));
+  const ativosPorMercado = useMemo(() => filtrarAtivos(ativos, mercados, null), [ativos, mercados]);
+  const opcoesDeClasse = useMemo(
+    () => opcoesClasses(ativosPorMercado).map((opcao) => ({
+      ...opcao,
+      rotulo: NOMES_CLASSES[opcao.valor] ?? opcao.rotulo,
+    })),
+    [ativosPorMercado],
+  );
+  const ativosFiltrados = useMemo(
+    () => filtrarAtivos(ativos, mercados, classesSelecionadas),
+    [ativos, mercados, classesSelecionadas],
+  );
+  const opcoesDeAtivo = useMemo(() => opcoesAtivos(ativosFiltrados), [ativosFiltrados]);
   const eventos = Object.entries(dominio?.eventos_operacao ?? {}).map(([valor, rotulo]) => ({
     valor,
     rotulo,
@@ -132,7 +143,16 @@ export function Operacoes() {
         recurso="operacoes"
         filtroInvestidores={filtro}
         colunas={colunas}
-        classes={classes}
+        filtroTicker={false}
+        opcoesClasses={opcoesDeClasse}
+        opcoesAtivos={opcoesDeAtivo}
+        opcoesMercado={OPCOES_MERCADO}
+        mercadosSelecionados={mercados}
+        aoMudarMercados={setMercados}
+        classesSelecionadas={classesSelecionadas}
+        aoMudarClasses={setClassesSelecionadas}
+        ativosSelecionados={ativosSelecionados}
+        aoMudarAtivos={setAtivosSelecionados}
         corretoras={corretoras}
         eventos={eventos}
         filtrosFixos={

@@ -324,7 +324,8 @@ test.describe("Fluxos críticos", () => {
 
     await dialogo.getByRole("button", { name: "Fechar", exact: true }).last().click();
     await expect(dialogo).toBeHidden();
-    await filtrarPorAtivo(page, ticker, 0);
+    await selecionarInvestidorNoTopo(page, investidor.nome);
+    await expect(page.getByText("Página 1 de 1 · 0 registros")).toBeVisible();
     await expect(page.getByRole("row").filter({ hasText: ticker })).toHaveCount(0);
     expect(await totalOperacoes()).toBe(0);
   });

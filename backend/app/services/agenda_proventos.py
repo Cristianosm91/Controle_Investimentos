@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from ..models import Ativo, Operacao, Provento
 from .carteira import carregar_posicoes
+from .filtros_ativos import ids_filtrados
 from .posicao import ZERO, Movimento, Posicao, aplicar, ordenar
 
 FORA_DA_PROJECAO = frozenset({"AMORTIZACAO", "ALUGUEL"})
@@ -89,7 +90,13 @@ def quantidade_na_data(movimentos: Sequence[Movimento], dia: date) -> Decimal:
 
 
 def calcular(
-    sessao: Session, investidor_ids: Sequence[int] | None, hoje: date | None = None, classe: str | None = None
+    sessao: Session,
+    investidor_ids: Sequence[int] | None,
+    hoje: date | None = None,
+    classe: str | None = None,
+    mercados: str | None = None,
+    classes: str | None = None,
+    ativos: str | None = None,
 ) -> Agenda:
     hoje = hoje or date.today()
     inicio_janela = _somar_meses(_mes(hoje), 1)
@@ -97,9 +104,10 @@ def calcular(
     liquido = (Provento.valor - Provento.irrf - Provento.taxas) * Provento.cambio
 
     filtro = [Provento.investidor_id.in_(investidor_ids)] if investidor_ids else []
-    ativos_da_classe = None
-    if classe:
-        ativos_da_classe = set(sessao.scalars(select(Ativo.id).where(Ativo.classe == classe)))
+    classes_filtro = ",".join(filter(None, (classes, classe)))
+    ativos_filtrados = ids_filtrados(sessao, mercados, classes_filtro, ativos)
+    ativos_da_classe = set(ativos_filtrados) if ativos_filtrados is not None else None
+    if ativos_da_classe is not None:
         filtro.append(Provento.ativo_id.in_(ativos_da_classe))
     futuros = sessao.execute(
         select(Provento.id, Provento.investidor_id, Provento.ativo_id, Ativo.ticker, Provento.evento,

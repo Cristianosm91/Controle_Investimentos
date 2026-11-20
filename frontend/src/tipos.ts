@@ -171,6 +171,14 @@ export interface Ativo {
   isento_ir: boolean;
 }
 
+export interface AtivoFiltro {
+  id: number;
+  ticker: string;
+  nome: string | null;
+  classe: string;
+  mercado_tipo: "BRASIL" | "EUA" | "CRIPTO" | null;
+}
+
 export interface MoedaCripto {
   id: string;
   ticker: string;

@@ -1131,6 +1131,30 @@ span.texto-limitado {
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
 }
 
+.filtro-multi > summary {
+  overflow: hidden;
+  max-width: min(16rem, 75vw);
+  text-overflow: ellipsis;
+}
+
+.filtro-multi-opcoes {
+  max-height: min(70vh, 28rem);
+  overflow-y: auto;
+}
+
+.filtro-multi-acoes {
+  display: flex;
+  justify-content: space-between;
+}
+
+.filtro-multi-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  overflow-y: auto;
+  min-width: 13rem;
+}
+
 .filtro-multi-linha {
   display: flex;
   justify-content: space-between;

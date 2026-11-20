@@ -225,6 +225,14 @@ class AtivoOut(_Saida):
     isento_ir: bool = False
 
 
+class AtivoFiltroOut(_Saida):
+    id: int
+    ticker: str
+    nome: str | None
+    classe: str
+    mercado_tipo: str | None
+
+
 class CriptoIn(BaseModel):
     coingecko_id: str = Field(min_length=1, max_length=120, pattern=r"^[a-z0-9][a-z0-9-]*$")
     ticker: str = Field(min_length=1, max_length=20, pattern=r"^[A-Za-z0-9_-]+$")

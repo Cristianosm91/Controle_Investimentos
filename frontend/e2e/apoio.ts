@@ -81,17 +81,31 @@ export const semear = {
     enviar<Registro & { nome: string }>(request, "post", "/investidores", { nome, cor: "#2563eb" }),
   grupo: (request: APIRequestContext, nome = `Grupo E2E ${unico("")}`) =>
     enviar<Registro & { nome: string }>(request, "post", "/grupos", { nome }),
-  ativo: (request: APIRequestContext, ticker = tickerFicticio()) =>
+  ativo: (
+    request: APIRequestContext,
+    ticker = tickerFicticio(),
+    opcoes: { classe?: string; mercado?: string | null; moeda?: string; coingecko_id?: string; setor?: string | null; subsetor?: string | null } = {},
+  ) =>
     enviar<Registro & { ticker: string }>(request, "post", "/ativos", {
       ticker,
       nome: `Ativo fictício ${ticker}`,
-      classe: "AÇÃO",
-      mercado: "BVMF",
-      moeda: "BRL",
+      classe: opcoes.classe ?? "AÇÃO",
+      mercado: opcoes.mercado === undefined ? "BVMF" : opcoes.mercado,
+      moeda: opcoes.moeda ?? "BRL",
+      ...opcoes,
     }),
   operacao: (
     request: APIRequestContext,
-    dados: { investidor_id: number; ativo_id: number; data: string; evento: "C" | "V"; quantidade: number; preco: number },
+    dados: {
+      investidor_id: number;
+      ativo_id: number;
+      data: string;
+      evento: "C" | "V";
+      quantidade: number;
+      preco: number;
+      moeda?: string;
+      cambio?: number;
+    },
   ) => enviar<Registro>(request, "post", "/operacoes", { ...dados, quantidade: dados.evento === "V" ? -Math.abs(dados.quantidade) : dados.quantidade }),
   provento: (
     request: APIRequestContext,
@@ -139,7 +153,15 @@ export async function selecionarInvestidorNoTopo(page: Page, nome: string) {
 
 /** Esperada a resposta do filtro (a lista mantém os dados anteriores na tela enquanto busca). */
 export async function filtrarPorAtivo(page: Page, ticker: string, total: number) {
-  await page.getByLabel("Filtrar por um ou mais ativos").fill(ticker);
+  await page.locator('summary[aria-label^="Ativos:"]').click();
+  const filtro = page.getByRole("group", { name: "Ativos" });
+  const pesquisa = filtro.getByRole("searchbox", { name: "Pesquisar ativos" });
+  if (await pesquisa.count()) await pesquisa.fill(ticker);
+  const ativo = filtro.getByRole("checkbox", { name: ticker, exact: true });
+  await expect(ativo).toBeVisible();
+  await filtro.getByRole("button", { name: "Limpar seleção" }).click();
+  await ativo.check();
+  await page.getByLabel(`Ativos: ${ticker}`).click();
   await expect(page.getByText(new RegExp(`Página 1 de 1 · ${total} registros`))).toBeVisible();
   await expect(page.getByText("Carregando…")).toHaveCount(0);
 }

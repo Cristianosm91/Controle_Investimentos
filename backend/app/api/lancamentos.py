@@ -19,6 +19,7 @@ from ..schemas import (
     TrocaTickerIn,
     VinculoTransferenciaIn,
 )
+from ..services.filtros_ativos import ids_filtrados
 from .deps import InvestidoresDep, SessaoDep, obter_ou_404
 
 router = APIRouter(tags=["lançamentos"])
@@ -55,7 +56,7 @@ def _validar_refs(sessao: Session, dados: BaseModel) -> None:
 
 def _listar(
     sessao: Session, modelo, campo_data, schema, investidores, ticker, inicio, fim, limite, deslocamento, evento=None,
-    classe=None, ids=None, corretora_id=None, excluir_evento=None,
+    classe=None, ids=None, corretora_id=None, excluir_evento=None, ativo_ids=None,
 ):
     base = select(modelo)
     if investidores:
@@ -68,6 +69,8 @@ def _listar(
         if not ids_lista or min(ids_lista) <= 0:
             raise HTTPException(422, "Informe pelo menos um ID de lançamento válido")
         base = base.where(modelo.id.in_(ids_lista))
+    if ativo_ids is not None and hasattr(modelo, "ativo_id"):
+        base = base.where(modelo.ativo_id.in_(ativo_ids))
     if evento:
         base = base.where(modelo.evento == evento)
     if excluir_evento:
@@ -160,6 +163,9 @@ def listar_operacoes(
     apontamento: str | None = None,
     codigo: Annotated[str | None, Query(max_length=50)] = None,
     corretora_id: Annotated[int | None, Query(ge=1)] = None,
+    mercados: Annotated[str | None, Query(max_length=100)] = None,
+    classes: Annotated[str | None, Query(max_length=200)] = None,
+    ativo_ids: Annotated[str | None, Query(max_length=2000)] = None,
     limite: Limite = 200,
     deslocamento: Deslocamento = 0,
 ):
@@ -170,9 +176,18 @@ def listar_operacoes(
         if not ids_relacionados:
             return Pagina[OperacaoOut](total=0, itens=[])
         ids = ",".join(str(id_) for id_ in ids_relacionados)
+    try:
+        ativos_filtrados = ids_filtrados(
+            sessao,
+            mercados,
+            ",".join(filter(None, (classes, classe))),
+            ativo_ids,
+        )
+    except ValueError as erro:
+        raise HTTPException(422, str(erro)) from erro
     return _listar(
         sessao, Operacao, Operacao.data, OperacaoOut, investidores, ticker, inicio, fim, limite, deslocamento,
-        evento=evento, classe=classe, ids=ids, corretora_id=corretora_id,
+        evento=evento, ids=ids, corretora_id=corretora_id, ativo_ids=ativos_filtrados,
     )
 
 
@@ -292,6 +307,9 @@ def listar_proventos(
     apontamento: str | None = None,
     codigo: Annotated[str | None, Query(max_length=50)] = None,
     corretora_id: Annotated[int | None, Query(ge=1)] = None,
+    mercados: Annotated[str | None, Query(max_length=100)] = None,
+    classes: Annotated[str | None, Query(max_length=200)] = None,
+    ativo_ids: Annotated[str | None, Query(max_length=2000)] = None,
 ):
     ids = None
     if apontamento:
@@ -301,9 +319,18 @@ def listar_proventos(
         if not ids_relacionados:
             return Pagina[ProventoOut](total=0, itens=[])
         ids = ",".join(str(id_) for id_ in ids_relacionados)
+    try:
+        ativos_filtrados = ids_filtrados(
+            sessao,
+            mercados,
+            ",".join(filter(None, (classes, classe))),
+            ativo_ids,
+        )
+    except ValueError as erro:
+        raise HTTPException(422, str(erro)) from erro
     return _listar(
         sessao, Provento, Provento.data_pagamento, ProventoOut, investidores, ticker, inicio, fim, limite, deslocamento,
-        evento, classe=classe, ids=ids, corretora_id=corretora_id,
+        evento, ids=ids, corretora_id=corretora_id, ativo_ids=ativos_filtrados,
         excluir_evento="ALUGUEL" if evento is None else None,
     )
 

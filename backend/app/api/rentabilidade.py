@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query
 
 from ..schemas import JanelaOut, MatrizProventosOut, MesRentabilidadeOut, ResumoOut
 from ..services import painel
@@ -19,7 +19,14 @@ def real(twr, ipca):
 def rentabilidade_mensal(
     sessao: SessaoDep, investidores: InvestidoresDep, inicio: date | None = None, fim: date | None = None,
     classe: Annotated[str | None, Query(max_length=30)] = None,
+    mercados: Annotated[str | None, Query(max_length=100)] = None,
+    classes: Annotated[str | None, Query(max_length=200)] = None,
+    ativo_ids: Annotated[str | None, Query(max_length=2000)] = None,
 ):
+    try:
+        linhas = painel.mensal(sessao, investidores, inicio, fim, classe, mercados, classes, ativo_ids)
+    except ValueError as erro:
+        raise HTTPException(422, str(erro)) from erro
     return [
         MesRentabilidadeOut(
             data=l.mes.data, investido=l.mes.investido, mercado=l.mes.mercado, proventos=l.mes.proventos,
@@ -31,15 +38,23 @@ def rentabilidade_mensal(
             cdi_acumulado=l.acumulados["cdi"], ipca_acumulado=l.acumulados["ipca"],
             real_acumulado=real(l.twr_acumulado, l.acumulados["ipca"]),
         )
-        for l in painel.mensal(sessao, investidores, inicio, fim, classe)
+        for l in linhas
     ]
 
 
 @router.get("/rentabilidade/resumo", response_model=ResumoOut)
 def rentabilidade_resumo(
-    sessao: SessaoDep, investidores: InvestidoresDep, classe: Annotated[str | None, Query(max_length=30)] = None
+    sessao: SessaoDep,
+    investidores: InvestidoresDep,
+    classe: Annotated[str | None, Query(max_length=30)] = None,
+    mercados: Annotated[str | None, Query(max_length=100)] = None,
+    classes: Annotated[str | None, Query(max_length=200)] = None,
+    ativo_ids: Annotated[str | None, Query(max_length=2000)] = None,
 ):
-    r = painel.resumo(sessao, investidores, classe)
+    try:
+        r = painel.resumo(sessao, investidores, classe, mercados, classes, ativo_ids)
+    except ValueError as erro:
+        raise HTTPException(422, str(erro)) from erro
     return ResumoOut(
         data_referencia=r.data_referencia,
         patrimonio=r.patrimonio,
@@ -66,8 +81,14 @@ def matriz_de_proventos(
     investidores: InvestidoresDep,
     ano: Annotated[int | None, Query(ge=1990, le=2100)] = None,
     classe: Annotated[str | None, Query(max_length=30)] = None,
+    mercados: Annotated[str | None, Query(max_length=100)] = None,
+    classes: Annotated[str | None, Query(max_length=200)] = None,
+    ativo_ids: Annotated[str | None, Query(max_length=2000)] = None,
 ):
-    m = painel.matriz_proventos(sessao, investidores, ano, classe)
+    try:
+        m = painel.matriz_proventos(sessao, investidores, ano, classe, mercados, classes, ativo_ids)
+    except ValueError as erro:
+        raise HTTPException(422, str(erro)) from erro
     totais_mes = [sum(linha[i] for linha in m.valores) for i in range(12)]
     return MatrizProventosOut(
         titulo_linhas=m.titulo_linhas,
