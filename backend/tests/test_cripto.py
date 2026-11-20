@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal as D
 
 import httpx
@@ -7,11 +7,12 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
 from app.db import Base
-from app.models import Ativo, Cotacao, CriptoMercado, Investidor, Operacao
+from app.models import Ativo, Cotacao, CotacaoMoeda, CriptoMercado, Investidor, Operacao
 from app.providers import cripto as fonte
 from app.providers.base import AtivoRef, CotacaoAtual
 from app.providers.yahoo import MERCADO_CRIPTO, ProvedorYahoo, simbolo_yahoo
-from app.schemas import AtivoIn
+from app.schemas import AtivoIn, CriptoOperacaoIn, CriptoTrocaTickerIn, OperacaoIn
+from app.services import carteira as servico_carteira
 from app.services import cotacoes, cripto, historico
 
 
@@ -47,6 +48,25 @@ def operacao(sessao, inv, ativo, dia, q, p, cambio="1", taxas="0"):
         moeda=ativo.moeda, cambio=D(cambio), taxas=D(taxas),
     ))
     sessao.commit()
+
+
+def ptax_fixa(monkeypatch, valores):
+    def obter(moeda, dia, dias_uteis_antes=0):
+        if moeda not in valores:
+            raise cripto.bcb.ErroPtax(f"indisponível: {moeda}")
+        taxa = D(valores[moeda])
+        return cripto.bcb.Ptax(moeda, dia, taxa, taxa)
+
+    monkeypatch.setattr(cripto.bcb, "ptax", obter)
+
+
+def nova_operacao_cripto(sessao, investidor, ativo, dia, **campos):
+    valores = {
+        "investidor_id": investidor.id, "ativo_id": ativo.id, "data": dia, "evento": "C",
+        "quantidade": D("1"), "moeda": "USD", "valor_original": D("100"),
+    }
+    valores.update(campos)
+    return cripto.salvar_operacao(sessao, CriptoOperacaoIn(**valores))
 
 
 def test_catalogo_cache_e_identidade(monkeypatch):
@@ -279,6 +299,221 @@ def test_fallback_nao_deixa_metricas_antigas_com_novo_preco(sessao, monkeypatch)
     mercado = sessao.scalar(select(CriptoMercado))
     assert mercado.fonte == "Kraken"
     assert mercado.market_cap_usd is None and mercado.variacao_7d is None
+
+
+def test_operacoes_mistas_preservam_originais_e_custo_historico(sessao, monkeypatch):
+    investidor, _, btc, _ = cadastrar(sessao)
+    ptax_fixa(monkeypatch, {"USD": "5", "EUR": "6", "GBP": "7"})
+    dia = date.today() - timedelta(days=3)
+    brl = CriptoOperacaoIn(
+        investidor_id=investidor.id, ativo_id=btc.id, data=dia, evento="C",
+        quantidade=D("0.01"), moeda="BRL", valor_original=D("5000"),
+    )
+    usd = CriptoOperacaoIn(
+        investidor_id=investidor.id, ativo_id=btc.id, data=dia, evento="C",
+        quantidade=D("0.01"), moeda="USD", valor_original=D("500"),
+    )
+    compra_brl = cripto.salvar_operacao(sessao, brl)
+    compra_usd = cripto.salvar_operacao(sessao, usd)
+    sessao.add(CriptoMercado(
+        ativo_id=btc.id, preco_usd=D("100000"), market_cap_usd=None, variacao_24h=None,
+        variacao_7d=None, variacao_30d=None, fonte="fixture", atualizado_em=datetime.now(UTC).replace(tzinfo=None),
+    ))
+    sessao.commit()
+
+    painel_usd = cripto.painel(sessao, [investidor.id], "USD")
+    item_usd = next(item for item in painel_usd["itens"] if item["ativo_id"] == btc.id)
+    painel_brl = cripto.painel(sessao, [investidor.id], "BRL")
+    item_brl = next(item for item in painel_brl["itens"] if item["ativo_id"] == btc.id)
+
+    assert compra_brl.cripto_valor_original == D("5000")
+    assert compra_brl.cripto_cambio_usd == D("0.2")
+    assert compra_brl.cripto_valor_usd == D("1000")
+    assert compra_usd.moeda == "USD" and compra_usd.cripto_valor_original == D("500")
+    assert item_usd["investido_visualizacao"] == D("1500")
+    assert item_usd["mercado_visualizacao"] == D("2000")
+    assert item_usd["lucro_aberto_visualizacao"] == D("500")
+    assert item_brl["investido_visualizacao"] == D("7500")
+    assert item_brl["mercado_visualizacao"] == D("10000")
+    assert compra_brl.moeda == "BRL" and compra_brl.cripto_valor_original == D("5000")
+
+
+def test_troca_vinculada_cripto_preserva_custo_na_nova_posicao(sessao, monkeypatch):
+    investidor, _, btc, eth = cadastrar(sessao)
+    ptax_fixa(monkeypatch, {"USD": "5", "EUR": "6", "GBP": "7"})
+    dia = date.today() - timedelta(days=3)
+    nova_operacao_cripto(sessao, investidor, btc, dia, valor_original=D("100"), moeda="USD")
+    saida, entrada = cripto.salvar_troca_ticker(sessao, CriptoTrocaTickerIn(
+        investidor_id=investidor.id, ativo_origem_id=btc.id, ativo_destino_id=eth.id, data=dia,
+        quantidade_origem=D("1"), quantidade_destino=D("2"), preco_origem=D("100"), moeda="USD",
+    ))
+
+    posicoes, incompletos = cripto._posicoes_em_moeda(
+        sessao, [investidor.id], {btc.id, eth.id}, "USD",
+    )
+    linhas_brl = servico_carteira.montar_carteira(
+        sessao, [investidor.id], consolidado=True, ativo_ids={btc.id, eth.id},
+    )
+
+    assert saida.transferencia_pareada_id == entrada.id
+    assert entrada.transferencia_pareada_id == saida.id
+    assert not incompletos
+    assert posicoes[btc.id].quantidade == 0
+    assert posicoes[eth.id].quantidade == 2 and posicoes[eth.id].custo == D("100")
+    assert [(linha.ativo.id, linha.posicao.custo) for linha in linhas_brl] == [(eth.id, D("500"))]
+
+
+def test_taxa_manual_taxas_em_outra_moeda_e_venda_parcial(sessao, monkeypatch):
+    investidor, _, btc, _ = cadastrar(sessao)
+    ptax_fixa(monkeypatch, {"USD": "5", "EUR": "6", "GBP": "7"})
+    dia = date.today() - timedelta(days=3)
+
+    compra_usd = nova_operacao_cripto(
+        sessao, investidor, btc, dia, valor_original=D("100"), moeda="USD",
+        taxas=D("2"), taxas_moeda="EUR",
+    )
+    compra_brl = nova_operacao_cripto(
+        sessao, investidor, btc, dia, valor_original=D("500"), moeda="BRL",
+        taxas=D("1"), taxas_moeda="GBP",
+    )
+    venda = CriptoOperacaoIn(
+        investidor_id=investidor.id, ativo_id=btc.id, data=dia, evento="V",
+        quantidade=D("-1"), moeda="USD", valor_original=D("150"), taxas=D("0.5"),
+        taxas_moeda="EUR",
+    )
+    venda_salva = cripto.salvar_operacao(sessao, venda)
+    pos_usd, incompletos = cripto._posicoes_em_moeda(sessao, [investidor.id], {btc.id}, "USD")
+    linha_brl = servico_carteira.montar_carteira(
+        sessao, [investidor.id], consolidado=True, ativo_ids={btc.id},
+    )[0]
+    posicao = pos_usd[btc.id]
+
+    assert compra_usd.taxas_moeda == "EUR" and compra_usd.taxas_valor_usd == D("2.4")
+    assert compra_usd.taxas_cambio_brl == D("6")
+    assert compra_brl.taxas_cambio_brl == D("7")
+    assert venda_salva.cripto_valor_usd == D("150")
+    assert not incompletos
+    assert posicao.quantidade == D("1")
+    assert posicao.custo == D("101.9")
+    assert posicao.lucro_realizado == D("47.5")
+    assert linha_brl.posicao.custo == D("509.5")
+
+    manual = CriptoOperacaoIn(
+        investidor_id=investidor.id, ativo_id=btc.id, data=dia, evento="C",
+        quantidade=D("1"), moeda="BRL", valor_original=D("1000"),
+        cambio_usd=D("0.18"), cambio_usd_manual=True,
+        taxas=D("2"), taxas_moeda="EUR", taxas_cambio_usd=D("1.5"),
+        taxas_cambio_usd_manual=True,
+    )
+    manual_salva = cripto.salvar_operacao(sessao, manual)
+    assert manual_salva.moeda == "BRL" and manual_salva.cripto_valor_original == D("1000")
+    assert manual_salva.cripto_cambio_usd == D("0.18")
+    assert manual_salva.cripto_valor_usd == D("180")
+    assert manual_salva.cripto_cambio_usd_fonte == "Manual"
+    assert manual_salva.cambio == D("0.90")
+    assert manual_salva.taxas_valor_usd == D("3")
+    assert manual_salva.taxas_cambio_brl == D("7.5")
+
+
+def test_operacao_legada_nao_usa_cambio_atual_para_custo_usd(sessao):
+    inv, _, btc, _ = cadastrar(sessao)
+    dia_operacao = date.today() - timedelta(days=30)
+    operacao(sessao, inv, btc, dia_operacao.isoformat(), "1", "100", cambio="5")
+    sessao.add_all([
+        CotacaoMoeda(moeda="USD", data=date.today(), valor=D("8"), fonte="fixture"),
+        CriptoMercado(
+            ativo_id=btc.id, preco_usd=D("200"), market_cap_usd=None, variacao_24h=None,
+            variacao_7d=None, variacao_30d=None, fonte="fixture",
+            atualizado_em=datetime.now(UTC).replace(tzinfo=None),
+        ),
+    ])
+    sessao.commit()
+
+    painel = cripto.painel(sessao, [inv.id], "USD")
+    item = next(item for item in painel["itens"] if item["ativo_id"] == btc.id)
+    painel_brl = cripto.painel(sessao, [inv.id], "BRL")
+    item_brl = next(item for item in painel_brl["itens"] if item["ativo_id"] == btc.id)
+
+    assert item["mercado_visualizacao"] == D("200")
+    assert item["investido_visualizacao"] is None
+    assert any("câmbio histórico ausente" in aviso for aviso in painel["avisos"])
+    assert item_brl["investido_visualizacao"] == D("500")
+    assert OperacaoIn(
+        investidor_id=1, ativo_id=1, data=date.today(), evento="C", quantidade=D("1"),
+        moeda="USD", cambio=D("5"), preco=D("1"),
+    ).moeda == "USD"
+    with pytest.raises(ValueError):
+        OperacaoIn(
+            investidor_id=1, ativo_id=1, data=date.today(), evento="C", quantidade=D("1"),
+            moeda="GBP", cambio=D("5"), preco=D("1"),
+        )
+
+
+def test_api_operacao_cripto_e_consulta_de_cambios(cliente, monkeypatch):
+    def ptax(moeda, dia, dias_uteis_antes=0):
+        valores = {"USD": D("5"), "EUR": D("6"), "GBP": D("7")}
+        taxa = valores[moeda]
+        return cripto.bcb.Ptax(moeda, dia, taxa, taxa)
+
+    monkeypatch.setattr(cripto.bcb, "ptax", ptax)
+    investidor = cliente.post("/api/investidores", json={"nome": "Teste"}).json()
+    ativo = cliente.post("/api/ativos", json={
+        "ticker": "BTC", "classe": "CRIPTO", "moeda": "USD", "coingecko_id": "bitcoin",
+    }).json()
+    resposta_cambio = cliente.get("/api/cripto/cambios?data=2026-01-05")
+    assert resposta_cambio.status_code == 200
+    assert next(m for m in resposta_cambio.json()["moedas"] if m["moeda"] == "GBP")["cambio_usd"] == 1.4
+
+    resposta = cliente.post("/api/cripto/operacoes", json={
+        "investidor_id": investidor["id"], "ativo_id": ativo["id"], "data": "2026-01-05", "evento": "C",
+        "quantidade": "0.01", "valor_original": "5000", "moeda": "BRL",
+    })
+    assert resposta.status_code == 201, resposta.text
+    assert resposta.json()["cripto_valor_original"] == 5000
+    assert resposta.json()["cripto_valor_usd"] == 1000
+    assert cliente.get("/api/cripto?moeda_visualizacao=GBP").status_code == 200
+    assert cliente.get("/api/cripto?moeda_visualizacao=JPY").status_code == 422
+
+
+def test_troca_ticker_cripto_preserva_cambio_taxas_e_pareamento(cliente, monkeypatch):
+    def ptax(moeda, dia, dias_uteis_antes=0):
+        valores = {"USD": D("5"), "EUR": D("6"), "GBP": D("7")}
+        taxa = valores[moeda]
+        return cripto.bcb.Ptax(moeda, dia, taxa, taxa)
+
+    monkeypatch.setattr(cripto.bcb, "ptax", ptax)
+    investidor = cliente.post("/api/investidores", json={"nome": "Teste"}).json()
+    origem = cliente.post("/api/ativos", json={
+        "ticker": "BTC", "classe": "CRIPTO", "moeda": "USD",
+    }).json()
+    destino = cliente.post("/api/ativos", json={
+        "ticker": "ETH", "classe": "CRIPTO", "moeda": "BRL",
+    }).json()
+    resposta = cliente.post("/api/cripto/troca-ticker", json={
+        "investidor_id": investidor["id"], "ativo_origem_id": origem["id"],
+        "ativo_destino_id": destino["id"], "data": "2026-01-05",
+        "quantidade_origem": "2", "quantidade_destino": "4", "preco_origem": "10",
+        "taxas": "1", "taxas_moeda": "GBP", "moeda": "EUR",
+    })
+
+    assert resposta.status_code == 201, resposta.text
+    saida, entrada = resposta.json()
+    assert (saida["quantidade"], saida["preco"], saida["moeda"]) == (-2, 10, "EUR")
+    assert (entrada["quantidade"], entrada["preco"], entrada["moeda"]) == (4, 5, "EUR")
+    assert saida["cripto_cambio_usd"] == entrada["cripto_cambio_usd"] == 1.2
+    assert saida["taxas_valor_usd"] == 1.4 and entrada["taxas_valor_usd"] == 0
+    assert saida["cripto_valor_original"] is None
+    assert saida["transferencia_pareada_id"] == entrada["id"]
+    assert entrada["transferencia_pareada_id"] == saida["id"]
+
+    outro = cliente.post("/api/ativos", json={"ticker": "ABC"}).json()
+    incompatível = cliente.post("/api/cripto/troca-ticker", json={
+        "investidor_id": investidor["id"], "ativo_origem_id": origem["id"],
+        "ativo_destino_id": outro["id"], "data": "2026-01-05",
+        "quantidade_origem": 2, "quantidade_destino": 4, "preco_origem": 10, "moeda": "USD",
+    })
+    assert incompatível.status_code == 422
+    assert cliente.get("/api/operacoes", params={"evento": "TRANSFERENCIA"}).json()["total"] == 2
 
 
 def test_simbolo_yahoo_de_cripto():

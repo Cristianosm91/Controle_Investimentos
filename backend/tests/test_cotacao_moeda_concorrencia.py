@@ -81,8 +81,11 @@ def test_cripto_grava_cambio_sem_integrity_error_com_job_concorrente(engine, mon
     assert disparado
     assert resultado.atualizados == ["BTC"]
     with Session(engine) as sessao:
-        assert sessao.scalar(select(func.count()).select_from(CotacaoMoeda)) == 1
-        assert sessao.scalar(select(CotacaoMoeda.valor)) == D("5.10")
+        contagens = dict(sessao.execute(
+            select(CotacaoMoeda.moeda, func.count()).group_by(CotacaoMoeda.moeda)
+        ).all())
+        assert contagens == {"EUR": 1, "GBP": 1, "USD": 1}
+        assert sessao.scalar(select(CotacaoMoeda.valor).where(CotacaoMoeda.moeda == "USD")) == D("5.10")
 
 
 def test_cotacoes_atualiza_linha_existente_como_antes(engine):
