@@ -13,6 +13,7 @@ import { useAtivos, useCorretoras, useDominio } from "../cadastros";
 import { invalidarDerivados } from "../cadastros";
 import { classeSinal, data, moeda, numero } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
+import { EXPLICACAO_EVENTO } from "../eventosOperacao";
 import type { Operacao } from "../tipos";
 
 const NOMES_CLASSES: Record<string, string> = {
@@ -29,17 +30,6 @@ const EVENTOS_CURTOS: Record<string, string> = {
   DESDOBRAMENTO: "Desd./Grup.",
   TRANSFERENCIA: "Troca Ticker",
   VENDA_SUBSCRICAO: "Venda subscr.",
-};
-
-const AJUDA_EVENTOS: Record<string, string> = {
-  C: "Entrada de ativos por compra, incluindo IPO e subscrição.",
-  V: "Saída de ativos por venda.",
-  BONIFICACAO: "Recebimento de ativos em bonificação.",
-  DESDOBRAMENTO: "Aumento (desdobramento) ou redução (grupamento) da quantidade, mantendo o custo total da posição.",
-  TRANSFERENCIA: "Saída e entrada por transferência, troca de ticker ou incorporação (AT/TC). As duas pernas podem ser vinculadas.",
-  AMORTIZACAO: "Redução do custo da posição por devolução de capital.",
-  CISAO: "Ajuste de custo decorrente de cisão da empresa.",
-  VENDA_SUBSCRICAO: "Venda de direitos de subscrição (V.SUB).",
 };
 
 export function Operacoes() {
@@ -230,7 +220,7 @@ export function Operacoes() {
             {eventos.map(({ valor, rotulo }) => (
               <div key={valor}>
                 <dt><strong>{EVENTOS_CURTOS[valor] ? `${EVENTOS_CURTOS[valor]} — ${rotulo}` : rotulo}</strong></dt>
-                <dd>{AJUDA_EVENTOS[valor] ?? rotulo}</dd>
+                <dd>{EXPLICACAO_EVENTO[valor] ?? rotulo}</dd>
               </div>
             ))}
           </dl>

@@ -555,6 +555,44 @@ class VinculoTransferenciaIn(BaseModel):
     operacao_id: int = Field(gt=0)
 
 
+class ConciliacaoPosicaoIn(BaseModel):
+    investidor_id: int = Field(gt=0)
+    ativo_id: int = Field(gt=0)
+    data_referencia: date
+    quantidade_informada: Decimal = Field(ge=0)
+    custo_informado: Decimal = Field(ge=0)
+
+
+class OperacaoConciliacaoOut(_Saida):
+    id: int
+    data: date
+    evento: str
+    quantidade: Num
+    preco: Num
+    taxas: Num
+    irrf: Num
+    moeda: str
+    cambio: Num
+    origem: str
+    observacao: str | None
+
+
+class ConciliacaoPosicaoOut(_Saida):
+    ticker: str
+    data_referencia: date
+    quantidade_informada: Num
+    custo_informado: Num
+    preco_medio_informado: Num | None
+    quantidade_calculada: Num
+    custo_calculado: Num
+    preco_medio_calculado: Num | None
+    diferenca_quantidade: Num
+    diferenca_custo: Num
+    diferenca_preco_medio: Num | None
+    operacoes_total: int
+    operacoes: list[OperacaoConciliacaoOut]
+
+
 class OperacaoOut(_Saida):
     id: int
     investidor_id: int

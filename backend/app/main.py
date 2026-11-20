@@ -22,6 +22,7 @@ from .api import (
     backup,
     cadastros,
     carteira,
+    conciliacao,
     configuracoes,
     cripto,
     exportacao,
@@ -156,8 +157,9 @@ async def erro_inesperado(request: Request, erro: Exception) -> JSONResponse:
     )
 
 for modulo in (
-    cadastros, ativos, lancamentos, carteira, atualizacoes, rentabilidade, configuracoes, alocacao, ir, fundamentos, radar,
-    status, valuation, cripto, backup, exportacao, extratos, aluguel, modelos, planejamento, monitoramento,
+    cadastros, ativos, lancamentos, carteira, conciliacao, atualizacoes, rentabilidade, configuracoes, alocacao, ir,
+    fundamentos, radar, status, valuation, cripto, backup, exportacao, extratos, aluguel, modelos, planejamento,
+    monitoramento,
 ):
     app.include_router(modulo.router, prefix="/api")
 

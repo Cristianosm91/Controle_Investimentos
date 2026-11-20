@@ -8,6 +8,7 @@ import { ProvedorInvestidor } from "./InvestidorContext";
 import { Alocacao } from "./pages/Alocacao";
 import { Aluguel } from "./pages/Aluguel";
 import { Caixa } from "./pages/Caixa";
+import { Conciliacao } from "./pages/Conciliacao";
 import { Configuracoes } from "./pages/Configuracoes";
 import { Cripto } from "./pages/Cripto";
 import { EmConstrucao } from "./pages/EmConstrucao";
@@ -19,6 +20,7 @@ import { Proventos } from "./pages/Proventos";
 import { Radar } from "./pages/Radar";
 import { RendaFixa } from "./pages/RendaFixa";
 import { Rentabilidade } from "./pages/Rentabilidade";
+import { Relatorios } from "./pages/Relatorios";
 import { Resumo } from "./pages/Resumo";
 import { StatusAtivo } from "./pages/StatusAtivo";
 import { Valuation } from "./pages/Valuation";
@@ -33,11 +35,13 @@ const prontas: Record<string, JSX.Element> = {
   "/": <Resumo />,
   "/portfolio": <Portfolio />,
   "/dashboard": <Rentabilidade />,
+  "/conciliacao": <Conciliacao />,
   "/operacoes": <Operacoes />,
   "/proventos": <Proventos />,
   "/aluguel": <Aluguel />,
   "/renda-fixa": <RendaFixa />,
   "/caixa": <Caixa />,
+  "/relatorios": <Relatorios />,
   "/alocacao": <Alocacao />,
   "/metas": <Metas />,
   "/radar": <Radar />,

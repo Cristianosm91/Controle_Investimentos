@@ -331,6 +331,8 @@ def listar_caixa(
     investidores: InvestidoresDep,
     inicio: date | None = None,
     fim: date | None = None,
+    evento: Annotated[str | None, Query(max_length=20)] = None,
+    corretora_id: Annotated[int | None, Query(ge=1)] = None,
     limite: Limite = 200,
     deslocamento: Deslocamento = 0,
     apontamento: str | None = None,
@@ -346,7 +348,7 @@ def listar_caixa(
         ids = ",".join(str(id_) for id_ in ids_relacionados)
     return _listar(
         sessao, MovCaixa, MovCaixa.data, MovCaixaOut, investidores, None, inicio, fim,
-        limite, deslocamento, ids=ids,
+        limite, deslocamento, evento=evento, ids=ids, corretora_id=corretora_id,
     )
 
 

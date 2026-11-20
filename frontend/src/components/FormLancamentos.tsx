@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { api, query } from "../api";
 import { invalidarDerivados, useAtivos, useDominio } from "../cadastros";
+import { EXPLICACAO_EVENTO } from "../eventosOperacao";
 import { data as fmtData, moeda as fmtMoeda, numero } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
 import type { Ativo, CambioCripto, Cota, MovCaixa, Operacao, Provento } from "../tipos";
@@ -402,6 +403,7 @@ export function FormOperacao({ operacao, aoFechar }: { operacao?: Operacao; aoFe
         valor={f.evento}
         aoMudar={(v) => mudar({ evento: v, ...(v === "R_CAP" && { quantidade: "0" }) })}
       />
+      {EXPLICACAO_EVENTO[f.evento] && <small className="sutil largura-total">{EXPLICACAO_EVENTO[f.evento]}</small>}
       {!operacao && f.evento === "TRANSFERENCIA" && (
         <label className="check largura-total">
           <input

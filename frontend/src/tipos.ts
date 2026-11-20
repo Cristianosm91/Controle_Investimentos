@@ -85,6 +85,36 @@ export interface Operacao {
   ticker_transferencia: string | null;
 }
 
+export interface OperacaoConciliacao {
+  id: number;
+  data: string;
+  evento: string;
+  quantidade: number;
+  preco: number;
+  taxas: number;
+  irrf: number;
+  moeda: string;
+  cambio: number;
+  origem: string;
+  observacao: string | null;
+}
+
+export interface ConciliacaoPosicao {
+  ticker: string;
+  data_referencia: string;
+  quantidade_informada: number;
+  custo_informado: number;
+  preco_medio_informado: number | null;
+  quantidade_calculada: number;
+  custo_calculado: number;
+  preco_medio_calculado: number | null;
+  diferenca_quantidade: number;
+  diferenca_custo: number;
+  diferenca_preco_medio: number | null;
+  operacoes_total: number;
+  operacoes: OperacaoConciliacao[];
+}
+
 export interface Provento {
   id: number;
   investidor_id: number;

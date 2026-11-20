@@ -396,6 +396,26 @@ def test_caixa_crud_e_sinal(cliente, ids):
     assert cliente.delete(f"/api/caixa/{mid}").status_code == 204
 
 
+def test_caixa_filtra_por_evento_e_corretora(cliente, ids):
+    cliente.post(
+        "/api/caixa",
+        json={**ids, "data": "2026-01-05", "evento": "APORTE", "valor": 100},
+    )
+    cliente.post(
+        "/api/caixa",
+        json={**ids, "data": "2026-01-06", "evento": "SAQUE", "valor": -25},
+    )
+
+    por_evento = cliente.get("/api/caixa", params={"evento": "APORTE"})
+    por_corretora = cliente.get("/api/caixa", params={"corretora_id": ids["corretora_id"]})
+    outra_corretora = cliente.get("/api/caixa", params={"corretora_id": ids["corretora_id"] + 1})
+
+    assert por_evento.status_code == 200 and por_evento.json()["total"] == 1
+    assert por_evento.json()["itens"][0]["evento"] == "APORTE"
+    assert por_corretora.json()["total"] == 2
+    assert outra_corretora.json()["total"] == 0
+
+
 def test_investidor_com_caixa_nao_pode_ser_excluido(cliente, ids):
     cliente.post("/api/caixa", json={"investidor_id": ids["investidor_id"], "data": "2026-03-01", "evento": "APORTE", "valor": 1})
     assert cliente.delete(f"/api/investidores/{ids['investidor_id']}").status_code == 409

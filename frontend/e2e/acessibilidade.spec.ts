@@ -9,6 +9,8 @@ const PAGINAS = [
   { caminho: "/caixa", titulo: "Caixa" },
   { caminho: "/dashboard", titulo: "Rentabilidade" },
   { caminho: "/cripto", titulo: "Cripto" },
+  { caminho: "/conciliacao", titulo: "Conciliação" },
+  { caminho: "/relatorios", titulo: "Relatórios" },
   { caminho: "/ir", titulo: "Imposto de Renda" },
   { caminho: "/radar", titulo: "Radar" },
   { caminho: "/configuracoes", titulo: "Configurações" },

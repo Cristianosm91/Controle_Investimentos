@@ -130,9 +130,10 @@ export async function responderConfirmacao(page: Page, resposta: "aceitar" | "ca
 /** Marca um único investidor no seletor global do topo. */
 export async function selecionarInvestidorNoTopo(page: Page, nome: string) {
   await page.getByRole("banner").getByRole("button", { name: /Todos os investidores/ }).click();
-  await page.getByRole("menu").getByRole("checkbox", { name: nome }).check();
+  const seletor = page.getByRole("group", { name: "Filtrar por investidores" });
+  await seletor.getByRole("checkbox", { name: nome }).check();
   await page.getByRole("heading", { level: 1 }).first().click();
-  await expect(page.getByRole("menu")).toBeHidden();
+  await expect(seletor).toBeHidden();
   await expect(page.getByRole("banner").getByRole("button", { name: new RegExp(nome) })).toBeVisible();
 }
 
