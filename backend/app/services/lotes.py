@@ -2,10 +2,11 @@
 
 from datetime import datetime
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..models import LoteImportacao, MovCaixa, Operacao, Provento
+from . import auditoria
 
 TIPOS = {
     "EXTRATO_B3": "Extrato B3",
@@ -32,7 +33,10 @@ def contar(sessao: Session, lote: LoteImportacao) -> None:
     """Grava no lote quantos lançamentos ele criou (chamar antes do commit, após o flush dos lançamentos)."""
     sessao.flush()
     for modelo, campo in ((Operacao, "operacoes"), (Provento, "proventos"), (MovCaixa, "caixa")):
-        setattr(lote, campo, sessao.scalar(select(func.count()).where(modelo.lote_id == lote.id)) or 0)
+        itens = list(sessao.scalars(select(modelo).where(modelo.lote_id == lote.id)))
+        setattr(lote, campo, len(itens))
+        for item in itens:
+            auditoria.registrar(sessao, item, "criado")
 
 
 def listar(sessao: Session, limite: int = 100) -> list[LoteImportacao]:
@@ -48,7 +52,12 @@ def desfazer(sessao: Session, lote_id: int) -> dict[str, int]:
         raise LoteInvalido("Este lote já foi desfeito")
     removidos = {}
     for modelo, campo in ((Operacao, "operacoes"), (Provento, "proventos"), (MovCaixa, "caixa")):
-        removidos[campo] = sessao.execute(delete(modelo).where(modelo.lote_id == lote_id)).rowcount or 0
+        itens = list(sessao.scalars(select(modelo).where(modelo.lote_id == lote_id)))
+        removidos[campo] = len(itens)
+        for item in itens:
+            anterior = auditoria.snapshot(item)
+            sessao.delete(item)
+            auditoria.registrar(sessao, item, "excluido", anterior)
     lote.desfeito_em = datetime.now()
     sessao.commit()
     return removidos

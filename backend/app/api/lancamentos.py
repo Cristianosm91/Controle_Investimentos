@@ -19,6 +19,7 @@ from ..schemas import (
     TrocaTickerIn,
     VinculoTransferenciaIn,
 )
+from ..services import auditoria
 from .deps import InvestidoresDep, SessaoDep, obter_ou_404
 
 router = APIRouter(tags=["lançamentos"])
@@ -121,6 +122,8 @@ def _criar(sessao: Session, modelo, dados: BaseModel, schema):
     _validar_refs(sessao, dados)
     obj = modelo(**dados.model_dump(), origem="manual")
     sessao.add(obj)
+    sessao.flush()
+    auditoria.registrar(sessao, obj, "criado")
     sessao.commit()
     sessao.refresh(obj)
     return _saida(obj, schema)
@@ -128,6 +131,7 @@ def _criar(sessao: Session, modelo, dados: BaseModel, schema):
 
 def _alterar(sessao: Session, modelo, id_: int, dados: BaseModel, schema):
     obj = obter_ou_404(sessao, modelo, id_)
+    anterior = auditoria.snapshot(obj)
     _validar_refs(sessao, dados)
     if modelo is Operacao and obj.transferencia_pareada is not None:
         campos_vinculados = ("investidor_id", "ativo_id", "data", "evento", "quantidade", "preco", "moeda", "cambio")
@@ -135,13 +139,19 @@ def _alterar(sessao: Session, modelo, id_: int, dados: BaseModel, schema):
             raise HTTPException(409, "Desfaça o vínculo da transferência antes de alterar suas pernas")
     for campo, valor in dados.model_dump().items():
         setattr(obj, campo, valor)
+    sessao.flush()
+    auditoria.registrar(sessao, obj, "alterado", anterior)
     sessao.commit()
     sessao.refresh(obj)
     return _saida(obj, schema)
 
 
 def _excluir(sessao: Session, modelo, id_: int) -> None:
-    sessao.delete(obter_ou_404(sessao, modelo, id_))
+    obj = obter_ou_404(sessao, modelo, id_)
+    anterior = auditoria.snapshot(obj)
+    sessao.delete(obj)
+    sessao.flush()
+    auditoria.registrar(sessao, obj, "excluido", anterior)
     sessao.commit()
 
 
@@ -222,6 +232,8 @@ def criar_troca_ticker(dados: TrocaTickerIn, sessao: SessaoDep):
     sessao.flush()
     saida.transferencia_pareada_id = entrada.id
     entrada.transferencia_pareada_id = saida.id
+    auditoria.registrar(sessao, saida, "criado")
+    auditoria.registrar(sessao, entrada, "criado")
     sessao.commit()
     sessao.refresh(saida)
     sessao.refresh(entrada)
@@ -243,8 +255,12 @@ def vincular_transferencia(id_: int, dados: VinculoTransferenciaIn, sessao: Sess
     if primeira.transferencia_pareada_id or segunda.transferencia_pareada_id:
         raise HTTPException(409, "Uma das operações já está vinculada")
 
+    primeira_anterior, segunda_anterior = auditoria.snapshot(primeira), auditoria.snapshot(segunda)
     primeira.transferencia_pareada_id = segunda.id
     segunda.transferencia_pareada_id = primeira.id
+    sessao.flush()
+    auditoria.registrar(sessao, primeira, "alterado", primeira_anterior)
+    auditoria.registrar(sessao, segunda, "alterado", segunda_anterior)
     sessao.commit()
     sessao.refresh(primeira)
     sessao.refresh(segunda)
@@ -256,8 +272,12 @@ def desvincular_transferencia(id_: int, sessao: SessaoDep):
     operacao = obter_ou_404(sessao, Operacao, id_)
     pareada = operacao.transferencia_pareada
     if pareada is not None:
+        operacao_anterior, pareada_anterior = auditoria.snapshot(operacao), auditoria.snapshot(pareada)
         operacao.transferencia_pareada_id = None
         pareada.transferencia_pareada_id = None
+        sessao.flush()
+        auditoria.registrar(sessao, operacao, "alterado", operacao_anterior)
+        auditoria.registrar(sessao, pareada, "alterado", pareada_anterior)
         sessao.commit()
 
 

@@ -1,11 +1,12 @@
 import { useMemo, useState, type FormEvent } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { api, query } from "../api";
 import { useAtivos, useCorretoras, useDominio } from "../cadastros";
 import { CampoData } from "../components/CampoData";
 import { data, moeda, numero } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
 import { baixar, nomeArquivo, type Aba, type Celula } from "../exportar";
-import type { MovCaixa, Operacao, Pagina, Provento } from "../tipos";
+import type { HistoricoLancamento, MovCaixa, Operacao, Pagina, Provento } from "../tipos";
 
 type Fonte = "operacoes" | "proventos" | "caixa";
 type Registro = Operacao | Provento | MovCaixa;
@@ -147,6 +148,10 @@ function imprimir(titulo: string, filtros: string, cabecalhos: string[], linhas:
 
 export function Relatorios() {
   const { filtro, investidores } = useInvestidor();
+  const historico = useQuery({
+    queryKey: ["historico-lancamentos", filtro],
+    queryFn: () => api.get<HistoricoLancamento[]>(`/historico-lancamentos${query({ investidores: filtro, limite: 200 })}`),
+  });
   const { data: ativos = [] } = useAtivos();
   const { data: corretoras = [] } = useCorretoras();
   const { data: dominio } = useDominio();
@@ -410,6 +415,59 @@ export function Relatorios() {
           )}
         </>
       )}
+
+      <div className="painel">
+        <h2>Histórico de alterações financeiras</h2>
+        <p className="sutil">
+          Registro local das criações, edições e exclusões de operações, proventos e movimentos de caixa.
+          Os valores ficam no banco configurado para a aplicação e não são enviados a serviços externos.
+        </p>
+        {historico.error && <div className="erro">{(historico.error as Error).message}</div>}
+        {historico.isLoading && <p>Carregando histórico…</p>}
+        {historico.data && historico.data.length > 0 ? (
+          <>
+            <div className="tabela-container">
+              <table className="tabela compacta">
+                <thead>
+                  <tr>
+                    <th scope="col">Data e hora</th>
+                    <th scope="col">Tipo</th>
+                    <th scope="col">Ação</th>
+                    <th scope="col">Registro</th>
+                    <th scope="col">Detalhes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historico.data.map((item) => (
+                    <tr key={item.id}>
+                      <td>{new Date(item.ocorrido_em).toLocaleString("pt-BR")}</td>
+                      <td>{item.entidade === "movcaixa" ? "Movimento de caixa" : item.entidade === "operacao" ? "Operação" : "Provento"}</td>
+                      <td>{item.acao}</td>
+                      <td>{item.registro_id}</td>
+                      <td>
+                        <details>
+                          <summary>Ver valores</summary>
+                          <dl>
+                            {item.anterior && (
+                              <div><dt>Antes</dt><dd><pre>{JSON.stringify(item.anterior, null, 2)}</pre></dd></div>
+                            )}
+                            {item.novo && (
+                              <div><dt>Depois</dt><dd><pre>{JSON.stringify(item.novo, null, 2)}</pre></dd></div>
+                            )}
+                          </dl>
+                        </details>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {historico.data.length === 200 && <p className="sutil">Exibindo até 200 alterações mais recentes.</p>}
+          </>
+        ) : (
+          !historico.isLoading && <p className="aviso">Nenhuma alteração registrada para os investidores selecionados.</p>
+        )}
+      </div>
     </section>
   );
 }

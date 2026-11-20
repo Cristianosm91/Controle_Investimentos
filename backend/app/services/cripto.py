@@ -16,6 +16,7 @@ from ..providers import bcb
 from ..providers import cripto as provedor
 from ..providers.base import CotacaoAtual
 from ..providers.bcb import ProvedorBcb
+from . import auditoria
 from .carteira import cambios_atuais, montar_carteira
 from .cotacoes import gravar_cambio
 from .ir_calculo import mes
@@ -183,6 +184,7 @@ def cambios_operacao(
 
 
 def salvar_operacao(sessao: Session, dados, operacao: Operacao | None = None) -> Operacao:
+    anterior = auditoria.snapshot(operacao) if operacao is not None else None
     ativo = sessao.get(Ativo, dados.ativo_id)
     if ativo is None or ativo.classe != "CRIPTO":
         raise ValueError("A operação precisa estar vinculada a um ativo CRIPTO")
@@ -230,6 +232,8 @@ def salvar_operacao(sessao: Session, dados, operacao: Operacao | None = None) ->
     operacao.taxas_cambio_usd_data_usd = resolvidos["taxas_data_usd"]
     operacao.taxas_cambio_usd_fonte = resolvidos["taxas_fonte"]
     operacao.taxas_valor_usd = dados.taxas * resolvidos["taxas_cambio_usd"]
+    sessao.flush()
+    auditoria.registrar(sessao, operacao, "alterado" if anterior is not None else "criado", anterior)
     sessao.commit()
     sessao.refresh(operacao)
     return operacao
@@ -285,6 +289,8 @@ def salvar_troca_ticker(sessao: Session, dados) -> tuple[Operacao, Operacao]:
     sessao.flush()
     saida.transferencia_pareada_id = entrada.id
     entrada.transferencia_pareada_id = saida.id
+    auditoria.registrar(sessao, saida, "criado")
+    auditoria.registrar(sessao, entrada, "criado")
     sessao.commit()
     sessao.refresh(saida)
     sessao.refresh(entrada)

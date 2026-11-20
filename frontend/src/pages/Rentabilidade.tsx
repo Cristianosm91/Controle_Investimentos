@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { api, query } from "../api";
 import { invalidarDerivados, useAtivos } from "../cadastros";
 import { GraficoBarras, GraficoLinhas } from "../components/Graficos";
@@ -222,6 +223,32 @@ export function Rentabilidade() {
                 aportes − retiradas · proventos {moeda(soma((m) => m.proventos))} · aluguel {moeda(soma((m) => m.aluguel))}
               </small>
             </div>
+          </div>
+
+          <div className="painel" aria-labelledby="componentes-registrados">
+            <h3 id="componentes-registrados">Componentes registrados no período</h3>
+            <p className="sutil">
+              Valores em reais conforme os lançamentos e a metodologia mensal existentes. Esta visão não atribui
+              rentabilidade isolada ao câmbio e não altera as métricas TWR ou TIR.
+            </p>
+            <div className="tabela-container">
+              <table className="tabela compacta">
+                <thead>
+                  <tr><th scope="col">Componente</th><th scope="col" className="num">Valor registrado</th></tr>
+                </thead>
+                <tbody>
+                  <tr><th scope="row">Fluxo líquido (aportes − retiradas)</th><td className="num">{moeda(soma((m) => m.fluxo))}</td></tr>
+                  <tr><th scope="row">Proventos líquidos</th><td className="num">{moeda(soma((m) => m.proventos))}</td></tr>
+                  <tr><th scope="row">Aluguel líquido</th><td className="num">{moeda(soma((m) => m.aluguel))}</td></tr>
+                  <tr><th scope="row">Resultado de operações</th><td className="num">{moeda(soma((m) => m.lucro_trades))}</td></tr>
+                  <tr><th scope="row">Resultado de day trade</th><td className="num">{moeda(soma((m) => m.lucro_daytrade))}</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p className="sutil">
+              O câmbio aplicado a cada operação ou provento em moeda estrangeira pode ser conferido em{" "}
+              <Link to="/relatorios">Relatórios</Link>. O efeito cambial não é apresentado como uma parcela independente do retorno.
+            </p>
           </div>
 
           <div className="painel">

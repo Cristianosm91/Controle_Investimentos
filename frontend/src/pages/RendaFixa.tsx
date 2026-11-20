@@ -4,7 +4,7 @@ import { api, query } from "../api";
 import { AjudaIndicador } from "../components/AjudaIndicador";
 import { classeSinal, data, moeda, numero, percentual } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
-import type { ItemRendaFixa, RendaFixa as TRendaFixa } from "../tipos";
+import type { AgendaProventos, ItemRendaFixa, RendaFixa as TRendaFixa } from "../tipos";
 
 function Vencimento({ item }: { item: ItemRendaFixa }) {
   if (!item.data_vencimento) return <span className="sutil">—</span>;
@@ -24,6 +24,10 @@ export function RendaFixa() {
     queryKey: ["renda-fixa", filtro],
     queryFn: () => api.get<TRendaFixa>(`/renda-fixa${query({ investidores: filtro })}`),
   });
+  const agenda = useQuery({
+    queryKey: ["agenda-proventos", filtro],
+    queryFn: () => api.get<AgendaProventos>(`/proventos/agenda${query({ investidores: filtro })}`),
+  });
   const nome = (id: number) => investidores.find((i) => i.id === id)?.nome ?? id;
   const itens = r?.itens ?? [];
   const proximos = itens
@@ -31,6 +35,27 @@ export function RendaFixa() {
     .sort((a, b) => (a.dias_para_vencer ?? 0) - (b.dias_para_vencer ?? 0))
     .slice(0, 6);
   const rendimento = r ? r.bruto - r.custo : 0;
+  const hoje = new Date().toLocaleDateString("sv-SE");
+  const eventosRegistrados = [
+    ...(agenda.data?.a_receber ?? []).map((item) => ({
+      chave: `provento-${item.id}`,
+      data: item.data_pagamento,
+      ticker: item.ticker,
+      investidor: nome(item.investidor_id),
+      descricao: `Provento registrado · ${item.evento}`,
+      valor: item.liquido,
+    })),
+    ...itens
+      .filter((item) => item.data_vencimento && item.data_vencimento >= hoje)
+      .map((item) => ({
+        chave: `vencimento-${item.investidor_id}-${item.ativo_id}`,
+        data: item.data_vencimento!,
+        ticker: item.ticker,
+        investidor: nome(item.investidor_id),
+        descricao: "Vencimento cadastrado",
+        valor: null,
+      })),
+  ].sort((a, b) => a.data.localeCompare(b.data) || a.ticker.localeCompare(b.ticker)).slice(0, 20);
 
   return (
     <section>
@@ -40,6 +65,47 @@ export function RendaFixa() {
       </div>
       {error && <div className="erro">{(error as Error).message}</div>}
       {isLoading && <p>Carregando…</p>}
+      {agenda.error && <div className="erro">{(agenda.error as Error).message}</div>}
+      <div className="painel">
+        <h2>Eventos futuros cadastrados</h2>
+        <p className="sutil">
+          Exibe pagamentos futuros registrados e datas de vencimento cadastradas. Não projeta valores para vencimentos;
+          quando não há valor registrado, ele permanece em branco.
+        </p>
+        {eventosRegistrados.length > 0 ? (
+          <div className="tabela-container">
+            <table className="tabela compacta">
+              <thead>
+                <tr>
+                  <th scope="col">Data</th>
+                  <th scope="col">Evento</th>
+                  <th scope="col">Ativo</th>
+                  <th scope="col">Investidor</th>
+                  <th scope="col" className="num">Valor registrado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {eventosRegistrados.map((evento) => (
+                  <tr key={evento.chave}>
+                    <td>{data(evento.data)}</td>
+                    <td>{evento.descricao}</td>
+                    <td>{evento.ticker}</td>
+                    <td>{evento.investidor}</td>
+                    <td className="num">{evento.valor === null ? "Não cadastrado" : moeda(evento.valor)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="aviso">
+            {agenda.isLoading ? "Carregando eventos…" : "Nenhum pagamento futuro ou vencimento cadastrado para os filtros atuais."}
+          </p>
+        )}
+        {eventosRegistrados.some((evento) => evento.descricao.startsWith("Provento")) && (
+          <p className="sutil">Valores de proventos conforme os lançamentos futuros cadastrados; não são previsões de pagamentos.</p>
+        )}
+      </div>
       {r && itens.length === 0 && (
         <div className="aviso">
           Nenhuma posição em ativos personalizados. Cadastre CDB, LCI, Tesouro etc. em{" "}

@@ -17,7 +17,7 @@ function Pct({ v }: { v: number | null | undefined }) {
 }
 
 export function Resumo() {
-  const { filtro } = useInvestidor();
+  const { filtro, investidores } = useInvestidor();
   const { data: ativos = [] } = useAtivos();
   const [classe, setClasse] = useState("");
   const classes = [...new Set(ativos.map((ativo) => ativo.classe))].sort();
@@ -36,10 +36,22 @@ export function Resumo() {
 
   const r = resumo.data;
   const meses = mensal.data ?? [];
+  const automaticos = new Set(ativos.filter((a) => a.cotacao_automatica).map((a) => a.id));
+  const posicoesAbertas = (posicoes.data ?? []).filter((p) => p.quantidade > 0 && (!classe || p.classe === classe));
+  const cotacoesMonitoradas = posicoesAbertas.filter((p) => automaticos.has(p.ativo_id));
+  const cotacoesAusentes = cotacoesMonitoradas.filter((p) => !p.cotacao_data);
+  const cotacoesDefasadas = cotacoesMonitoradas.filter(
+    (p) => p.cotacao_data && cotacaoDesatualizada(p.cotacao_data, p.classe),
+  );
+  const cotacaoMaisRecente = [...cotacoesMonitoradas]
+    .filter((p) => p.cotacao_data)
+    .sort((a, b) => (b.cotacao_data ?? "").localeCompare(a.cotacao_data ?? ""))[0];
+  const primeiroAcessoSemInvestidor = posicoes.isSuccess && investidores.filter((i) => i.ativo).length === 0;
+  const carteiraSemPosicoes =
+    posicoes.isSuccess && investidores.some((i) => i.ativo) && (posicoes.data ?? []).length === 0;
   const abertas = (posicoes.data ?? []).filter(
     (p) => p.quantidade > 0 && p.variacao_dia_pct !== null && (!classe || p.classe === classe),
   );
-  const automaticos = new Set(ativos.filter((a) => a.cotacao_automatica).map((a) => a.id));
   const defasada = (p: Posicao) => automaticos.has(p.ativo_id) && cotacaoDesatualizada(p.cotacao_data, p.classe);
   const destaques = [...abertas].sort((a, b) => (b.variacao_dia_pct ?? 0) - (a.variacao_dia_pct ?? 0));
   const lucroTotal = r ? r.lucro_aberto + r.lucro_realizado + r.proventos_total + r.aluguel_total : 0;
@@ -65,6 +77,25 @@ export function Resumo() {
       </div>
       {(resumo.error ?? mensal.error) && <div className="erro">{((resumo.error ?? mensal.error) as Error).message}</div>}
       {resumo.isLoading && <p>Carregando…</p>}
+
+      {primeiroAcessoSemInvestidor && (
+        <div className="painel">
+          <h2>Comece por aqui</h2>
+          <p>Cadastre um investidor e depois traga seu histórico para preencher a carteira.</p>
+          <ol>
+            <li><Link to="/configuracoes">Cadastrar investidor</Link></li>
+            <li><Link to="/operacoes">Cadastrar operações ou importar um extrato</Link></li>
+            <li><Link to="/portfolio">Conferir a carteira</Link></li>
+          </ol>
+        </div>
+      )}
+      {carteiraSemPosicoes && (
+        <div className="painel">
+          <h2>Carteira ainda sem posições</h2>
+          <p>Para começar a acompanhar patrimônio e rentabilidade, registre operações ou importe um arquivo da B3.</p>
+          <p><Link to="/operacoes">Ir para Operações e importações</Link></p>
+        </div>
+      )}
 
       {r && (
         <>
@@ -100,6 +131,39 @@ export function Resumo() {
               <small className="sutil">{percentual(r.tir_am)} a.m.</small>
             </div>
           </div>
+
+          {posicoes.isSuccess && posicoesAbertas.length > 0 && (
+            <div className="painel" aria-labelledby="qualidade-cotacoes">
+              <h2 id="qualidade-cotacoes">Qualidade das cotações</h2>
+              <p className="sutil">
+                Status baseado na origem e data disponíveis. A indicação de defasagem reutiliza a regra já usada no Portfólio;
+                não representa uma validação de feriados nem uma garantia de atualização intradiária.
+              </p>
+              {cotacoesMonitoradas.length > 0 ? (
+                <>
+                  <dl className="lista-resumo">
+                    <div><dt>Sem cotação registrada</dt><dd>{cotacoesAusentes.length}</dd></div>
+                    <div><dt>Anterior ao limite atual</dt><dd>{cotacoesDefasadas.length}</dd></div>
+                    <div>
+                      <dt>Última data disponível</dt>
+                      <dd>
+                        {cotacaoMaisRecente
+                          ? `${data(cotacaoMaisRecente.cotacao_data)} · ${cotacaoMaisRecente.cotacao_fonte ?? "fonte não informada"}`
+                          : "—"}
+                      </dd>
+                    </div>
+                  </dl>
+                  <p className="sutil">
+                    Ativos sem preço registrado ou com cotação defasada podem afetar a leitura do patrimônio e da rentabilidade.
+                    Em meses sem cotação histórica, a série existente usa o custo. Confira os tickers no{" "}
+                    <Link to="/portfolio">Portfólio</Link>.
+                  </p>
+                </>
+              ) : (
+                <p>Não há posições com cotação automática para monitorar.</p>
+              )}
+            </div>
+          )}
 
           <div className="paineis">
             <div className="painel">

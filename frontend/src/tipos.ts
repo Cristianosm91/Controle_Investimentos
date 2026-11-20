@@ -483,6 +483,23 @@ export interface PreviaExtrato {
   linhas: LinhaExtrato[];
   ativos_novos: Record<string, string>;
   corretoras_novas: string[];
+  comparacoes: ComparacaoExtrato[];
+}
+
+export interface ComparacaoExtrato {
+  ticker: string;
+  data: string;
+  evento: string;
+  tipo: "OPERACAO" | "PROVENTO";
+  status: "duplicado" | "verificar";
+  moeda: string | null;
+  quantidade_extrato: number | null;
+  quantidade_existente: number | null;
+  diferenca_quantidade: number | null;
+  valor_extrato: number | null;
+  valor_existente: number | null;
+  diferenca_valor: number | null;
+  observacao: string;
 }
 
 export interface ResultadoExtrato {
@@ -873,6 +890,18 @@ export interface AgendaProventos {
   media_mensal: number;
   yoc_atual: number | null;
   yoc_projetado: number | null;
+}
+
+export interface HistoricoLancamento {
+  id: number;
+  entidade: "operacao" | "provento" | "movcaixa";
+  registro_id: number;
+  acao: "criado" | "alterado" | "excluido";
+  investidor_id: number | null;
+  ativo_id: number | null;
+  ocorrido_em: string;
+  anterior: Record<string, unknown> | null;
+  novo: Record<string, unknown> | null;
 }
 
 export interface LoteImportacao {

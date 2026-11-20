@@ -31,7 +31,7 @@ from ..schemas import (
     InvestidorOut,
     InvestidorRefOut,
 )
-from ..services import backup, corretoras, jobs
+from ..services import auditoria, backup, corretoras, jobs
 from .deps import SessaoDep, obter_ou_404
 
 log = logging.getLogger(__name__)
@@ -157,11 +157,23 @@ def _excluir_dados_investidor(sessao, id_: int) -> dict[str, int]:
     sem_sync = {"synchronize_session": False}
     lotes = _lotes_exclusivos(sessao, id_)
     operacoes = select(Operacao.id).where(Operacao.investidor_id == id_)
+    operacoes_pareadas = list(
+        sessao.scalars(
+            select(Operacao).where(
+                Operacao.transferencia_pareada_id.in_(operacoes),
+                Operacao.investidor_id != id_,
+            )
+        )
+    )
+    pares_anteriores = {item.id: auditoria.snapshot(item) for item in operacoes_pareadas}
     # A perna de outro investidor numa transferência entre investidores perde só o pareamento.
     sessao.execute(
         update(Operacao).where(Operacao.transferencia_pareada_id.in_(operacoes)).values(transferencia_pareada_id=None),
         execution_options=sem_sync,
     )
+    for item in operacoes_pareadas:
+        item.transferencia_pareada_id = None
+        auditoria.registrar(sessao, item, "alterado", pares_anteriores[item.id])
     removidos = {
         rotulo: sessao.execute(delete(modelo).where(modelo.investidor_id == id_), execution_options=sem_sync).rowcount
         for rotulo, modelo in _DADOS_DO_INVESTIDOR
@@ -206,6 +218,11 @@ def excluir_investidor_completo(id_: int, sessao: SessaoDep):
         log.exception("Backup antes da exclusão do investidor %s falhou", id_)
         raise HTTPException(409, f"Não foi possível gerar o backup antes da exclusão ({erro}). Nada foi excluído.") from erro
     try:
+        for modelo in (Operacao, Provento, MovCaixa):
+            itens = sessao.scalars(select(modelo).where(modelo.investidor_id == id_)).all()
+            for item in itens:
+                anterior = auditoria.snapshot(item)
+                auditoria.registrar(sessao, item, "excluido", anterior)
         removidos = _excluir_dados_investidor(sessao, id_)
         sessao.commit()
     except Exception as erro:

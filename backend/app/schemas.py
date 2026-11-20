@@ -896,11 +896,28 @@ class LinhaExtratoOut(BaseModel):
     motivo: str | None
 
 
+class ComparacaoExtratoOut(BaseModel):
+    ticker: str
+    data: date
+    evento: str
+    tipo: Literal["OPERACAO", "PROVENTO"]
+    status: Literal["duplicado", "verificar"]
+    moeda: str | None
+    quantidade_extrato: Num | None
+    quantidade_existente: Num | None
+    diferenca_quantidade: Num | None
+    valor_extrato: Num | None
+    valor_existente: Num | None
+    diferenca_valor: Num | None
+    observacao: str
+
+
 class PreviaExtratoOut(BaseModel):
     relatorio: Literal["NEGOCIACAO", "MOVIMENTACAO", "PROVENTOS", "PLANILHA_OPERACOES", "PLANILHA_PROVENTOS"]
     linhas: list[LinhaExtratoOut]
     ativos_novos: dict[str, str]
     corretoras_novas: list[str]
+    comparacoes: list[ComparacaoExtratoOut] = Field(default_factory=list)
 
 
 class ResultadoExtratoOut(BaseModel):
@@ -1529,6 +1546,18 @@ class LoteImportacaoOut(_Saida):
     operacoes: int
     proventos: int
     caixa: int
+
+
+class HistoricoLancamentoOut(BaseModel):
+    id: int
+    entidade: Literal["operacao", "provento", "movcaixa"]
+    registro_id: int
+    acao: Literal["criado", "alterado", "excluido"]
+    investidor_id: int | None
+    ativo_id: int | None
+    ocorrido_em: datetime
+    anterior: dict[str, object] | None
+    novo: dict[str, object] | None
 
 
 class DesfazerLoteOut(BaseModel):

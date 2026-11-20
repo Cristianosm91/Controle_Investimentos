@@ -99,6 +99,36 @@ def test_previa_negociacao(cliente):
     assert sorted(previa["corretoras_novas"]) == ["INTER", "XP"]
 
 
+def test_previa_mostra_comparacao_de_quantidade_e_valor_sem_alterar_registros(cliente):
+    inv = investidor(cliente)
+    ativo = cliente.post("/api/ativos", json={"ticker": "PETR4"}).json()["id"]
+    existente = cliente.post(
+        "/api/operacoes",
+        json={
+            "investidor_id": inv,
+            "ativo_id": ativo,
+            "data": "2025-01-02",
+            "evento": "C",
+            "quantidade": 50,
+            "preco": 38.4,
+        },
+    )
+    assert existente.status_code == 201
+
+    resposta = enviar(cliente, "previa", NEGOCIACAO, investidor_id=inv)
+    assert resposta.status_code == 200, resposta.text
+    previa = resposta.json()
+    comparacao = next(item for item in previa["comparacoes"] if item["ticker"] == "PETR4")
+
+    assert comparacao["status"] == "verificar"
+    assert comparacao["quantidade_extrato"] == 107
+    assert comparacao["quantidade_existente"] == 50
+    assert comparacao["diferenca_quantidade"] == 57
+    assert comparacao["valor_extrato"] == 4109.5
+    assert comparacao["valor_existente"] == 1920
+    assert cliente.get("/api/operacoes", params={"investidores": inv}).json()["total"] == 1
+
+
 def test_planilha_operacoes_importa_taxas_e_irrf(cliente):
     inv = investidor(cliente)
     previa = enviar(cliente, "previa", PLANILHA_OPERACOES, investidor_id=inv).json()
@@ -255,11 +285,21 @@ def test_compara_com_lancamentos_existentes(cliente):
         "data": "2025-01-03", "evento": "C", "quantidade": 5, "preco": 160,
     })
 
-    mov = por_numero(enviar(cliente, "previa", MOVIMENTACAO, investidor_id=inv).json())
-    assert mov[2]["status"] == mov[3]["status"] == "duplicado"
-    neg = por_numero(enviar(cliente, "previa", NEGOCIACAO, investidor_id=inv).json())
-    assert neg[2]["status"] == neg[3]["status"] == "duplicado"
-    assert neg[4]["status"] == "verificar" and "diferente" in neg[4]["motivo"]
+    mov_previa = enviar(cliente, "previa", MOVIMENTACAO, investidor_id=inv).json()
+    mov = por_numero(mov_previa)
+    assert mov[2]["status"] == mov[3]["status"] == "novo"
+    comparacao_jscp = next(item for item in mov_previa["comparacoes"] if item["ticker"] == "ITUB4")
+    assert comparacao_jscp["status"] == "duplicado"
+    assert comparacao_jscp["valor_extrato"] == comparacao_jscp["valor_existente"] == 10
+    assert "líquido" in comparacao_jscp["observacao"]
+
+    neg_previa = enviar(cliente, "previa", NEGOCIACAO, investidor_id=inv).json()
+    neg = por_numero(neg_previa)
+    assert neg[2]["status"] == neg[3]["status"] == neg[4]["status"] == "novo"
+    comparacao_petr = next(item for item in neg_previa["comparacoes"] if item["ticker"] == "PETR4")
+    assert comparacao_petr["status"] == "verificar"
+    assert comparacao_petr["quantidade_extrato"] == comparacao_petr["quantidade_existente"] == 107
+    assert comparacao_petr["diferenca_valor"] == 0.7
 
 
 def test_erros(cliente):
