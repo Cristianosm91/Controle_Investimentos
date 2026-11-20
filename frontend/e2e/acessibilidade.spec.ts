@@ -36,6 +36,21 @@ test.describe("Acessibilidade (axe-core, WCAG 2.x A/AA)", () => {
       await expect(page).toHaveTitle(`${titulo} · InvestHub+`);
       await expect(page.getByText("Carregando…")).toHaveCount(0);
 
+      const raiosBotoes = await page
+        .locator("button:not(.aba):not(.campo-data-calendario)")
+        .evaluateAll((botoes) =>
+          botoes.flatMap((botao) => {
+            const estilo = getComputedStyle(botao);
+            return [
+              estilo.borderTopLeftRadius,
+              estilo.borderTopRightRadius,
+              estilo.borderBottomRightRadius,
+              estilo.borderBottomLeftRadius,
+            ];
+          }),
+        );
+      expect(raiosBotoes.every((raio) => raio === "6px"), "raio dos botões fora do padrão").toBe(true);
+
       const resultado = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
       await testInfo.attach("axe.json", { body: JSON.stringify(resultado.violations, null, 2), contentType: "application/json" });
       const conhecidas = VIOLACOES_CONHECIDAS[caminho] ?? [];

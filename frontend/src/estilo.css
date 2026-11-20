@@ -15,6 +15,7 @@
   --menu-texto: #cbd5e1;
   --positivo: #15803d;
   --negativo: #b91c1c;
+  --raio-controle: 6px;
   font-family: "Segoe UI", system-ui, sans-serif;
   font-size: 14px;
   color: var(--texto);
@@ -52,7 +53,7 @@ button {
   border: 1px solid var(--primaria);
   background: var(--primaria);
   color: #fff;
-  border-radius: 6px;
+  border-radius: var(--raio-controle);
   padding: 0.4rem 0.9rem;
   cursor: pointer;
 }
@@ -84,7 +85,7 @@ label.botao-arquivo {
   display: inline-flex;
   align-items: center;
   border: 1px solid var(--primaria);
-  border-radius: 6px;
+  border-radius: var(--raio-controle);
   padding: 0.4rem 0.9rem;
   color: var(--primaria);
   cursor: pointer;
@@ -139,7 +140,7 @@ select {
   font: inherit;
   padding: 0.35rem 0.5rem;
   border: 1px solid var(--borda);
-  border-radius: 6px;
+  border-radius: var(--raio-controle);
   background: #fff;
 }
 
@@ -553,7 +554,7 @@ button.ajuda-info,
   min-height: 0;
   padding: 0;
   border: 0;
-  border-radius: 0;
+  border-radius: var(--raio-controle);
   background: transparent;
   color: #94a3b8;
   box-shadow: none;
@@ -1345,11 +1346,6 @@ span.texto-limitado {
   min-height: 2.4rem;
 }
 
-.radar button {
-  border-radius: 0;
-  text-transform: uppercase;
-}
-
 .radar .radar-adicionar {
   border-color: var(--primaria);
   background: var(--primaria);
@@ -1454,7 +1450,7 @@ button.campo-data-calendario {
   background: #fff;
   border: 1px solid var(--borda);
   border-left: none;
-  border-radius: 0 6px 6px 0;
+  border-radius: 0 var(--raio-controle) var(--raio-controle) 0;
   font-size: 0.85rem;
   line-height: 1;
 }
@@ -1691,7 +1687,7 @@ a.alerta:hover {
 .tabela th button.ordenar {
   background: none;
   border: none;
-  border-radius: 2px;
+  border-radius: var(--raio-controle);
   padding: 0;
   color: inherit;
   font: inherit;
@@ -1873,7 +1869,7 @@ body {
   gap: 0.35rem;
   padding: 0.35rem 0.7rem;
   border: 1px solid #cbd5e1;
-  border-radius: 7px;
+  border-radius: var(--raio-controle);
   background: var(--painel);
   color: var(--texto);
   cursor: pointer;
@@ -1907,7 +1903,7 @@ body {
 button.exportar-opcao {
   padding: 0.5rem 0.65rem;
   border: 0;
-  border-radius: 5px;
+  border-radius: var(--raio-controle);
   background: transparent;
   color: var(--texto);
   text-align: left;
@@ -2001,7 +1997,7 @@ textarea,
 .filtro-multi summary {
   min-height: 2.25rem;
   border-color: #cbd5e1;
-  border-radius: 7px;
+  border-radius: var(--raio-controle);
 }
 
 input:focus-visible,
@@ -2047,7 +2043,7 @@ button.configuracoes-item {
   min-height: 2.2rem;
   padding: 0.45rem;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--raio-controle);
   background: transparent;
   color: var(--texto);
   text-align: left;
@@ -2200,11 +2196,6 @@ a.botao.botao-primario:hover {
   max-width: 48rem;
 }
 
-.valuation button {
-  border-radius: 7px;
-  text-transform: none;
-}
-
 .valuation input:focus-visible,
 .valuation select:focus-visible,
 .valuation button:focus-visible {
@@ -2330,7 +2321,7 @@ a.botao.botao-primario:hover {
   height: 24px;
   padding: 0;
   border: 0;
-  border-radius: 4px;
+  border-radius: var(--raio-controle);
   background: transparent;
   box-shadow: none;
   color: #94a3b8;
@@ -2385,7 +2376,7 @@ a.botao.botao-primario:hover {
   justify-content: center;
   width: 32px;
   height: 32px;
-  border-radius: 5px;
+  border-radius: var(--raio-controle);
   color: #64748b;
   cursor: pointer;
   list-style: none;
@@ -2437,7 +2428,7 @@ a.botao.botao-primario:hover {
   min-height: 32px;
   padding: 0.4rem 0.55rem;
   border: 0;
-  border-radius: 4px;
+  border-radius: var(--raio-controle);
   background: transparent;
   color: #1e293b;
   font: inherit;

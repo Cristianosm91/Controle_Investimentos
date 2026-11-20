@@ -142,15 +142,6 @@
   outline-offset: 2px;
 }
 
-.valuation button {
-  border-radius: 0;
-  text-transform: uppercase;
-}
-
-.valuation button.link {
-  text-transform: none;
-}
-
 .valuation .valuation-salvar {
   min-height: 2.4rem;
   font-weight: 600;
