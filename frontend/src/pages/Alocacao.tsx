@@ -53,6 +53,38 @@ function TabelaGrupos({ titulo, grupos }: { titulo: string; grupos: GrupoAlocaca
   );
 }
 
+function TabelaEstrategiasPendentes() {
+  return (
+    <div className="painel">
+      <h3>Estratégias ARCA e KRAKEN</h3>
+      <div className="tabela-container">
+        <table className="tabela">
+          <thead>
+            <tr>
+              <th>Estratégia</th>
+              <th>Composição</th>
+              <th>Situação</th>
+            </tr>
+          </thead>
+          <tbody>
+            {["ARCA", "KRAKEN"].map((nome) => (
+              <tr key={nome}>
+                <td><strong>{nome}</strong></td>
+                <td>Não definida</td>
+                <td className="sutil">Aguardando critérios para calcular</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="sutil">
+        A carteira já fornece ativos, classes, books, carteiras e valores atuais. Os alvos e desvios só serão calculados após
+        definir a composição de cada estratégia.
+      </p>
+    </div>
+  );
+}
+
 const ORDENS: Record<string, { rotulo: string; chave: (i: ItemAlocacao) => number | string }> = {
   ajuste: { rotulo: "Ajuste", chave: (i) => -i.ajuste },
   desvio: { rotulo: "Desvio", chave: (i) => i.peso_atual - i.peso_alvo },
@@ -155,7 +187,10 @@ export function Alocacao() {
           </div>
 
           <div className="paineis alinhado-topo">
-            <TabelaGrupos titulo="Por estratégia" grupos={r.estrategias} />
+            <div>
+              <TabelaGrupos titulo="Por estratégia" grupos={r.estrategias} />
+              <TabelaEstrategiasPendentes />
+            </div>
             <TabelaGrupos titulo="Por book" grupos={r.books.filter((b) => b.peso_alvo > 0 || b.valor_atual > 0)} />
           </div>
 
