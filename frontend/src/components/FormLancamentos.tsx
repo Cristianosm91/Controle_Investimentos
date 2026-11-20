@@ -4,7 +4,7 @@ import { api, query } from "../api";
 import { invalidarDerivados, useAtivos, useDominio } from "../cadastros";
 import { data as fmtData, moeda as fmtMoeda, numero } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
-import type { Ativo, Cota, MovCaixa, Operacao, Provento } from "../tipos";
+import type { Ativo, CambioCripto, Cota, MovCaixa, Operacao, Provento } from "../tipos";
 import { CampoAtivo, CampoCorretora, CampoEvento, CampoInvestidor, CamposMoedaCambio } from "./Campos";
 import { CampoData } from "./CampoData";
 import { Modal } from "./Modal";
@@ -39,11 +39,12 @@ interface Moldura {
   aoEnviar: () => void;
   salvando: boolean;
   erro: unknown;
+  bloqueado?: boolean;
   rodape?: ReactNode;
   children: ReactNode;
 }
 
-function MolduraForm({ titulo, aoFechar, aoEnviar, salvando, erro, rodape, children }: Moldura) {
+function MolduraForm({ titulo, aoFechar, aoEnviar, salvando, erro, bloqueado, rodape, children }: Moldura) {
   const enviar = (e: FormEvent) => {
     e.preventDefault();
     aoEnviar();
@@ -54,7 +55,7 @@ function MolduraForm({ titulo, aoFechar, aoEnviar, salvando, erro, rodape, child
         {children}
         {erro ? <div className="erro largura-total">{(erro as Error).message}</div> : null}
         <div className="acoes largura-total">
-          <button type="submit" disabled={salvando}>
+          <button type="submit" disabled={salvando || bloqueado}>
             {salvando ? "Salvando…" : "Salvar"}
           </button>
           <button type="button" className="secundario" onClick={aoFechar}>
@@ -90,6 +91,12 @@ interface FormOp {
   moeda: string;
   cambio: string;
   cambioAuto: boolean;
+  valorOriginal: string;
+  cambioUsd: string;
+  cambioUsdAuto: boolean;
+  taxasMoeda: string;
+  taxasCambioUsd: string;
+  taxasCambioUsdAuto: boolean;
   daytrade: boolean;
   observacao: string;
 }
@@ -110,6 +117,12 @@ function paraFormOp(o: Operacao): FormOp {
     moeda: o.moeda,
     cambio: String(o.cambio),
     cambioAuto: false,
+    valorOriginal: String(o.cripto_valor_original ?? Math.abs(o.quantidade * o.preco)),
+    cambioUsd: texto(o.cripto_cambio_usd),
+    cambioUsdAuto: o.cripto_cambio_usd_fonte !== "Manual",
+    taxasMoeda: o.taxas_moeda ?? o.moeda,
+    taxasCambioUsd: texto(o.taxas_cambio_usd),
+    taxasCambioUsdAuto: o.taxas_cambio_usd_fonte !== "Manual",
     daytrade: o.daytrade,
     observacao: o.observacao ?? "",
   };
@@ -137,7 +150,9 @@ export function FormOperacao({ operacao, aoFechar }: { operacao?: Operacao; aoFe
       ? paraFormOp(operacao)
       : {
           investidor_id: investidorPadrao, ativo_id: "", corretora_id: "", data: hoje(), evento: "C", quantidade: "",
-          preco: "", taxas: "0", irrf: "0", moeda: "BRL", cambio: "1", cambioAuto: true, daytrade: false, observacao: "",
+          preco: "", taxas: "0", irrf: "0", moeda: "BRL", cambio: "1", cambioAuto: true,
+          valorOriginal: "", cambioUsd: "", cambioUsdAuto: true, taxasMoeda: "BRL", taxasCambioUsd: "",
+          taxasCambioUsdAuto: true, daytrade: false, observacao: "",
         },
   );
   const [precoAuto, setPrecoAuto] = useState(!operacao);
@@ -146,7 +161,31 @@ export function FormOperacao({ operacao, aoFechar }: { operacao?: Operacao; aoFe
     (moeda: string, cambio: string, cambioAuto: boolean) => setF((a) => ({ ...a, moeda, cambio, cambioAuto })),
     [],
   );
-  const salvar = useSalvar("operacoes", operacao?.id, aoFechar);
+  const ativo = ativos.find((a) => String(a.id) === f.ativo_id);
+  const ehCripto = ativo?.classe === "CRIPTO";
+  const cambioCripto = useQuery({
+    queryKey: ["cripto-cambios", f.data],
+    queryFn: () => api.get<CambioCripto>(`/cripto/cambios${query({ data: f.data })}`),
+    enabled: ehCripto && /^\d{4}-\d{2}-\d{2}$/.test(f.data),
+    staleTime: 60 * 60 * 1000,
+    retry: false,
+  });
+  const taxaOperacao = cambioCripto.data?.moedas.find((item) => item.moeda === f.moeda);
+  const taxaTaxas = cambioCripto.data?.moedas.find((item) => item.moeda === f.taxasMoeda);
+  const salvar = useMutation({
+    mutationFn: (corpo: object) => ehCripto
+      ? operacao
+        ? api.put<Operacao>(`/cripto/operacoes/${operacao.id}`, corpo)
+        : api.post<Operacao>("/cripto/operacoes", corpo)
+      : operacao
+        ? api.put<Operacao>(`/operacoes/${operacao.id}`, corpo)
+        : api.post<Operacao>("/operacoes", corpo),
+    onSuccess: () => {
+      cliente.invalidateQueries({ queryKey: ["operacoes"] });
+      invalidarDerivados(cliente);
+      aoFechar();
+    },
+  });
   const salvarTroca = useMutation({
     mutationFn: (dados: {
       investidor_id: number;
@@ -169,22 +208,91 @@ export function FormOperacao({ operacao, aoFechar }: { operacao?: Operacao; aoFe
       aoFechar();
     },
   });
+  const salvarTrocaCripto = useMutation({
+    mutationFn: (dados: {
+      investidor_id: number;
+      ativo_origem_id: number;
+      ativo_destino_id: number;
+      corretora_id: number | null;
+      data: string;
+      quantidade_origem: number;
+      quantidade_destino: number;
+      preco_origem: number;
+      taxas: number;
+      irrf: number;
+      moeda: string;
+      cambio_usd: number | null;
+      cambio_usd_manual: boolean;
+      taxas_moeda: string;
+      taxas_cambio_usd: number | null;
+      taxas_cambio_usd_manual: boolean;
+      observacao: string | null;
+    }) => api.post<Operacao[]>("/cripto/troca-ticker", dados),
+    onSuccess: () => {
+      cliente.invalidateQueries({ queryKey: ["operacoes"] });
+      invalidarDerivados(cliente);
+      aoFechar();
+    },
+  });
 
-  const ativo = ativos.find((a) => String(a.id) === f.ativo_id);
   const destinoAtivo = ativos.find((a) => String(a.id) === destinoAtivoId);
   const ehCompraVenda = f.evento === "C" || f.evento === "V";
   const trocaVinculada = !operacao && f.evento === "TRANSFERENCIA" && vincularDestino;
+  const trocaCripto = Boolean(trocaVinculada && ehCripto && destinoAtivo?.classe === "CRIPTO");
+  const trocaIncompativel = Boolean(trocaVinculada && destinoAtivo && (
+    ehCripto !== (destinoAtivo.classe === "CRIPTO")
+    || (!ehCripto && destinoAtivo.moeda !== ativo?.moeda)
+  ));
   const cota = useCotaPersonalizado(ativo, f.data, ehCompraVenda);
   useEffect(() => {
     if (precoAuto && cota.data) setF((a) => ({ ...a, preco: String(cota.data.cota) }));
   }, [precoAuto, cota.data]);
+  useEffect(() => {
+    if (!ehCripto) return;
+    setF((atual) => ({
+      ...atual,
+      ...(taxaOperacao && atual.cambioUsdAuto && taxaOperacao.cambio_usd !== null
+        ? { cambioUsd: String(taxaOperacao.cambio_usd) } : {}),
+      ...(taxaOperacao?.cambio_brl !== null && taxaOperacao?.cambio_brl !== undefined
+        ? { cambio: String(taxaOperacao.cambio_brl) } : {}),
+      ...(taxaTaxas && atual.taxasCambioUsdAuto && taxaTaxas.cambio_usd !== null
+        ? { taxasCambioUsd: String(taxaTaxas.cambio_usd) } : {}),
+    }));
+  }, [ehCripto, taxaOperacao, taxaTaxas]);
 
   const qtd = Number(f.quantidade || 0);
   const preco = Number(f.preco || 0);
   const valorBase = f.evento === "R_CAP" ? Math.abs(preco) : Math.abs(qtd * preco);
-  const total = valorBase * Number(f.cambio || 1) + Number(f.taxas || 0) * Number(f.cambio || 1);
+  const totalBrl = valorBase * Number(f.cambio || 1) + Number(f.taxas || 0) * Number(f.cambio || 1);
+  const principalUsd = ehCompraVenda
+    ? Number(f.valorOriginal || 0) * Number(f.cambioUsd || 0)
+    : valorBase * Number(f.cambioUsd || 0);
+  const totalUsd = principalUsd + Number(f.taxas || 0) * Number(f.taxasCambioUsd || 0)
+    + Number(f.irrf || 0) * Number(f.cambioUsd || 0);
 
   const enviar = () => {
+    if (trocaCripto) {
+      salvarTrocaCripto.mutate({
+        investidor_id: Number(f.investidor_id),
+        ativo_origem_id: Number(f.ativo_id),
+        ativo_destino_id: Number(destinoAtivoId),
+        corretora_id: opcional(f.corretora_id),
+        data: f.data,
+        quantidade_origem: Math.abs(qtd),
+        quantidade_destino: Number(destinoQuantidade),
+        preco_origem: Math.abs(preco),
+        taxas: Number(f.taxas || 0),
+        irrf: Number(f.irrf || 0),
+        moeda: f.moeda,
+        cambio_usd: f.cambioUsd ? Number(f.cambioUsd) : null,
+        cambio_usd_manual: !f.cambioUsdAuto,
+        taxas_moeda: f.taxasMoeda,
+        taxas_cambio_usd: f.taxasCambioUsd ? Number(f.taxasCambioUsd) : null,
+        taxas_cambio_usd_manual: !f.taxasCambioUsdAuto,
+        observacao: f.observacao || null,
+      });
+      return;
+    }
     if (trocaVinculada) {
       salvarTroca.mutate({
         investidor_id: Number(f.investidor_id),
@@ -200,6 +308,33 @@ export function FormOperacao({ operacao, aoFechar }: { operacao?: Operacao; aoFe
         moeda: f.moeda,
         cambio: f.moeda === "BRL" ? 1 : Number(f.cambio),
         observacao: f.observacao || null,
+      });
+      return;
+    }
+    if (ehCripto) {
+      const magnitude = f.quantidade.trim().replace(/^[+-]/, "");
+      const quantidade = f.evento === "R_CAP" ? "0"
+        : QTD_NEGATIVA.includes(f.evento) ? `-${magnitude}`
+          : f.evento in QTD_COM_SINAL ? f.quantidade : magnitude;
+      salvar.mutate({
+        investidor_id: f.investidor_id,
+        ativo_id: f.ativo_id,
+        corretora_id: opcional(f.corretora_id),
+        data: f.data,
+        evento: f.evento,
+        quantidade,
+        preco: ehCompraVenda ? "0" : PRECO_NEGATIVO.includes(f.evento) ? `-${f.preco.replace(/^[+-]/, "")}` : f.preco,
+        taxas: f.taxas || "0",
+        irrf: f.irrf || "0",
+        moeda: f.moeda,
+        daytrade: ehCompraVenda && f.daytrade,
+        observacao: f.observacao || null,
+        valor_original: ehCompraVenda ? f.valorOriginal : null,
+        cambio_usd: f.cambioUsd || null,
+        cambio_usd_manual: !f.cambioUsdAuto,
+        taxas_moeda: f.taxasMoeda,
+        taxas_cambio_usd: f.taxasCambioUsd || null,
+        taxas_cambio_usd_manual: !f.taxasCambioUsdAuto,
       });
       return;
     }
@@ -225,18 +360,42 @@ export function FormOperacao({ operacao, aoFechar }: { operacao?: Operacao; aoFe
       titulo={operacao ? "Editar operação" : "Nova operação"}
       aoFechar={aoFechar}
       aoEnviar={enviar}
-      salvando={salvar.isPending || salvarTroca.isPending}
-      erro={salvar.error ?? salvarTroca.error}
-      rodape={<span className="sutil empurra">Total: {fmtMoeda(total)}</span>}
+      salvando={salvar.isPending || salvarTroca.isPending || salvarTrocaCripto.isPending}
+      erro={salvar.error ?? salvarTroca.error ?? salvarTrocaCripto.error}
+      bloqueado={trocaIncompativel}
+      rodape={<span className="sutil empurra">
+        {ehCripto ? `Total estimado (USD): ${fmtMoeda(totalUsd, "USD")}` : `Total: ${fmtMoeda(totalBrl)}`}
+      </span>}
     >
       <CampoInvestidor valor={f.investidor_id} aoMudar={(v) => mudar({ investidor_id: v })} />
       <label>
         Data
-        <CampoData required valor={f.data} aoMudar={(v) => mudar({ data: v, cambioAuto: true })} />
+        <CampoData required valor={f.data} aoMudar={(v) => mudar({
+          data: v, cambioAuto: true, cambioUsdAuto: true, taxasCambioUsdAuto: true,
+        })} />
       </label>
       <CampoAtivo
         ativoId={f.ativo_id}
-        aoMudar={(a) => mudar(a ? { ativo_id: String(a.id), moeda: a.moeda, cambioAuto: true, ...(a.moeda === "BRL" && { cambio: "1" }) } : { ativo_id: "" })}
+        aoMudar={(a) => {
+          if (!a) {
+            mudar({ ativo_id: "" });
+            return;
+          }
+          const novaMoeda = a.classe === "CRIPTO"
+            ? ativo?.classe === "CRIPTO" ? f.moeda : "USD"
+            : a.moeda;
+          mudar({
+            ativo_id: String(a.id),
+            moeda: novaMoeda,
+            cambioAuto: true,
+            cambioUsdAuto: true,
+            taxasMoeda: a.classe === "CRIPTO"
+              ? f.taxasMoeda === f.moeda ? novaMoeda : f.taxasMoeda
+              : a.moeda,
+            taxasCambioUsdAuto: true,
+            ...(a.classe !== "CRIPTO" && a.moeda === "BRL" && { cambio: "1" }),
+          });
+        }}
       />
       <CampoEvento
         tipo="eventos_operacao"
@@ -270,50 +429,116 @@ export function FormOperacao({ operacao, aoFechar }: { operacao?: Operacao; aoFe
           <small className="sutil">{QTD_COM_SINAL[f.evento]}</small>
         ) : null}
       </label>
-      <label>
-        {f.evento === "R_CAP"
-          ? "Valor devolvido"
-          : PRECO_NEGATIVO.includes(f.evento)
-          ? "Valor devolvido por cota"
-          : trocaVinculada
-            ? "Custo médio por cota de origem"
-            : "Preço unitário"}
-        <input
-          type="number"
-          step="any"
-          min="0"
-          required
-          value={f.preco}
-          onChange={(e) => {
-            setPrecoAuto(false);
-            mudar({ preco: e.target.value });
-          }}
-        />
-        {trocaVinculada && (
-          <small className="sutil">
-            O custo total de origem será preservado; o custo unitário do destino é ajustado à quantidade recebida.
-          </small>
-        )}
-        {cota.data && (
-          <small className="sutil">
-            Ativo personalizado: cota em {fmtData(cota.data.data)} = {numero(cota.data.cota, 6)}; quantidade = valor ÷ cota
-            {String(cota.data.cota) !== f.preco && (
-              <button type="button" className="link" onClick={() => setPrecoAuto(true)}>
-                usar
-              </button>
-            )}
-          </small>
-        )}
-      </label>
+      {ehCripto && ehCompraVenda ? (
+        <label>
+          Valor total ({f.moeda})
+          <input required type="number" step="any" min="0" value={f.valorOriginal}
+            onChange={(e) => mudar({ valorOriginal: e.target.value })} />
+        </label>
+      ) : (
+        <label>
+          {f.evento === "R_CAP"
+            ? "Valor devolvido"
+            : PRECO_NEGATIVO.includes(f.evento)
+            ? "Valor devolvido por cota"
+            : trocaVinculada
+              ? "Custo médio por cota de origem"
+              : "Preço unitário"}
+          <input
+            type="number"
+            step="any"
+            min="0"
+            required
+            value={f.preco}
+            onChange={(e) => {
+              setPrecoAuto(false);
+              mudar({ preco: e.target.value });
+            }}
+          />
+          {trocaVinculada && (
+            <small className="sutil">
+              O custo total de origem será preservado; o custo unitário do destino é ajustado à quantidade recebida.
+            </small>
+          )}
+          {cota.data && (
+            <small className="sutil">
+              Ativo personalizado: cota em {fmtData(cota.data.data)} = {numero(cota.data.cota, 6)}; quantidade = valor ÷ cota
+              {String(cota.data.cota) !== f.preco && (
+                <button type="button" className="link" onClick={() => setPrecoAuto(true)}>
+                  usar
+                </button>
+              )}
+            </small>
+          )}
+        </label>
+      )}
       <label>
         Taxas
         <input type="number" step="any" min="0" value={f.taxas} onChange={(e) => mudar({ taxas: e.target.value })} />
       </label>
+      {ehCripto && (
+        <label>
+          Moeda das taxas
+          <select value={f.taxasMoeda} onChange={(e) => mudar({
+            taxasMoeda: e.target.value, taxasCambioUsdAuto: true,
+          })}>
+            {["BRL", "USD", "EUR", "GBP"].map((codigo) => <option key={codigo}>{codigo}</option>)}
+          </select>
+        </label>
+      )}
       <label>
         <span>IRRF <AjudaIndicador titulo="IRRF da operação" texto="IRRF é Imposto de Renda Retido na Fonte. Na bolsa, a retenção conhecida como dedo-duro costuma ser 0,005% sobre as vendas comuns ou 1% sobre o lucro do day trade. Informe o valor da nota, na moeda do lançamento. Reduz o lucro líquido da carteira; no fiscal é crédito do imposto, não despesa dedutível da base." /></span>
         <input type="number" step="any" min="0" value={f.irrf} onChange={(e) => mudar({ irrf: e.target.value })} />
       </label>
-      <CamposMoedaCambio moeda={f.moeda} cambio={f.cambio} data={f.data} automatico={f.cambioAuto} aoMudar={mudarCambio} />
+      {ehCripto ? (
+        <>
+          <label>
+            Moeda da operação
+            <select value={f.moeda} onChange={(e) => mudar({
+              moeda: e.target.value,
+              cambioUsdAuto: true,
+              taxasMoeda: f.taxasMoeda === f.moeda ? e.target.value : f.taxasMoeda,
+              taxasCambioUsdAuto: f.taxasMoeda === f.moeda ? true : f.taxasCambioUsdAuto,
+            })}>
+              {["BRL", "USD", "EUR", "GBP"].map((codigo) => <option key={codigo}>{codigo}</option>)}
+            </select>
+          </label>
+          <label>
+            Taxa da operação (USD por 1 {f.moeda})
+            <input required type="number" step="any" min="0" value={f.cambioUsd}
+              onChange={(e) => mudar({ cambioUsd: e.target.value, cambioUsdAuto: false })} />
+            <small className="sutil">
+              {cambioCripto.isFetching && "Consultando PTAX… "}
+              {cambioCripto.error && `Câmbio automático indisponível: ${(cambioCripto.error as Error).message}. `}
+              {taxaOperacao?.data_moeda && `PTAX ${f.moeda}: ${fmtData(taxaOperacao.data_moeda)}; `}
+              {taxaOperacao?.data_usd && `USD: ${fmtData(taxaOperacao.data_usd)}. `}
+              {f.cambioUsdAuto ? "Automática" : "Manual"}
+              {!f.cambioUsdAuto && taxaOperacao?.cambio_usd !== null && taxaOperacao?.cambio_usd !== undefined && (
+                <button type="button" className="link" onClick={() => mudar({ cambioUsdAuto: true })}>
+                  usar PTAX
+                </button>
+              )}
+            </small>
+          </label>
+          <label>
+            Taxa das taxas (USD por 1 {f.taxasMoeda})
+            <input required type="number" step="any" min="0" value={f.taxasCambioUsd}
+              onChange={(e) => mudar({ taxasCambioUsd: e.target.value, taxasCambioUsdAuto: false })} />
+            <small className="sutil">
+              {taxaTaxas?.data_moeda && `PTAX ${f.taxasMoeda}: ${fmtData(taxaTaxas.data_moeda)}; `}
+              {taxaTaxas?.data_usd && `USD: ${fmtData(taxaTaxas.data_usd)}. `}
+              {f.taxasCambioUsdAuto ? "Automática" : "Manual"}
+              {!f.taxasCambioUsdAuto && taxaTaxas?.cambio_usd !== null && taxaTaxas?.cambio_usd !== undefined && (
+                <button type="button" className="link" onClick={() => mudar({ taxasCambioUsdAuto: true })}>
+                  usar PTAX
+                </button>
+              )}
+            </small>
+          </label>
+        </>
+      ) : (
+        <CamposMoedaCambio moeda={f.moeda} cambio={f.cambio} data={f.data} automatico={f.cambioAuto} aoMudar={mudarCambio} />
+      )}
       {trocaVinculada && (
         <>
           <CampoAtivo
@@ -331,8 +556,10 @@ export function FormOperacao({ operacao, aoFechar }: { operacao?: Operacao; aoFe
               onChange={(e) => setDestinoQuantidade(e.target.value)}
             />
           </label>
-          {destinoAtivo && ativo && destinoAtivo.moeda !== ativo.moeda && (
-            <small className="negativo largura-total">Origem e destino precisam usar a mesma moeda para esta troca vinculada.</small>
+          {trocaIncompativel && (
+            <small className="negativo largura-total">
+              Ativos cripto só podem ser vinculados a outro ativo cripto; nos demais casos, origem e destino precisam usar a mesma moeda.
+            </small>
           )}
         </>
       )}

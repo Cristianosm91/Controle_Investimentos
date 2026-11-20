@@ -60,3 +60,46 @@ def test_migracao_apelidos_preserva_corretoras_e_impede_downgrade_com_perda(tmp_
         assert con.execute("PRAGMA foreign_key_check").fetchall() == []
     with pytest.raises(RuntimeError, match="Downgrade indisponível"):
         command.downgrade(cfg, "c0d3a8b7f1e2")
+
+
+def test_migracao_cripto_aditiva_preserva_legado_e_bloqueia_perda(tmp_path):
+    banco = tmp_path / "cripto.db"
+    cfg = _alembic(f"sqlite:///{banco.as_posix()}")
+    command.upgrade(cfg, "c0d3a8b7f1e2")
+    with closing(sqlite3.connect(banco)) as con:
+        con.execute("INSERT INTO investidor (id, nome, cor, ativo) VALUES (1, 'Teste', '#000000', 1)")
+        con.execute(
+            "INSERT INTO ativo (id, ticker, classe, moeda, cotacao_automatica) "
+            "VALUES (1, 'BTC', 'CRIPTO', 'USD', 1)"
+        )
+        con.execute(
+            "INSERT INTO operacao (id, investidor_id, ativo_id, data, evento, quantidade, preco, taxas, irrf, "
+            "moeda, cambio, daytrade, origem) "
+            "VALUES (1, 1, 1, '2026-01-02', 'C', 0.01, 50000, 0, 0, 'USD', 5, 0, 'manual')"
+        )
+        con.commit()
+
+    command.upgrade(cfg, "head")
+    with closing(sqlite3.connect(banco)) as con:
+        legado = con.execute(
+            "SELECT moeda, preco, cambio, cripto_valor_original FROM operacao WHERE id = 1"
+        ).fetchone()
+        assert legado == ("USD", 50000, 5, None)
+
+    command.downgrade(cfg, "d7e4b2a9c610")
+    with closing(sqlite3.connect(banco)) as con:
+        assert "cripto_valor_original" not in {
+            linha[1] for linha in con.execute("PRAGMA table_info('operacao')")
+        }
+    command.upgrade(cfg, "head")
+    with closing(sqlite3.connect(banco)) as con:
+        con.execute("UPDATE operacao SET cripto_valor_original = 500 WHERE id = 1")
+        con.commit()
+
+    with pytest.raises(RuntimeError, match="Downgrade indisponível"):
+        command.downgrade(cfg, "c0d3a8b7f1e2")
+    with closing(sqlite3.connect(banco)) as con:
+        assert "cripto_valor_original" in {
+            linha[1] for linha in con.execute("PRAGMA table_info('operacao')")
+        }
+        assert con.execute("SELECT cripto_valor_original FROM operacao WHERE id = 1").fetchone() == (500,)

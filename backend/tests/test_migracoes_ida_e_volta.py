@@ -50,9 +50,10 @@ def test_migracoes_produzem_o_schema_dos_modelos(tmp_path):
 
 
 def _ultima_irreversivel(script: ScriptDirectory):
-    """Migração mais recente cujo downgrade é bloqueado de propósito (evita perda de dados)."""
+    """Migração mais recente cujo downgrade é sempre bloqueado (evita perda de dados)."""
     for revisao in script.walk_revisions():  # da head para a base
-        if IRREVERSIVEL in inspect.getsource(revisao.module.downgrade):
+        fonte = inspect.getsource(revisao.module.downgrade)
+        if IRREVERSIVEL in fonte and "if count:" not in fonte:
             return revisao
     return None
 

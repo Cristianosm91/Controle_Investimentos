@@ -11,10 +11,15 @@ import type { Ativo, MoedaCripto, MonitorCripto, PainelCripto, PontoCripto } fro
 import "./Cripto.css";
 
 type Atualizacao = { atualizados: string[]; avisos: string[] };
+const MOEDAS_VISUALIZACAO = ["BRL", "USD", "EUR", "GBP"];
 
 export function Cripto() {
   const { filtro } = useInvestidor();
   const cliente = useQueryClient();
+  const [moedaVisualizacao, setMoedaVisualizacao] = useState(() => {
+    const salva = localStorage.getItem("investhub.cripto.moedaVisualizacao");
+    return MOEDAS_VISUALIZACAO.includes(salva ?? "") ? salva! : "BRL";
+  });
   const [busca, setBusca] = useState("");
   const [termo, setTermo] = useState("");
   const [selecionada, setSelecionada] = useState<MoedaCripto | null>(null);
@@ -25,8 +30,10 @@ export function Cripto() {
   const [ano, setAno] = useState(new Date().getFullYear());
   const ativos = useAtivos();
   const painel = useQuery({
-    queryKey: ["cripto", filtro],
-    queryFn: () => api.get<PainelCripto>(`/cripto${query({ investidores: filtro })}`),
+    queryKey: ["cripto", filtro, moedaVisualizacao],
+    queryFn: () => api.get<PainelCripto>(`/cripto${query({
+      investidores: filtro, moeda_visualizacao: moedaVisualizacao,
+    })}`),
   });
   const catalogo = useQuery({
     queryKey: ["cripto-catalogo", termo],
@@ -72,9 +79,17 @@ export function Cripto() {
 
   const erro = painel.error ?? catalogo.error ?? ativos.error ?? monitor.error ?? adicionar.error ?? atualizar.error;
   const avisos = [...(painel.data?.avisos ?? []), ...(atualizar.data?.avisos ?? []), ...(monitor.data?.avisos ?? [])];
-  const investido = itens.reduce((s, i) => s + i.investido_brl, 0);
-  const mercadoCompleto = itens.every((i) => i.mercado_brl !== null);
-  const mercado = mercadoCompleto ? itens.reduce((s, i) => s + (i.mercado_brl ?? 0), 0) : null;
+  const investidoCompleto = itens.every((i) => i.investido_visualizacao !== null);
+  const investido = investidoCompleto
+    ? itens.reduce((s, i) => s + (i.investido_visualizacao ?? 0), 0) : null;
+  const mercadoCompleto = itens.every((i) => i.mercado_visualizacao !== null);
+  const mercado = mercadoCompleto
+    ? itens.reduce((s, i) => s + (i.mercado_visualizacao ?? 0), 0) : null;
+  const lucro = mercado !== null && investido !== null ? mercado - investido : null;
+
+  useEffect(() => {
+    localStorage.setItem("investhub.cripto.moedaVisualizacao", moedaVisualizacao);
+  }, [moedaVisualizacao]);
 
   return (
     <section className="cripto">
@@ -87,6 +102,20 @@ export function Cripto() {
       <p className="sutil">CoinGecko → Kraken · cotações USD; BRL convertido pela última PTAX disponível
         {painel.data?.cambio_data && <> de {data(painel.data.cambio_data)} ({moeda(painel.data.cambio_usd_brl)}/USD)</>}.
         Posições respeitam o filtro global de investidores.</p>
+      <label className="cripto-moeda-visualizacao">
+        Exibir criptomoedas em
+        <select value={moedaVisualizacao} onChange={(e) => setMoedaVisualizacao(e.target.value)}>
+          {MOEDAS_VISUALIZACAO.map((codigo) => <option key={codigo}>{codigo}</option>)}
+        </select>
+      </label>
+      {moedaVisualizacao !== "USD" && painel.data?.cambio_usd_visualizacao !== null
+        && painel.data?.cambio_usd_visualizacao !== undefined && (
+        <p className="sutil">
+          Valor atual: {moeda(1, "USD")} = {moeda(painel.data.cambio_usd_visualizacao, moedaVisualizacao)}
+          {painel.data.cambio_data_visualizacao && <> · PTAX até {data(painel.data.cambio_data_visualizacao)}</>}.
+          Custos usam câmbio histórico da data da operação.
+        </p>
+      )}
       {erro instanceof Error && <div className="erro" role="alert">{erro.message}</div>}
       {avisos.length > 0 && <div className="aviso">{[...new Set(avisos)].map((a) => <div key={a}>{a}</div>)}</div>}
 
@@ -133,26 +162,26 @@ export function Cripto() {
       </div>
 
       <div className="cards">
-        <div className="card"><span>Investido <AjudaIndicador titulo="Investido em cripto" texto="Soma dos custos contábeis em reais das posições de cripto exibidas." /></span><strong>{moeda(investido)}</strong></div>
-        <div className="card"><span>Valor de mercado <AjudaIndicador titulo="Valor de mercado em cripto" texto="Soma da quantidade de cada posição multiplicada pela cotação e pelo câmbio da moeda do ativo. Fica indisponível se faltar algum valor." /></span><strong>{moeda(mercado)}</strong></div>
-        <div className="card"><span>Lucro aberto <AjudaIndicador titulo="Lucro aberto em cripto" texto="Valor de mercado em reais menos o investido em reais. Depende de todas as cotações necessárias." /></span><strong className={classeSinal(mercado === null ? null : mercado - investido)}>
-          {moeda(mercado === null ? null : mercado - investido)}</strong></div>
+        <div className="card"><span>Investido <AjudaIndicador titulo="Investido em cripto" texto={`Custo histórico das posições de cripto exibidas, em ${moedaVisualizacao}. Cada operação usa as taxas registradas para sua data.`} /></span><strong>{moeda(investido, moedaVisualizacao)}</strong></div>
+        <div className="card"><span>Valor de mercado <AjudaIndicador titulo="Valor de mercado em cripto" texto={`Quantidade multiplicada pela cotação atual em USD e convertida para ${moedaVisualizacao}. Fica indisponível se faltar cotação cambial.`} /></span><strong>{moeda(mercado, moedaVisualizacao)}</strong></div>
+        <div className="card"><span>Lucro aberto <AjudaIndicador titulo="Lucro aberto em cripto" texto={`Valor de mercado atual menos custo histórico, ambos em ${moedaVisualizacao}.`} /></span><strong className={classeSinal(lucro)}>
+          {moeda(lucro, moedaVisualizacao)}</strong></div>
       </div>
       {painel.isLoading && <p>Carregando cripto…</p>}
       {!painel.isLoading && !itens.length && <p>Nenhum ativo CRIPTO cadastrado. Busque uma moeda para começar.</p>}
       {!!itens.length && <div className="tabela-container"><table className="tabela">
-        <thead><tr><th>Ativo / fonte</th><th className="num">USD / BRL</th><th className="num">24h / 7d / 30d (USD)</th>
-          <th className="num">Market cap (USD)</th><th className="num">Quantidade / PM (BRL)</th><th className="num">Investido / mercado (BRL)</th><th className="num">Lucro aberto</th></tr></thead>
+        <thead><tr><th>Ativo / fonte</th><th className="num">USD / {moedaVisualizacao}</th><th className="num">24h / 7d / 30d (USD)</th>
+          <th className="num">Market cap (USD)</th><th className="num">Quantidade / PM ({moedaVisualizacao})</th><th className="num">Investido / mercado ({moedaVisualizacao})</th><th className="num">Lucro aberto ({moedaVisualizacao})</th></tr></thead>
         <tbody>{itens.map((i) => <tr key={i.ativo_id}>
           <td><strong>{i.ticker}</strong><div className="sutil">{i.nome}</div><div className="sutil">{i.fonte ?? "Sem fonte"} · {
             i.atualizado_em ? new Date(i.atualizado_em).toLocaleString("pt-BR") : "sem snapshot"}</div></td>
-          <td className="num">{moeda(i.preco_usd, "USD")}<div>{moeda(i.preco_brl)}</div></td>
+          <td className="num">{moeda(i.preco_usd, "USD")}<div>{moeda(i.preco_visualizacao, moedaVisualizacao)}</div></td>
           <td className="num">{[i.variacao_24h, i.variacao_7d, i.variacao_30d].map((v, n) =>
             <span key={n}>{n > 0 && " / "}<span className={classeSinal(v)}>{percentual(v)}</span></span>)}</td>
           <td className="num">{moeda(i.market_cap_usd, "USD")}</td>
-          <td className="num">{numero(i.quantidade, 8)}<div>{moeda(i.preco_medio_brl)}</div></td>
-          <td className="num">{moeda(i.investido_brl)}<div>{moeda(i.mercado_brl)}</div></td>
-          <td className={`num ${classeSinal(i.lucro_aberto_brl)}`}>{moeda(i.lucro_aberto_brl)}</td>
+          <td className="num">{numero(i.quantidade, 8)}<div>{moeda(i.preco_medio_visualizacao, moedaVisualizacao)}</div></td>
+          <td className="num">{moeda(i.investido_visualizacao, moedaVisualizacao)}<div>{moeda(i.mercado_visualizacao, moedaVisualizacao)}</div></td>
+          <td className={`num ${classeSinal(i.lucro_aberto_visualizacao)}`}>{moeda(i.lucro_aberto_visualizacao, moedaVisualizacao)}</td>
         </tr>)}</tbody>
       </table></div>}
 

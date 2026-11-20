@@ -15,6 +15,7 @@ from .dominio import (
     GRUPOS_PREJUIZO,
     INDEXADORES,
     MOEDAS,
+    MOEDAS_CRIPTO,
 )
 
 T = TypeVar("T")
@@ -32,6 +33,24 @@ def _validar_moeda(moeda: str, cambio: Decimal) -> None:
         raise ValueError(f"Moeda deve ser uma de {MOEDAS}")
     if moeda == "BRL" and cambio != 1:
         raise ValueError("Lançamento em BRL deve ter câmbio 1")
+
+
+def _validar_evento_operacao(evento: str, quantidade: Decimal, preco: Decimal) -> None:
+    if evento not in EVENTOS_OPERACAO:
+        raise ValueError(f"Evento inválido: {evento}")
+    regras = {
+        "C": quantidade > 0 and preco >= 0,
+        "BONIFICACAO": quantidade > 0 and preco >= 0,
+        "V": quantidade < 0 and preco >= 0,
+        "VENDA_SUBSCRICAO": quantidade < 0 and preco >= 0,
+        "DESDOBRAMENTO": quantidade != 0,
+        "TRANSFERENCIA": quantidade != 0 and preco >= 0,
+        "AMORTIZACAO": quantidade > 0 and preco <= 0,
+        "CISAO": quantidade > 0 and preco <= 0,
+        "R_CAP": quantidade == 0 and preco < 0,
+    }
+    if not regras[evento]:
+        raise ValueError(f"Quantidade/preço incompatíveis com o evento {evento}")
 
 
 # ---------- Grupos / Investidores / Corretoras ----------
@@ -236,12 +255,34 @@ class ItemCriptoOut(BaseModel):
     investido_brl: Num
     mercado_brl: Num | None
     lucro_aberto_brl: Num | None
+    preco_visualizacao: Num | None = None
+    preco_medio_visualizacao: Num | None = None
+    investido_visualizacao: Num | None = None
+    mercado_visualizacao: Num | None = None
+    lucro_aberto_visualizacao: Num | None = None
 
 
 class PainelCriptoOut(BaseModel):
     itens: list[ItemCriptoOut]
     cambio_usd_brl: Num | None
     cambio_data: date | None
+    avisos: list[str]
+    moeda_visualizacao: str = "BRL"
+    cambio_usd_visualizacao: Num | None = None
+    cambio_data_visualizacao: date | None = None
+
+
+class CambioCriptoMoedaOut(BaseModel):
+    moeda: str
+    cambio_brl: Num | None
+    cambio_usd: Num | None
+    data_moeda: date | None
+    data_usd: date | None
+
+
+class CambioCriptoOut(BaseModel):
+    data_solicitada: date
+    moedas: list[CambioCriptoMoedaOut]
     avisos: list[str]
 
 
@@ -404,25 +445,86 @@ class OperacaoIn(BaseModel):
 
     @model_validator(mode="after")
     def _sinais(self) -> "OperacaoIn":
-        ev, q, p = self.evento, self.quantidade, self.preco
-        if ev not in EVENTOS_OPERACAO:
-            raise ValueError(f"Evento inválido: {ev}")
         _validar_moeda(self.moeda, self.cambio)
-        regras = {
-            "C": q > 0 and p >= 0,
-            "BONIFICACAO": q > 0 and p >= 0,
-            "V": q < 0 and p >= 0,
-            "VENDA_SUBSCRICAO": q < 0 and p >= 0,
-            "DESDOBRAMENTO": q != 0,
-            "TRANSFERENCIA": q != 0 and p >= 0,
-            "AMORTIZACAO": q > 0 and p <= 0,
-            "CISAO": q > 0 and p <= 0,
-            "R_CAP": q == 0 and p < 0,
-        }
-        if not regras[ev]:
-            raise ValueError(f"Quantidade/preço incompatíveis com o evento {ev}")
-        if self.daytrade and ev not in ("C", "V"):
+        _validar_evento_operacao(self.evento, self.quantidade, self.preco)
+        if self.daytrade and self.evento not in ("C", "V"):
             raise ValueError("Day trade só aceita compra (C) e venda (V)")
+        return self
+
+
+class CriptoOperacaoIn(BaseModel):
+    investidor_id: int
+    ativo_id: int
+    corretora_id: int | None = None
+    data: date
+    evento: str
+    quantidade: Decimal
+    preco: Decimal = Decimal(0)
+    taxas: Decimal = Field(default=Decimal(0), ge=0)
+    irrf: Decimal = Field(default=Decimal(0), ge=0)
+    moeda: str
+    daytrade: bool = False
+    observacao: str | None = Field(default=None, max_length=200)
+    valor_original: Decimal | None = Field(default=None, gt=0)
+    cambio_usd: Decimal | None = Field(default=None, gt=0)
+    cambio_usd_manual: bool = False
+    taxas_moeda: str | None = None
+    taxas_cambio_usd: Decimal | None = Field(default=None, gt=0)
+    taxas_cambio_usd_manual: bool = False
+
+    @model_validator(mode="after")
+    def _validar(self) -> "CriptoOperacaoIn":
+        if self.moeda not in MOEDAS_CRIPTO:
+            raise ValueError(f"Moeda de cripto deve ser uma de {MOEDAS_CRIPTO}")
+        if self.taxas_moeda is None:
+            self.taxas_moeda = self.moeda
+        if self.taxas_moeda not in MOEDAS_CRIPTO:
+            raise ValueError(f"Moeda das taxas de cripto deve ser uma de {MOEDAS_CRIPTO}")
+        _validar_evento_operacao(self.evento, self.quantidade, self.preco)
+        if self.evento in ("C", "V") and self.valor_original is None:
+            raise ValueError("Informe o valor total original da operação de cripto")
+        if self.cambio_usd_manual and self.cambio_usd is None:
+            raise ValueError("Informe a taxa manual da moeda da operação para USD")
+        if self.taxas_cambio_usd_manual and self.taxas_cambio_usd is None:
+            raise ValueError("Informe a taxa manual da moeda das taxas para USD")
+        if self.daytrade and self.evento not in ("C", "V"):
+            raise ValueError("Day trade só aceita compra (C) e venda (V)")
+        return self
+
+
+class CriptoTrocaTickerIn(BaseModel):
+    investidor_id: int = Field(gt=0)
+    ativo_origem_id: int = Field(gt=0)
+    ativo_destino_id: int = Field(gt=0)
+    corretora_id: int | None = Field(default=None, gt=0)
+    data: date
+    quantidade_origem: Decimal = Field(gt=0)
+    quantidade_destino: Decimal = Field(gt=0)
+    preco_origem: Decimal = Field(ge=0)
+    taxas: Decimal = Field(default=Decimal(0), ge=0)
+    irrf: Decimal = Field(default=Decimal(0), ge=0)
+    moeda: str
+    cambio_usd: Decimal | None = Field(default=None, gt=0)
+    cambio_usd_manual: bool = False
+    taxas_moeda: str | None = None
+    taxas_cambio_usd: Decimal | None = Field(default=None, gt=0)
+    taxas_cambio_usd_manual: bool = False
+    observacao: str | None = Field(default=None, max_length=120)
+
+    @model_validator(mode="after")
+    def _validar(self) -> "CriptoTrocaTickerIn":
+        if self.ativo_origem_id == self.ativo_destino_id:
+            raise ValueError("Origem e destino devem ser ativos diferentes")
+        if self.moeda not in MOEDAS_CRIPTO:
+            raise ValueError(f"Moeda de cripto deve ser uma de {MOEDAS_CRIPTO}")
+        if self.taxas_moeda is None:
+            self.taxas_moeda = self.moeda
+        if self.taxas_moeda not in MOEDAS_CRIPTO:
+            raise ValueError(f"Moeda das taxas de cripto deve ser uma de {MOEDAS_CRIPTO}")
+        if self.cambio_usd_manual and self.cambio_usd is None:
+            raise ValueError("Informe a taxa manual da moeda da operação para USD")
+        if self.taxas_cambio_usd_manual and self.taxas_cambio_usd is None:
+            raise ValueError("Informe a taxa manual da moeda das taxas para USD")
         return self
 
 
@@ -468,6 +570,19 @@ class OperacaoOut(_Saida):
     irrf: Num
     moeda: str
     cambio: Num
+    cripto_valor_original: Num | None = None
+    cripto_cambio_usd: Num | None = None
+    cripto_cambio_usd_data_moeda: date | None = None
+    cripto_cambio_usd_data_usd: date | None = None
+    cripto_cambio_usd_fonte: str | None = None
+    cripto_valor_usd: Num | None = None
+    taxas_moeda: str | None = None
+    taxas_cambio_brl: Num | None = None
+    taxas_cambio_usd: Num | None = None
+    taxas_cambio_usd_data_moeda: date | None = None
+    taxas_cambio_usd_data_usd: date | None = None
+    taxas_cambio_usd_fonte: str | None = None
+    taxas_valor_usd: Num | None = None
     daytrade: bool
     observacao: str | None
     origem: str

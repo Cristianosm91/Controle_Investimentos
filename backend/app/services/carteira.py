@@ -16,9 +16,10 @@ def carregar_posicoes(
     sessao: Session, investidor_ids: Sequence[int] | None, ate: date | None = None, ativo_ids: set[int] | None = None
 ) -> dict[tuple[int, int], Posicao]:
     consulta = select(
-        Operacao.id, Operacao.investidor_id, Operacao.ativo_id, Operacao.data, Operacao.evento,
+        Operacao.id, Operacao.investidor_id, Operacao.ativo_id, Ativo.classe, Operacao.data, Operacao.evento,
         Operacao.quantidade, Operacao.preco, Operacao.taxas, Operacao.daytrade, Operacao.cambio, Operacao.irrf,
-    ).where(Operacao.data <= (ate or date.today()))
+        Operacao.cripto_valor_original, Operacao.taxas_cambio_brl,
+    ).join(Ativo, Ativo.id == Operacao.ativo_id).where(Operacao.data <= (ate or date.today()))
     if investidor_ids:
         consulta = consulta.where(Operacao.investidor_id.in_(investidor_ids))
     if ativo_ids is not None:
@@ -27,6 +28,8 @@ def carregar_posicoes(
         Movimento(
             r.investidor_id, r.ativo_id, r.data, r.evento, r.quantidade, r.preco, r.taxas, r.daytrade, r.id,
             r.cambio, r.irrf,
+            valor_original=r.cripto_valor_original if r.classe == "CRIPTO" else None,
+            taxas_cambio=r.taxas_cambio_brl if r.classe == "CRIPTO" else None,
         )
         for r in sessao.execute(consulta)
     )

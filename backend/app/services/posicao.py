@@ -26,6 +26,8 @@ class Movimento:
     ordem: int = 0
     cambio: Decimal = Decimal(1)
     irrf: Decimal = ZERO
+    valor_original: Decimal | None = None
+    taxas_cambio: Decimal | None = None
 
 
 @dataclass
@@ -97,7 +99,12 @@ def calcular_investimento(movimentos: Iterable[Movimento]) -> ResultadoInvestime
         evento, quantidade = movimento.evento, movimento.quantidade
 
         if evento == "C":
-            desembolso = (quantidade * movimento.preco + movimento.taxas + movimento.irrf) * movimento.cambio
+            if movimento.valor_original is None and movimento.taxas_cambio is None:
+                desembolso = (quantidade * movimento.preco + movimento.taxas + movimento.irrf) * movimento.cambio
+            else:
+                principal = movimento.valor_original or quantidade * movimento.preco
+                cambio_taxas = movimento.taxas_cambio or movimento.cambio
+                desembolso = (principal + movimento.irrf) * movimento.cambio + movimento.taxas * cambio_taxas
             if not movimento.daytrade:
                 posicao.quantidade += quantidade
                 posicao.capital += desembolso
@@ -158,7 +165,12 @@ def _zerar_residuo(p: Posicao) -> None:
 def _entrada(p: Posicao, m: Movimento) -> Decimal:
     if not p.aberta:
         p.data_inicio = m.data
-    p.custo += (m.quantidade * m.preco + m.taxas + m.irrf) * m.cambio
+    if m.valor_original is None and m.taxas_cambio is None:
+        p.custo += (m.quantidade * m.preco + m.taxas + m.irrf) * m.cambio
+    else:
+        principal = m.valor_original or m.quantidade * m.preco
+        cambio_taxas = m.taxas_cambio or m.cambio
+        p.custo += (principal + m.irrf) * m.cambio + m.taxas * cambio_taxas
     p.quantidade += m.quantidade
     return ZERO
 
@@ -169,7 +181,15 @@ def _saida(p: Posicao, m: Movimento, realiza_lucro: bool) -> Decimal:
     p.custo -= pm * saida
     p.quantidade -= saida
     _zerar_residuo(p)
-    return (saida * m.preco - m.taxas - m.irrf) * m.cambio - pm * saida if realiza_lucro else ZERO
+    if not realiza_lucro:
+        return ZERO
+    if m.valor_original is None and m.taxas_cambio is None:
+        receita = (saida * m.preco - m.taxas - m.irrf) * m.cambio
+    else:
+        bruto = m.valor_original if m.valor_original is not None else saida * m.preco
+        cambio_taxas = m.taxas_cambio or m.cambio
+        receita = (bruto - m.irrf) * m.cambio - m.taxas * cambio_taxas
+    return receita - pm * saida
 
 
 def aplicar(p: Posicao, m: Movimento) -> Decimal:

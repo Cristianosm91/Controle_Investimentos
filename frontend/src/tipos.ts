@@ -65,6 +65,19 @@ export interface Operacao {
   irrf: number;
   moeda: string;
   cambio: number;
+  cripto_valor_original: number | null;
+  cripto_cambio_usd: number | null;
+  cripto_cambio_usd_data_moeda: string | null;
+  cripto_cambio_usd_data_usd: string | null;
+  cripto_cambio_usd_fonte: string | null;
+  cripto_valor_usd: number | null;
+  taxas_moeda: string | null;
+  taxas_cambio_brl: number | null;
+  taxas_cambio_usd: number | null;
+  taxas_cambio_usd_data_moeda: string | null;
+  taxas_cambio_usd_data_usd: string | null;
+  taxas_cambio_usd_fonte: string | null;
+  taxas_valor_usd: number | null;
   daytrade: boolean;
   observacao: string | null;
   origem: string;
@@ -152,12 +165,34 @@ export interface ItemCripto {
   investido_brl: number;
   mercado_brl: number | null;
   lucro_aberto_brl: number | null;
+  preco_visualizacao: number | null;
+  preco_medio_visualizacao: number | null;
+  investido_visualizacao: number | null;
+  mercado_visualizacao: number | null;
+  lucro_aberto_visualizacao: number | null;
 }
 
 export interface PainelCripto {
   itens: ItemCripto[];
   cambio_usd_brl: number | null;
   cambio_data: string | null;
+  avisos: string[];
+  moeda_visualizacao: string;
+  cambio_usd_visualizacao: number | null;
+  cambio_data_visualizacao: string | null;
+}
+
+export interface CambioCriptoMoeda {
+  moeda: string;
+  cambio_brl: number | null;
+  cambio_usd: number | null;
+  data_moeda: string | null;
+  data_usd: string | null;
+}
+
+export interface CambioCripto {
+  data_solicitada: string;
+  moedas: CambioCriptoMoeda[];
   avisos: string[];
 }
 
