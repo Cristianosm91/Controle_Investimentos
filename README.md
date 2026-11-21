@@ -38,8 +38,11 @@ Tudo roda em `127.0.0.1`: os dados ficam no seu computador, e as únicas chamada
 
 ### Novidades da versão 1.6.1
 
-A versão melhora a clareza, o alinhamento e a acessibilidade dos filtros. O [CHANGELOG](CHANGELOG.md)
-contém a relação completa.
+A versão melhora a clareza, o alinhamento, a responsividade e a acessibilidade dos filtros de
+operações, proventos e rentabilidade. Os filtros de múltipla seleção permitem pesquisar opções,
+selecionar todos ou limpar a seleção; menus abertos fecham com `Esc` ou ao clicar fora. A navegação
+também preserva o menu lateral recolhido no desktop e usa um drawer sobreposto em telas menores.
+O [CHANGELOG](CHANGELOG.md) contém a relação completa.
 
 ### Novidades da versão 1.6.0
 
@@ -176,6 +179,11 @@ os nomes preservados. Para retornar à versão anterior, use um backup anterior 
 
 ### 5. Acompanhe no dia a dia
 
+No desktop, use o botão ao lado do nome **InvestHub+** para recolher ou expandir o menu lateral;
+o estado fica salvo neste navegador. Em telas de até 720 px, use **Abrir menu** no topo para abrir
+o drawer e feche-o pelo botão de fundo, por um item de navegação ou com `Esc`. O topo permanece
+visível e reúne exportação, alertas e seleção de investidores.
+
 Nos quadros e gráficos que exibem **?**, passe o mouse ou navegue até o botão pelo teclado para consultar
 a origem e a forma de cálculo do indicador. Pressione Esc para fechar a explicação.
 
@@ -241,7 +249,7 @@ Em **🧾 Imposto de Renda**, escolha o CPF e o ano: a tela mostra a apuração 
 | **Resumo** | Patrimônio, lucro aberto/total, TIR, proventos e YoC dos últimos 12 meses, rentabilidade (TWR) no mês/ano/12 meses/desde o início comparada a IBOV, IFIX, CDI e IPCA, retorno real (descontado o IPCA), qualidade de cotações por origem/data/idade e orientação inicial, maiores altas e baixas do dia. |
 | **Rentabilidade** | TWR acumulado × referências, retorno real no período e série "Carteira real", evolução patrimonial (mercado × investido), componentes mensais registrados e mapa de calor ano × mês. Não atribui parcela de retorno ao câmbio nem altera TWR/TIR. |
 | **Portfólio** | Posições abertas com quantidade, preço médio, cotação, valor investido/mercado, lucro do dia, lucro aberto, proventos e peso. Tabela ordenável, agrupamento por estratégia, book, carteira, classe, setor ou moeda com subtotais, gráficos de exposição (book, classe, setor, moeda, ativo e corretora), visão consolidada ou separada por investidor e, opcionalmente, saldo em caixa somado ao patrimônio. Filtro de classes (só uma, algumas ou todas exceto uma) e colunas opcionais com o preço justo do último valuation salvo (mediana, um modelo ou todos), com detalhe por ativo ao clicar. |
-| **Operações** | Lançamento, edição e exclusão pela interface; histórico com filtros por ticker, classe, todos os eventos, corretora e período; seleção individual ou por intervalo com Shift e exclusão múltipla. Trocas de ticker podem criar e vincular as pernas de saída/entrada em conjunto ou ser lançadas individualmente e vinculadas depois. Compra, venda, day trade e eventos societários; IRRF em coluna própria. Eventos longos aparecem abreviados (Desd./Grup., Troca Ticker e Venda subscr.), com legenda no botão “?” do cabeçalho; a exportação mantém os nomes completos. Observações longas são truncadas visualmente e podem ser lidas ao passar o mouse. Câmbio preenchido automaticamente pela PTAX; em ativos personalizados, o preço vem da cota da data. |
+| **Operações** | Lançamento, edição e exclusão pela interface; histórico com filtros por mercado, classe, ativo, evento, corretora e período. Os filtros de mercado, classe e ativo são multisseleção e oferecem pesquisa quando há muitas opções; a seleção pode ser individual ou por intervalo com Shift e a exclusão é múltipla. Trocas de ticker podem criar e vincular as pernas de saída/entrada em conjunto ou ser lançadas individualmente e vinculadas depois. Compra, venda, day trade e eventos societários; IRRF em coluna própria. Eventos longos aparecem abreviados (Desd./Grup., Troca Ticker e Venda subscr.), com legenda no botão “?” do cabeçalho; a exportação mantém os nomes completos. Observações longas são truncadas visualmente e podem ser lidas ao passar o mouse. Câmbio preenchido automaticamente pela PTAX; em ativos personalizados, o preço vem da cota da data. |
 | **Conciliação** | Compara, por investidor, ativo e data, quantidade e custo informados no extrato com o cálculo do app; mostra diferenças e as movimentações consideradas (inclui origem, taxas, IRRF e câmbio). É somente leitura e não altera lançamentos. |
 | **Proventos** | Lançamento, edição e exclusão de dividendos, JCP, rendimentos, bonificações e amortizações, com IRRF e conversão cambial; filtros por ticker, classe, corretora e período, seleção com Shift e exclusão múltipla. Matriz mensal ano × mês e ativo × mês. **Agenda e projeção**: pagamentos lançados a receber e projeção dos próximos 12 meses (valor por cota na data-com × quantidade atual), com YoC projetado por ativo. |
 | **Renda fixa** | Para ativos personalizados: valor bruto, IOF e IR regressivo por aplicação (resgates PEPS), valor líquido hoje, próximos vencimentos e líquido projetado no vencimento; lista também pagamentos futuros cadastrados sem estimar valor de vencimento não informado. |
@@ -261,6 +269,7 @@ Em **🧾 Imposto de Renda**, escolha o CPF e o ano: a tela mostra a apuração 
 | **Exportação** | Botões **CSV** e **XLSX** no topo de todas as páginas: exportam as tabelas visíveis (uma aba por tabela no XLSX, com moeda, percentual, número e data tipados); listas paginadas saem completas, com o filtro atual. |
 | **Backup** | Backup automático diário (mantém os 10 mais recentes) e manual em `%LOCALAPPDATA%\InvestHub\backups`; todo backup é verificado com `PRAGMA integrity_check` (arquivo inválido é descartado, sem apagar backups válidos anteriores). Cópia opcional de cada backup para outra pasta/disco (`INVESTHUB_BACKUP_COPIA_DIR`). Download e restauração validada (cópia do banco atual antes de restaurar — mantidas as 10 mais recentes — e migração automática de backups antigos; se a migração do backup restaurado falhar, o banco anterior volta automaticamente). O `iniciar.bat` gera um backup verificado (`…-antes-migracao-manual.db`) antes de aplicar migrações pendentes. Backups manuais nunca são apagados automaticamente; dados excluídos continuam nos backups existentes. |
 | **Cripto** | Busca no catálogo CoinGecko, vínculo por identificador canônico, preços USD/BRL, variações 24h/7d/30d, capitalização, histórico e posições. Operações preservam valores em BRL/USD/EUR/GBP e taxas em moeda própria, com PTAX histórico e preferência local de exibição. CoinGecko principal; Kraken como fallback somente de preço para moedas com vínculo verificado. Monitor mensal de vendas/ganhos por investidor, sem calcular imposto ou DARF. |
+| **Navegação e acessibilidade** | Menu lateral recolhível no desktop, com preferência persistida; drawer sobreposto em telas de até 720 px; foco devolvido ao controle ao fechar, navegação por teclado, link para pular ao conteúdo, título da aba por tela e explicações contextuais acessíveis por foco ou mouse. |
 
 ### Cripto: fontes e limites
 
@@ -873,7 +882,10 @@ Provavelmente há outra instância rodando. Feche-a com `Ctrl+C` no terminal del
 <details>
 <summary><b>O <code>iniciar.bat</code> não consegue compilar a interface (Node.js indisponível).</b></summary>
 
-O app em execução usa só o Python; o Node.js serve apenas para **compilar a interface**, e o `iniciar.bat` só o chama quando há fontes em `frontend` mais novos que `frontend\dist`. Se a compilação falhar, o script avisa e usa a interface já compilada. Para mantê-la atualizada, rode `npm run build` na pasta `frontend` após alterar o front-end.
+O app em execução usa só o Python; o Node.js serve apenas para **compilar a interface**. O
+`iniciar.bat` recompila quando você escolhe a primeira opção ou quando o build é necessário.
+Se a compilação falhar, o script interrompe a inicialização para não abrir uma interface
+possivelmente desatualizada. Instale o Node.js (ou ajuste `NODE_DIR` no script) e tente novamente.
 </details>
 
 ---

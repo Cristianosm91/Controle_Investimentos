@@ -13,6 +13,10 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 - Operações de cripto preservam moeda e valores originais em BRL, USD, EUR ou GBP; câmbio PTAX histórico para USD, taxas em moeda separada e preferência de exibição por moeda.
 - Trocas vinculadas entre criptomoedas gravam as duas pernas com o câmbio e os metadados históricos da operação.
 
+### Alterado
+- README atualizado para refletir a navegação responsiva, o menu lateral recolhível, o drawer
+  em telas menores, os filtros de múltipla seleção e o comportamento real de falha na compilação.
+
 ## [1.6.1] - 2026-11-20
 
 ### Alterado
