@@ -1,47 +1,25 @@
-O que faz um consolidador de investimentos ter sucesso
-Confiabilidade matemática e contábil (a base de tudo): Se o preço médio, o lucro/prejuízo ou o saldo divergem da corretora ou da nota de corretagem sem explicação clara, o investidor perde a confiança. Regras bem resolvidas para eventos corporativos (desdobramento, grupamento, bonificação, cisão, subscrição), rateio de taxas/emolumentos, IRRF e movimentações em moeda estrangeira fazem toda a diferença.
+Hoje o valuation fica escondido: a coluna "Valuation · Graham" só aparece depois de escolher uma opção em "..." > "Ver modelos".
 
-Baixo atrito na entrada e atualização de dados: Ninguém quer digitar centenas de operações na mão todo mês. Combinar importação fácil (planilhas/extratos/notas/API ou Open Finance quando aplicável) com validação clara de inconsistências evita preguiça e erro humano.
+Antes de codar, analise o código atual, me diga o que pretende alterar e quais arquivos serão afetados, e só então implemente. Faça somente o que está descrito abaixo, sem adicionar nada além disso.
 
-Métricas que respeitam o fluxo de caixa real: Mostrar apenas "rentabilidade bruta simples" costuma distorcer a percepção quando há aportes e resgates constantes. Métricas ajustadas ao fluxo de caixa (como TIR / XIRR ou Dietz modificado) e o acompanhamento de proventos recebidos dão uma leitura muito mais honesta.
+1) RENOMEAR TELAS
+- A tela onde se calcula o valuation (hoje "Valuation") passa a se chamar "Novo valuation".
+- A tela onde se veem os valuations já calculados (hoje "Valuations salvos") passa a se chamar "Meus valuations". Ela continua listando todos os ativos calculados, estejam ou não na minha carteira.
+- Atualizar menu, títulos, rotas visíveis, breadcrumbs e qualquer texto que cite os nomes antigos.
 
-Visão de alocação e decisão, não só de histórico: Saber quanto você tinha ontem é útil; saber o quanto cada ativo/classe pesa hoje, como está sua exposição a risco/moeda e o quanto falta para suas metas ou rebalanceamento ajuda a tomar decisões melhores.
+2) OPÇÃO G: ABAS DE VISÃO NO PORTFÓLIO
+- Adicionar abas acima da tabela do Portfólio: Resumo | Rentabilidade | Proventos | Valuation.
+- Cada aba troca o conjunto de colunas exibido, em vez de aumentar a tabela. A tabela não pode ficar mais larga do que está hoje.
+- Proponha quais colunas atuais vão em cada aba (o Resumo deve ser o mais enxuto). Na aba Valuation, mostrar: ativo, cotação, preço justo por modelo (Graham, Bazin e os demais que já existirem), e margem de segurança.
+- Remover o fluxo escondido "..." > "Ver modelos" como forma de exibir o valuation, já que passa a ter aba própria.
 
-Interface limpa, rápida e com boa hierarquia visual: Dados financeiros ficam confusos quando há excesso de informação solta na tela. Hierarquia clara, filtros rápidos, drill-down (do consolidado até o lançamento de origem) e boa leitura de tabelas/gráficos mantêm o uso leve.
+3) OPÇÃO B: TELA DE VALUATION DA CARTEIRA
+- Criar (ou adaptar) uma tela que mostra o valuation apenas dos ativos da minha carteira, com os modelos lado a lado em colunas (Graham, Bazin, DCF etc., conforme o que existir hoje).
+- Incluir uma mini barra "preço atual vs preço justo" e a coluna de margem de segurança, ordenável.
+- Usar o mesmo componente de tabela de "Meus valuations", com o filtro "só minha carteira" aplicado. Construir esse componente de forma reutilizável.
+- Não definir nome novo para esta tela: usar um nome provisório e listar isso como decisão pendente minha.
 
-Funcionalidades importantes divididas por prioridade
-1. Núcleo essencial (sem isso, não sustenta o uso)
-Cadastro e consolidação multi-ativo e multi-instituição: Ações, FIIs, ETFs, BDRs, renda fixa (pós, prefixada, IPCA+, isentos/tributados), ativos no exterior, caixa/conta corrente e proventos.
-
-Livro de operações e histórico auditável: Registro completo de compra, venda, bonificação, cisão, dividendos, JCP, rendimentos e taxas, com possibilidade de editar/excluir e rastrear a origem do dado.
-
-Cálculo de posição atual e preço médio: Quantidade, custo total, preço médio (considerando taxas conforme a regra adotada) e posição a mercado.
-
-Proventos (provisionados e recebidos): Histórico mensal/anual de dividendos, JCP e rendimentos de FIIs, além de yield on cost (YOC) e visão de renda passiva.
-
-Alocação de carteira: Distribuição percentual e financeira por classe de ativo, instituição, moeda e/ou objetivo.
-
-2. Diferenciais de qualidade e profundidade
-Tratamento automatizado de eventos corporativos: Ajuste de quantidade e preço médio em desdobramentos/grupamentos, incorporação de bonificações e tratamento de cisões sem quebrar o histórico.
-
-Rentabilidade ajustada ao fluxo de caixa (TIR / XIRR ou Dietz): Comparação justa do desempenho da carteira (e por classe/ativo) considerando entradas e saídas de capital e proventos reinvestidos.
-
-Detecção de falhas e inconsistências de dados: Alertas simples para operações duplicadas, datas incoerentes, quantidade vendida maior que o saldo disponível ou campos faltantes antes de calcular métricas.
-
-Visão cambial e multi-moeda: Conversão transparente entre moeda original e moeda de referência (ex.: BRL/USD), separando variação do ativo no exterior da variação cambial.
-
-Relatórios e filtros flexíveis: Busca por ativo, corretora, período ou tipo de evento, com exportação (CSV/Excel/PDF) para conferência ou apoio na declaração de IR.
-
-3. Camada de planejamento e inteligência (para evoluir depois)
-Metas e rebalanceamento: Definição de percentuais-alvo por classe/ativo e sugestão simples de onde alocar os próximos aportes para reduzir distorções.
-
-Simulações e projeções: Estimativas de evolução patrimonial com aportes recorrentes e cenários de taxa/rentabilidade, deixando bem claro o que é premissa e o que é realizado.
-
-Acompanhamento de vencimentos e prazos: Útil especialmente para títulos de renda fixa, janelas de liquidez ou metas com data definida.
-
-Armadilhas comuns que derrubam bons projetos
-Misturar dado bruto com regra implícita: Por exemplo, somar ou ignorar taxas, impostos (como IRRF) ou eventos corporativos de forma silenciosa sem deixar claro na documentação ou na tela como a conta foi feita.
-
-Exigir perfeição no dia 1: Tentar cobrir 100% das exceções de mercado antes de ter o fluxo principal (importação/lançamento, cálculo de posição, proventos e alocação) redondo e testado.
-
-Poluir a tela com indicadores demais: Excesso de cartões e gráficos sem propósito claro cansa mais do que ajuda.
+ENTREGA
+1) Resumo do que vai mudar e arquivos afetados.
+2) Implementação por etapas: renomeação, depois abas do Portfólio (G), depois tela da carteira (B).
+3) Lista de pontos que dependem de decisão minha.
