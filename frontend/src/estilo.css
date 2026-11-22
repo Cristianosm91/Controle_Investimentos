@@ -960,6 +960,15 @@ button.aba.ativa:not(:disabled):hover {
   margin: 0.8rem 0;
 }
 
+.importar-extrato .area-colagem {
+  margin: 0.8rem 0;
+}
+
+.importar-extrato .area-colagem textarea {
+  width: 100%;
+  resize: vertical;
+}
+
 .importar-extrato .rolagem {
   max-height: 55vh;
   overflow: auto;

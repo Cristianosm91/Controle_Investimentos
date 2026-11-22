@@ -1,4 +1,4 @@
-"""Importação de relatórios da B3 e de planilhas de operações (.xlsx).
+"""Importação de relatórios da B3 e de planilhas personalizadas (.xlsx ou TSV colado).
 
 Fluxo: `analisar` monta a prévia (nada é gravado); `importar` reanalisa o mesmo arquivo e grava as linhas novas
 (e as "verificar" escolhidas). Duplicidade é conferida contra tudo o que já existe (planilha, digitação ou
@@ -6,6 +6,7 @@ importação anterior) pela soma diária de quantidade/valor por ativo e evento 
 execuções do mesmo dia — e por um hash por linha, que torna a reimportação idempotente.
 """
 
+import csv
 import hashlib
 import io
 import re
@@ -216,7 +217,18 @@ def _ler_planilha(conteudo: bytes) -> list[tuple]:
     if len(conteudo) > TAMANHO_MAXIMO:
         raise ExtratoInvalido("Arquivo maior que 10 MB")
     if not zipfile.is_zipfile(io.BytesIO(conteudo)):
-        raise ExtratoInvalido("O arquivo não é uma planilha .xlsx (exporte o relatório da B3 em Excel).")
+        if conteudo.startswith(b"PK"):
+            raise ExtratoInvalido("Planilha .xlsx corrompida")
+        try:
+            texto = conteudo.decode("utf-8-sig")
+        except UnicodeDecodeError as erro:
+            raise ExtratoInvalido("O conteúdo colado deve ser texto UTF-8 separado por tabulações.") from erro
+        if "\x00" in texto:
+            raise ExtratoInvalido("O conteúdo colado deve ser texto separado por tabulações.")
+        linhas = [tuple(linha) for linha in csv.reader(io.StringIO(texto), delimiter="\t")]
+        if len(linhas) > LINHAS_MAXIMAS:
+            raise ExtratoInvalido(f"Planilha com mais de {LINHAS_MAXIMAS} linhas: divida o período do relatório")
+        return linhas
     try:
         excedido = tamanho_descompactado_excedido(conteudo)
     except zipfile.BadZipFile as erro:
@@ -249,7 +261,7 @@ def _mapear_cabecalho(linhas: list[tuple]) -> tuple[str, int, dict[str, int]]:
                 }
     raise ExtratoInvalido(
         "Formato não reconhecido. Use os relatórios Negociação, Movimentação ou Proventos recebidos da Área do "
-        "Investidor da B3, ou a planilha de operações do app (.xlsx)."
+        "Investidor da B3, ou os modelos personalizados do app (.xlsx ou dados colados separados por tabulações)."
     )
 
 

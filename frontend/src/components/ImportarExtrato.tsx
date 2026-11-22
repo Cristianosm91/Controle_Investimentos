@@ -29,6 +29,8 @@ export function ImportarExtrato({ aoFechar }: { aoFechar: () => void }) {
   const { data: dominio } = useDominio();
   const [investidor, setInvestidor] = useState<string>(selecionados.length === 1 ? String(selecionados[0]) : "");
   const [arquivo, setArquivo] = useState<File | null>(null);
+  const [colagemAberta, setColagemAberta] = useState(false);
+  const [textoColado, setTextoColado] = useState("");
   const [incluir, setIncluir] = useState<Set<number>>(new Set());
   const [filtro, setFiltro] = useState<StatusExtrato | "">("");
   const [correcoes, setCorrecoes] = useState<Record<number, Record<string, string>>>({});
@@ -129,6 +131,7 @@ export function ImportarExtrato({ aoFechar }: { aoFechar: () => void }) {
                 previa.reset();
                 importar.reset();
                 setArquivo(null);
+                setTextoColado("");
                 setCorrecoes({});
                 setLinhaAberta(null);
               }}
@@ -151,6 +154,45 @@ export function ImportarExtrato({ aoFechar }: { aoFechar: () => void }) {
               onChange={(e) => analisar(e.target.files?.[0] ?? null)}
             />
           </label>
+        </div>
+
+        <button
+          type="button"
+          className="secundario"
+          aria-expanded={colagemAberta}
+          aria-controls="dados-planilha-colados"
+          disabled={!investidor || previa.isPending || importar.isPending}
+          onClick={() => setColagemAberta((aberta) => !aberta)}
+        >
+          {colagemAberta ? "Fechar área de colagem" : "Colar dados da planilha"}
+        </button>
+        <div id="dados-planilha-colados" className="formulario em-modal area-colagem" hidden={!colagemAberta}>
+          <label className="largura-total" htmlFor="texto-planilha-colado">
+            Cole as células copiadas, incluindo os cabeçalhos do modelo
+          </label>
+          <textarea
+            className="largura-total"
+            id="texto-planilha-colado"
+            rows={6}
+            value={textoColado}
+            onChange={(e) => setTextoColado(e.target.value)}
+            disabled={!investidor || previa.isPending || importar.isPending}
+            aria-describedby="ajuda-dados-planilha-colados"
+          />
+          <small className="largura-total" id="ajuda-dados-planilha-colados">
+            Copie as células do modelo personalizado no Excel ou Google Sheets. As colunas devem estar separadas por tabulações.
+          </small>
+          <div className="acoes largura-total">
+            <button
+              type="button"
+              disabled={!investidor || !textoColado.trim() || previa.isPending || importar.isPending}
+              onClick={() =>
+                analisar(new File([textoColado], "dados-colados.tsv", { type: "text/tab-separated-values" }))
+              }
+            >
+              {previa.isPending ? "Analisando…" : "Analisar dados colados"}
+            </button>
+          </div>
         </div>
 
         {erro && <div className="erro">{(erro as Error).message}</div>}

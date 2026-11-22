@@ -31,6 +31,10 @@ def xlsx(cabecalho, linhas) -> bytes:
     return saida.getvalue()
 
 
+def tsv(cabecalho, linhas) -> bytes:
+    return ("\n".join(["\t".join(cabecalho), *("\t".join(linha) for linha in linhas)]) + "\n").encode("utf-8")
+
+
 NEGOCIACAO = xlsx(CAB_NEGOCIACAO, [
     ["02/01/2025", "Compra", "Mercado Fracionário", "-", XP, "PETR4F", 7, 38.5, 269.5],
     ["02/01/2025", "Compra", "Mercado à Vista", "-", XP, "PETR4", 100, "38,40", "3.840,00"],
@@ -145,6 +149,52 @@ def test_planilha_operacoes_importa_taxas_e_irrf(cliente):
         ("C", 12.34, 0, "BRL"), ("V", 2.5, 0.01, "BRL"), ("C", 0, 0, "USD"),
     }
     assert enviar(cliente, "importar", PLANILHA_OPERACOES, investidor_id=inv).json()["operacoes"] == 0
+
+
+def test_importa_operacoes_coladas_da_planilha_personalizada(cliente):
+    inv = investidor(cliente)
+    conteudo = tsv(
+        CAB_PLANILHA_OPERACOES + ["observacao"],
+        [["ABCP11", "03/02/2025", "C", "25", "13,20", "22,55", "XP", "0,00", "BRL", ""]]
+    )
+
+    previa = enviar(cliente, "previa", conteudo, investidor_id=inv)
+    assert previa.status_code == 200, previa.text
+    linha = previa.json()["linhas"][0]
+    assert (previa.json()["relatorio"], linha["ticker"], linha["evento"], linha["quantidade"]) == (
+        "PLANILHA_OPERACOES", "ABCP11", "C", 25,
+    )
+
+    resultado = enviar(cliente, "importar", conteudo, investidor_id=inv)
+    assert resultado.status_code == 200, resultado.text
+    assert resultado.json()["operacoes"] == 1
+    operacao = cliente.get("/api/operacoes", params={"investidores": inv}).json()["itens"][0]
+    assert (operacao["ticker"], operacao["preco"], operacao["taxas"], operacao["moeda"]) == (
+        "ABCP11", 13.2, 22.55, "BRL",
+    )
+
+
+def test_importa_proventos_colados_da_planilha_personalizada(cliente):
+    inv = investidor(cliente)
+    conteudo = tsv(
+        ["ativo", "date", "evento", "valor", "irrf", "taxas", "moeda", "corretora", "date_com", "observacao"],
+        [["PETR4", "03/03/2025", "JSCP", "2,00", "0,30", "0,10", "BRL", "XP", "01/03/2025", "Colado"]],
+    )
+
+    previa = enviar(cliente, "previa", conteudo, investidor_id=inv)
+    assert previa.status_code == 200, previa.text
+    linha = previa.json()["linhas"][0]
+    assert (previa.json()["relatorio"], linha["ticker"], linha["evento"], linha["valor"]) == (
+        "PLANILHA_PROVENTOS", "PETR4", "JSCP", 2,
+    )
+
+    resultado = enviar(cliente, "importar", conteudo, investidor_id=inv)
+    assert resultado.status_code == 200, resultado.text
+    assert resultado.json()["proventos"] == 1
+    provento = cliente.get("/api/proventos", params={"investidores": inv}).json()["itens"][0]
+    assert (provento["evento"], provento["valor"], provento["irrf"], provento["taxas"], provento["data_com"]) == (
+        "JSCP", 2, 0.3, 0.1, "2025-03-01",
+    )
 
 
 def test_planilha_personalizada_importa_classe_informada_e_aceita_layout_antigo(cliente):

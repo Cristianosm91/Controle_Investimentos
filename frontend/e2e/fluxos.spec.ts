@@ -329,4 +329,35 @@ test.describe("Fluxos críticos", () => {
     await expect(page.getByRole("row").filter({ hasText: ticker })).toHaveCount(0);
     expect(await totalOperacoes()).toBe(0);
   });
+
+  test("E2E-T-014b importar provento de planilha colada", { tag: "@smoke" }, async ({ page, request }) => {
+    const investidor = await semear.investidor(request);
+    const ticker = tickerFicticio();
+
+    await page.goto("/proventos");
+    await esperarPaginaSemErro(page, "Proventos");
+    await page.getByRole("button", { name: "Importar extrato B3" }).click();
+    const dialogo = page.getByRole("dialog", { name: "Importar extrato da B3" });
+    await dialogo.getByRole("combobox", { name: "Investidor (CPF do extrato)", exact: true })
+      .selectOption({ label: investidor.nome });
+    await dialogo.getByRole("button", { name: "Colar dados da planilha" }).click();
+    await dialogo.getByLabel("Cole as células copiadas, incluindo os cabeçalhos do modelo").fill(
+      [
+        "ativo\tdate\tevento\tvalor\tirrf\ttaxas\tmoeda\tcorretora\tdate_com\tobservacao",
+        `${ticker}\t05/03/2025\tDIVIDENDO\t12,50\t0,00\t0,00\tBRL\tXP\t01/03/2025\tColado`,
+      ].join("\n"),
+    );
+
+    await dialogo.getByRole("button", { name: "Analisar dados colados" }).click();
+    await expect(dialogo.getByText("Relatório: Modelo de proventos personalizado")).toBeVisible();
+    await expect(dialogo.getByRole("row").filter({ hasText: ticker })).toHaveCount(1);
+    await dialogo.getByRole("button", { name: "Importar 1 lançamento(s)" }).click();
+    await expect(dialogo.getByText(/Importados:.*1.*provento/)).toBeVisible();
+
+    const proventos = await request.get(`/api/proventos?investidores=${investidor.id}`);
+    expect(proventos.ok()).toBe(true);
+    const dados = (await proventos.json()) as { total: number; itens: { ticker: string; valor: number }[] };
+    expect(dados.total).toBe(1);
+    expect(dados.itens[0]).toMatchObject({ ticker, valor: 12.5 });
+  });
 });
