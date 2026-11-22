@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { Layout, PAGINAS } from "./components/Layout";
 import { LimiteErro } from "./components/LimiteErro";
 import { ProvedorInvestidor } from "./InvestidorContext";
@@ -47,10 +47,15 @@ const prontas: Record<string, JSX.Element> = {
   "/radar": <Radar />,
   "/ir": <ImpostoRenda />,
   "/status": <StatusAtivo />,
-  "/valuation": <Valuation />,
-  "/valuations-salvos": <ValuationsSalvos />,
+  "/novo-valuation": <Valuation />,
+  "/meus-valuations": <ValuationsSalvos />,
   "/cripto": <Cripto />,
 };
+
+function RedirecionarValuation({ destino }: { destino: string }) {
+  const { search, hash } = useLocation();
+  return <Navigate to={`${destino}${search}${hash}`} replace />;
+}
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -60,6 +65,8 @@ createRoot(document.getElementById("root")!).render(
           <BrowserRouter>
             <Routes>
               <Route element={<Layout />}>
+                <Route path="/valuation" element={<RedirecionarValuation destino="/novo-valuation" />} />
+                <Route path="/valuations-salvos" element={<RedirecionarValuation destino="/meus-valuations" />} />
                 {PAGINAS.map((p) => (
                   <Route
                     key={p.caminho}

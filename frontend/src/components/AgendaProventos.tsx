@@ -6,6 +6,7 @@ import { useInvestidor } from "../InvestidorContext";
 import type { AgendaProventos as TAgenda } from "../tipos";
 import { GraficoBarras } from "./Graficos";
 import { AjudaIndicador } from "./AjudaIndicador";
+import { CabecalhoAjuda } from "./AjudaTabela";
 
 export function AgendaProventos({
   filtros,
@@ -74,9 +75,9 @@ export function AgendaProventos({
             <thead>
               <tr>
                 <th>Mês</th>
-                <th className="num">Confirmado</th>
-                <th className="num">Estimado</th>
-                <th className="num">Total</th>
+                <th className="num"><CabecalhoAjuda titulo="Confirmado" texto="Proventos já lançados com pagamento futuro, somados no mês previsto." /></th>
+                <th className="num"><CabecalhoAjuda titulo="Estimado" texto="Projeção baseada no histórico de proventos para o mês; não é um pagamento confirmado." /></th>
+                <th className="num"><CabecalhoAjuda titulo="Total" texto="Soma dos valores confirmados e estimados para o mês." /></th>
               </tr>
             </thead>
             <tbody>
@@ -138,8 +139,8 @@ export function AgendaProventos({
               <thead>
                 <tr>
                   <th>Ativo</th>
-                  <th className="num">12 meses</th>
-                  <th className="num">YoC</th>
+                  <th className="num"><CabecalhoAjuda titulo="12 meses" texto="Soma dos proventos líquidos recebidos nos últimos 12 meses para o ativo." /></th>
+                  <th className="num"><CabecalhoAjuda titulo="YoC" texto="Yield on Cost: proventos líquidos dos últimos 12 meses divididos pelo custo atual da posição." /></th>
                 </tr>
               </thead>
               <tbody>

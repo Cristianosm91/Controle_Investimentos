@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { moeda, percentual } from "../formato";
-import type { Posicao } from "../tipos";
+import { explicarLetras } from "../metodologias";
+import type { MetodologiaAlocacao, Posicao } from "../tipos";
 import { Dica, useDica } from "./Dica";
 import { AjudaIndicador } from "./AjudaIndicador";
 
@@ -37,7 +38,13 @@ export function somarPor(posicoes: Posicao[], d: Dimensao): [string, number][] {
 
 const LIMITE = 10;
 
-function Barras({ titulo, itens, total }: { titulo: string; itens: [string, number][]; total: number }) {
+function Barras({ titulo, itens, total, ajuda, metas }: {
+  titulo: string;
+  itens: [string, number][];
+  total: number;
+  ajuda?: string;
+  metas?: Map<string, number | null>;
+}) {
   const [expandido, setExpandido] = useState(false);
   const [foco, setFoco] = useState<[string, number] | null>(null);
   const dica = useDica();
@@ -53,7 +60,7 @@ function Barras({ titulo, itens, total }: { titulo: string; itens: [string, numb
   const linha = (rotulo: string, valor: number, aoClicar?: () => void, rotuloDica = rotulo) => (
     <div
       key={rotulo}
-      className={aoClicar ? "barra-linha clicavel" : "barra-linha"}
+      className={`barra-linha${metas ? " com-meta" : ""}${aoClicar ? " clicavel" : ""}`}
       onMouseMove={(e) => {
         setFoco([rotuloDica, valor]);
         dica.mover(e);
@@ -76,17 +83,23 @@ function Barras({ titulo, itens, total }: { titulo: string; itens: [string, numb
     >
       <div className="barra-rotulo">{rotulo}</div>
       <div className="barra-trilho">
-        <div className="barra" style={{ width: `${(valor / maior) * 100}%` }} />
+        <div className="barra" style={{ width: `${(Math.max(valor, 0) / maior) * 100}%` }} />
       </div>
-      <div className="barra-valor">{percentual(total ? valor / total : null)}</div>
+      <div className="barra-valor"><span className="visualmente-oculto">Atual: </span>{percentual(total ? valor / total : null)}</div>
+      {metas && <div className="barra-valor"><span className="visualmente-oculto">Meta: </span>{percentual(metas.get(rotulo) ?? null)}</div>}
     </div>
   );
 
   return (
     <div className="card exposicao">
-      <span>{titulo} <AjudaIndicador titulo={titulo} texto={titulo === "Exposição por corretora"
+      <span>{titulo} <AjudaIndicador titulo={titulo} texto={ajuda ?? (titulo === "Exposição por corretora"
         ? "Valor atribuído a cada corretora dividido pelo total atribuído às corretoras exibidas."
-        : "Soma do valor de mercado das posições do grupo dividida pelo total das posições. Quando falta cotação, usa o custo da posição."} /></span>
+        : "Soma do valor de mercado das posições do grupo dividida pelo total das posições. Quando falta cotação, usa o custo da posição.")} /></span>
+      {metas && (
+        <div className="barra-linha com-meta barra-cabecalho" aria-hidden="true">
+          <span>Categoria</span><span /><span className="barra-valor">Atual</span><span className="barra-valor">Meta</span>
+        </div>
+      )}
       {visiveis.map(([rotulo, valor]) => linha(rotulo, valor))}
       {resto > 0 && linha(`Outros (${ocultos}) ▸`, resto, () => setExpandido(true), `Outros (${ocultos})`)}
       {expandido && ocultos > 0 && (
@@ -104,7 +117,11 @@ function Barras({ titulo, itens, total }: { titulo: string; itens: [string, numb
   );
 }
 
-export function Exposicao({ posicoes, corretoras }: { posicoes: Posicao[]; corretoras?: [string, number][] }) {
+export function Exposicao({ posicoes, corretoras, metodologias }: {
+  posicoes: Posicao[];
+  corretoras?: [string, number][];
+  metodologias?: MetodologiaAlocacao[];
+}) {
   const total = posicoes.reduce((s, p) => s + valorExposicao(p), 0);
   return (
     <div className="exposicoes">
@@ -114,6 +131,16 @@ export function Exposicao({ posicoes, corretoras }: { posicoes: Posicao[]; corre
       {corretoras && corretoras.length > 0 && (
         <Barras titulo="Exposição por corretora" itens={corretoras} total={corretoras.reduce((s, [, v]) => s + v, 0)} />
       )}
+      {metodologias?.map((metodologia) => (
+        <Barras
+          key={metodologia.nome}
+          titulo={`Exposição ${metodologia.nome}`}
+          itens={metodologia.categorias.map((categoria) => [categoria.nome, categoria.valor_atual])}
+          total={metodologia.total_atual}
+          metas={new Map(metodologia.categorias.map((categoria) => [categoria.nome, categoria.peso_alvo ?? null]))}
+          ajuda={`${explicarLetras(metodologia.nome)}Atual é a proporção da categoria na carteira; meta é o percentual definido para o investidor. Usa o custo quando falta cotação e inclui o saldo de caixa conforme a configuração do Portfólio, exceto ao filtrar classes.`}
+        />
+      ))}
     </div>
   );
 }

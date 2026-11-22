@@ -14,6 +14,7 @@ from ..models import (
     Investidor,
     LoteImportacao,
     Meta,
+    MetaMetodologia,
     MovCaixa,
     Operacao,
     PrejuizoInicial,
@@ -84,10 +85,10 @@ def excluir_investidor(id_: int, sessao: SessaoDep):
     obj = obter_ou_404(sessao, Investidor, id_)
     em_uso = any(
         sessao.scalar(select(exists().where(modelo.investidor_id == id_)))
-        for modelo in (Operacao, Provento, MovCaixa, DarfPago)
+        for modelo in (Operacao, Provento, MovCaixa, DarfPago, MetaMetodologia)
     )
     if em_uso:
-        raise HTTPException(409, "Investidor possui lançamentos; desative-o em vez de excluir")
+        raise HTTPException(409, "Investidor possui lançamentos ou metas de metodologia; desative-o em vez de excluir")
     sessao.delete(obj)
     sessao.commit()
 
@@ -101,6 +102,7 @@ _DADOS_DO_INVESTIDOR = (
     ("Movimentações de caixa", MovCaixa),
     ("DARFs pagos", DarfPago),
     ("Prejuízos a compensar", PrejuizoInicial),
+    ("Metas de metodologias", MetaMetodologia),
 )
 _METAS = "Metas só deste investidor"
 _LOTES = "Lotes de importação"

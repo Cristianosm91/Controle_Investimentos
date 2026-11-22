@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { api } from "../../api";
 import { invalidarDerivados, paraFracao, paraPercentual, useAtivos, useDominio } from "../../cadastros";
+import { CabecalhoAjuda } from "../AjudaTabela";
 import { moeda, percentual } from "../../formato";
 import type { Carteira } from "../../tipos";
 import { useExclusaoEmLote } from "../ExclusaoEmLote";
@@ -140,8 +141,8 @@ export function Carteiras() {
                 <tr>
                   <th>#</th>
                   <th>Ativo</th>
-                  <th className="num">Peso no book</th>
-                  <th className="num">Preço-teto</th>
+                  <th className="num"><CabecalhoAjuda titulo="Peso no book" texto="Participação-alvo do ativo dentro do book. Se não for definida, o restante do peso é dividido entre os ativos com posição." /></th>
+                  <th className="num"><CabecalhoAjuda titulo="Preço-teto" texto="Preço máximo configurado para considerar compras do ativo no simulador de alocação." /></th>
                   <th>Usa preço-teto</th>
                 </tr>
               </thead>
@@ -192,8 +193,8 @@ export function Carteiras() {
             <thead>
               <tr>
                 <th>Ativo</th>
-                <th>Peso no book (%)</th>
-                <th>Preço-teto</th>
+                <th><CabecalhoAjuda titulo="Peso no book (%)" texto="Participação-alvo do ativo dentro do book. Se não for definida, o restante do peso é dividido entre os ativos com posição." /></th>
+                <th><CabecalhoAjuda titulo="Preço-teto" texto="Preço máximo configurado para considerar compras do ativo no simulador de alocação." /></th>
                 <th>Ranking</th>
                 <th>Usa teto</th>
                 <th />

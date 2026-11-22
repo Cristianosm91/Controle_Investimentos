@@ -12,6 +12,7 @@ import { EstrategiasBooks } from "../components/config/EstrategiasBooks";
 import { ExclusaoInvestidor } from "../components/config/ExclusaoInvestidor";
 import { Importacoes } from "../components/config/Importacoes";
 import { ImpostoRendaConfig } from "../components/config/ImpostoRenda";
+import { MetasMetodologiasConfig } from "../components/config/MetasMetodologias";
 import { Parametros } from "../components/config/Parametros";
 import { QualidadeDados } from "../components/config/QualidadeDados";
 import { PainelAtualizacoes } from "../components/PainelAtualizacoes";
@@ -22,6 +23,7 @@ const SECOES = [
   { id: "investidores", rotulo: "Investidores" },
   { id: "corretoras", rotulo: "Corretoras" },
   { id: "estrategias", rotulo: "Estratégias & Books" },
+  { id: "metas-metodologias", rotulo: "Metas ARCA e KRAKEN" },
   { id: "carteiras", rotulo: "Carteiras" },
   { id: "ativos", rotulo: "Ativos personalizados" },
   { id: "classes-ativos", rotulo: "Classes dos ativos" },
@@ -36,7 +38,7 @@ const SECOES = [
 type SecaoId = (typeof SECOES)[number]["id"];
 
 const GRUPOS_SECOES: { titulo: string; secoes: readonly SecaoId[] }[] = [
-  { titulo: "Investimentos", secoes: ["investidores", "corretoras", "carteiras", "estrategias", "ativos", "classes-ativos"] },
+  { titulo: "Investimentos", secoes: ["investidores", "corretoras", "carteiras", "estrategias", "metas-metodologias", "ativos", "classes-ativos"] },
   { titulo: "Dados", secoes: ["importacoes", "qualidade"] },
   { titulo: "Fiscal", secoes: ["ir"] },
   { titulo: "Sistema", secoes: ["parametros", "atualizacoes", "backup"] },
@@ -280,6 +282,7 @@ export function Configuracoes() {
     investidores: <Investidores />,
     corretoras: <Corretoras />,
     estrategias: <EstrategiasBooks />,
+    "metas-metodologias": <MetasMetodologiasConfig />,
     carteiras: <Carteiras />,
     ativos: <AtivosPersonalizados />,
     "classes-ativos": <ClassesAtivos />,

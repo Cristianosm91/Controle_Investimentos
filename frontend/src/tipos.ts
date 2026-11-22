@@ -729,6 +729,25 @@ export interface ItemAlocacao {
   quantidade: number | null;
 }
 
+export interface CategoriaMetodologia {
+  nome: string;
+  valor_atual: number;
+  peso_atual: number;
+  peso_alvo?: number | null;
+}
+
+export interface MetasMetodologia {
+  nome: string;
+  categorias: { nome: string; peso_alvo: number | null }[];
+}
+
+export interface MetodologiaAlocacao {
+  nome: string;
+  categorias: CategoriaMetodologia[];
+  total_atual: number;
+  peso_total: number;
+}
+
 export interface Alocacao {
   total_atual: number;
   aporte: number;
@@ -736,6 +755,7 @@ export interface Alocacao {
   estrategias: GrupoAlocacao[];
   books: GrupoAlocacao[];
   ativos: ItemAlocacao[];
+  metodologias?: MetodologiaAlocacao[];
   avisos: string[];
 }
 

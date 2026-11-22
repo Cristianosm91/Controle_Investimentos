@@ -811,6 +811,39 @@ class ItemAlocacaoOut(BaseModel):
     quantidade: Num | None
 
 
+class CategoriaMetodologiaOut(BaseModel):
+    nome: str
+    valor_atual: Num
+    peso_atual: Num
+    peso_alvo: Num | None = None
+
+
+class CategoriaMetaMetodologiaIn(BaseModel):
+    nome: str
+    peso_alvo: Decimal = Field(ge=0, le=1, max_digits=9, decimal_places=8)
+
+
+class MetasMetodologiaIn(BaseModel):
+    categorias: list[CategoriaMetaMetodologiaIn]
+
+
+class CategoriaMetaMetodologiaOut(BaseModel):
+    nome: str
+    peso_alvo: Num | None
+
+
+class MetasMetodologiaOut(BaseModel):
+    nome: str
+    categorias: list[CategoriaMetaMetodologiaOut]
+
+
+class MetodologiaAlocacaoOut(BaseModel):
+    nome: str
+    categorias: list[CategoriaMetodologiaOut]
+    total_atual: Num
+    peso_total: Num
+
+
 class AlocacaoOut(BaseModel):
     total_atual: Num
     aporte: Num
@@ -818,6 +851,7 @@ class AlocacaoOut(BaseModel):
     estrategias: list[GrupoAlocacaoOut]
     books: list[GrupoAlocacaoOut]
     ativos: list[ItemAlocacaoOut]
+    metodologias: list[MetodologiaAlocacaoOut]
     avisos: list[str]
 
 

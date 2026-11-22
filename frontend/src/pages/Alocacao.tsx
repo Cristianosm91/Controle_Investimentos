@@ -3,9 +3,10 @@ import { useDeferredValue, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api, query } from "../api";
 import { AjudaIndicador } from "../components/AjudaIndicador";
+import { CabecalhoAjuda } from "../components/AjudaTabela";
 import { moeda, numero, percentual } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
-import type { Alocacao as TAlocacao, GrupoAlocacao, ItemAlocacao } from "../tipos";
+import type { Alocacao as TAlocacao, GrupoAlocacao, ItemAlocacao, MetodologiaAlocacao } from "../tipos";
 
 type Modo = "comprar" | "rebalancear";
 
@@ -23,11 +24,11 @@ function TabelaGrupos({ titulo, grupos }: { titulo: string; grupos: GrupoAlocaca
           <thead>
             <tr>
               <th />
-              <th className="num">Alvo</th>
-              <th className="num">Atual</th>
-              <th className="num">Desvio</th>
-              <th className="num">Valor atual</th>
-              <th className="num">Ajuste</th>
+              <th className="num"><CabecalhoAjuda titulo="Alvo" texto="Percentual definido como objetivo para esta estratégia ou book, conforme os pesos configurados." /></th>
+              <th className="num"><CabecalhoAjuda titulo="Atual" texto="Percentual da posição atual em relação ao patrimônio considerado no filtro." /></th>
+              <th className="num"><CabecalhoAjuda titulo="Desvio" texto="Diferença entre o percentual atual e o alvo (atual menos alvo). Valor positivo indica acima do alvo; negativo, abaixo." /></th>
+              <th className="num"><CabecalhoAjuda titulo="Valor atual" texto="Valor considerado para a posição; sem cotação disponível, a alocação usa o custo da posição." /></th>
+              <th className="num"><CabecalhoAjuda titulo="Ajuste" texto="Valor sugerido para aproximar a posição do peso-alvo, considerando o aporte, o modo e as restrições do simulador." /></th>
             </tr>
           </thead>
           <tbody>
@@ -53,34 +54,41 @@ function TabelaGrupos({ titulo, grupos }: { titulo: string; grupos: GrupoAlocaca
   );
 }
 
-function TabelaEstrategiasPendentes() {
+function TabelaMetodologia({ metodologia, mostrarMeta }: { metodologia: MetodologiaAlocacao; mostrarMeta: boolean }) {
+  const metas = metodologia.categorias.filter((categoria) => categoria.peso_alvo != null);
   return (
     <div className="painel">
-      <h3>Estratégias ARCA e KRAKEN</h3>
+      <h3>{metodologia.nome}</h3>
       <div className="tabela-container">
         <table className="tabela">
           <thead>
             <tr>
-              <th>Estratégia</th>
-              <th>Composição</th>
-              <th>Situação</th>
+              <th scope="col">Categoria</th>
+              <th scope="col" className="num"><CabecalhoAjuda titulo="Valor atual" texto="Valor atual das posições na categoria, calculado com os critérios de cotação e caixa descritos nesta tela." /></th>
+              <th scope="col" className="num"><CabecalhoAjuda titulo="% atual" texto="Participação do valor da categoria no patrimônio considerado para esta metodologia." /></th>
+              <th scope="col" className="num"><CabecalhoAjuda titulo="Meta" texto="Peso-alvo configurado para a categoria. As metas individuais são exibidas somente ao selecionar um investidor." /></th>
             </tr>
           </thead>
           <tbody>
-            {["ARCA", "KRAKEN"].map((nome) => (
-              <tr key={nome}>
-                <td><strong>{nome}</strong></td>
-                <td>Não definida</td>
-                <td className="sutil">Aguardando critérios para calcular</td>
+            {metodologia.categorias.map((categoria) => (
+              <tr key={categoria.nome}>
+                <td>{categoria.nome}</td>
+                <td className="num">{moeda(categoria.valor_atual)}</td>
+                <td className="num">{percentual(categoria.peso_atual)}</td>
+                <td className="num">{percentual(mostrarMeta ? categoria.peso_alvo : null)}</td>
               </tr>
             ))}
           </tbody>
+          <tfoot>
+            <tr>
+              <th scope="row">TOTAL</th>
+              <td className="num">{moeda(metodologia.total_atual)}</td>
+              <td className="num">{percentual(metodologia.peso_total)}</td>
+              <td className="num">{percentual(mostrarMeta && metas.length ? metas.reduce((total, categoria) => total + (categoria.peso_alvo ?? 0), 0) : null)}</td>
+            </tr>
+          </tfoot>
         </table>
       </div>
-      <p className="sutil">
-        A carteira já fornece ativos, classes, books, carteiras e valores atuais. Os alvos e desvios só serão calculados após
-        definir a composição de cada estratégia.
-      </p>
     </div>
   );
 }
@@ -94,7 +102,7 @@ const ORDENS: Record<string, { rotulo: string; chave: (i: ItemAlocacao) => numbe
 };
 
 export function Alocacao() {
-  const { filtro } = useInvestidor();
+  const { filtro, selecionados } = useInvestidor();
   const [aporte, setAporte] = useState("");
   const [modo, setModo] = useState<Modo>("comprar");
   const [respeitarTeto, setRespeitarTeto] = useState(true);
@@ -102,7 +110,7 @@ export function Alocacao() {
   const [soAjustes, setSoAjustes] = useState(false);
   const aporteAdiado = useDeferredValue(aporte);
 
-  const { data: r, isLoading, error } = useQuery({
+  const { data: r, isLoading, isPlaceholderData, error } = useQuery({
     queryKey: ["alocacao", filtro, aporteAdiado, modo, respeitarTeto],
     queryFn: () =>
       api.get<TAlocacao>(
@@ -123,6 +131,10 @@ export function Alocacao() {
 
   const compras = (r?.ativos ?? []).filter((i) => i.ajuste > 0).reduce((s, i) => s + i.ajuste, 0);
   const vendas = (r?.ativos ?? []).filter((i) => i.ajuste < 0).reduce((s, i) => s + i.ajuste, 0);
+  const metodologias =
+    r && Array.isArray(r.metodologias) && r.metodologias.every((metodologia) => Array.isArray(metodologia.categorias))
+      ? r.metodologias
+      : null;
 
   return (
     <section>
@@ -186,10 +198,32 @@ export function Alocacao() {
             )}
           </div>
 
-          <div className="paineis alinhado-topo">
-            <div>
+          <div className="paineis alinhado-topo alocacao-paineis">
+            <div className="alocacao-estrategias">
               <TabelaGrupos titulo="Por estratégia" grupos={r.estrategias} />
-              <TabelaEstrategiasPendentes />
+              <h2>Metodologias de alocação</h2>
+              {metodologias ? (
+                <div className="alocacao-metodologias">
+                  {metodologias.map((metodologia) => (
+                    <TabelaMetodologia key={metodologia.nome} metodologia={metodologia} mostrarMeta={selecionados.length === 1 && !isPlaceholderData} />
+                  ))}
+                </div>
+              ) : (
+                <div className="aviso" role="status">
+                  A API ainda não retornou os cálculos das metodologias. Reinicie a aplicação para carregar a versão atualizada e
+                  recarregue esta página.
+                </div>
+              )}
+              <p className="sutil">
+                Calculado pelas posições abertas da carteira, usando o valor de mercado ou, sem cotação, o custo da posição. O
+                saldo em caixa é incluído quando a opção correspondente estiver habilitada nas configurações do Portfólio. Classes
+                sem classificação segura ficam em “Não classificado”; a categoria “Negócios” não é presumida. Criptoativos
+                entram em Exterior na ARCA; GPUS11 entra em Exterior nas duas metodologias.
+              </p>
+              <p className="sutil">
+                As metas são individuais e aparecem ao selecionar um único investidor. Defina-as em{" "}
+                <Link to="/configuracoes?secao=metas-metodologias">Configurações → Metas ARCA e KRAKEN</Link>.
+              </p>
             </div>
             <TabelaGrupos titulo="Por book" grupos={r.books.filter((b) => b.peso_alvo > 0 || b.valor_atual > 0)} />
           </div>
@@ -218,17 +252,17 @@ export function Alocacao() {
               <thead>
                 <tr>
                   <th>Ativo</th>
-                  <th>Book</th>
-                  <th>Carteira</th>
+                  <th><CabecalhoAjuda titulo="Book" texto="Grupo de ativos usado para definir e acompanhar pesos-alvo dentro de cada estratégia." /></th>
+                  <th><CabecalhoAjuda titulo="Carteira" texto="Carteira atribuída ao ativo para definir sua composição dentro do book; pode ficar vazia quando não houver vínculo." /></th>
                   <th className="num">Cotação</th>
-                  <th className="num">Preço-teto</th>
-                  <th className="num">Alvo</th>
-                  <th className="num">Atual</th>
-                  <th className="num">Desvio</th>
-                  <th className="num">Valor atual</th>
-                  <th className="num">Valor alvo</th>
-                  <th className="num">Ajuste</th>
-                  <th className="num">Qtd</th>
+                  <th className="num"><CabecalhoAjuda titulo="Preço-teto" texto="Limite de preço configurado para o ativo. Com a opção de respeitar o preço-teto ativa, o simulador não sugere compras acima desse valor." /></th>
+                  <th className="num"><CabecalhoAjuda titulo="Alvo" texto="Peso-alvo do ativo, derivado da estratégia, do book e do peso definido para o ativo na carteira. Sem peso individual, o restante do book é dividido entre os ativos com posição." /></th>
+                  <th className="num"><CabecalhoAjuda titulo="Atual" texto="Participação atual do ativo no patrimônio considerado pelo simulador." /></th>
+                  <th className="num"><CabecalhoAjuda titulo="Desvio" texto="Diferença entre o percentual atual e o peso-alvo do ativo (atual menos alvo)." /></th>
+                  <th className="num"><CabecalhoAjuda titulo="Valor atual" texto="Valor da posição considerado pelo simulador; sem cotação disponível, usa o custo da posição." /></th>
+                  <th className="num"><CabecalhoAjuda titulo="Valor alvo" texto="Valor que corresponderia ao peso-alvo do ativo no patrimônio considerado." /></th>
+                  <th className="num"><CabecalhoAjuda titulo="Ajuste" texto="Valor sugerido para comprar ou vender o ativo, conforme modo, aporte e restrições selecionados." /></th>
+                  <th className="num"><CabecalhoAjuda titulo="Qtd" texto="Quantidade estimada a negociar a partir do ajuste e da cotação. Pode ser arredondada para baixo; na B3, é inteira." /></th>
                 </tr>
               </thead>
               <tbody>

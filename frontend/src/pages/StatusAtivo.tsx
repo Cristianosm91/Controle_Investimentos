@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { api, query } from "../api";
 import { AjudaIndicador } from "../components/AjudaIndicador";
+import { CabecalhoAjuda } from "../components/AjudaTabela";
 import { classeSinal, data, moeda, numero, percentual } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
 import type { Ativo, Book, Carteira, StatusAtivo as StatusAtivoTipo } from "../tipos";
@@ -173,8 +174,8 @@ export function StatusAtivo() {
                         <th>Investidor</th>
                         <th className="num">Quantidade</th>
                         <th className="num">Preço</th>
-                        <th className="num">Fluxo líquido</th>
-                        {escopo === "book" && <th className="num">Participação</th>}
+                        <th className="num"><CabecalhoAjuda titulo="Fluxo líquido" texto="Valor líquido registrado para o evento na linha do tempo." /></th>
+                        {escopo === "book" && <th className="num"><CabecalhoAjuda titulo="Participação" texto="Parcela do evento atribuída ao book selecionado no resultado exibido." /></th>}
                       </tr>
                     </thead>
                     <tbody>

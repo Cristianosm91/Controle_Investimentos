@@ -2,7 +2,8 @@ from decimal import Decimal as D
 
 import pytest
 
-from app.services.alocacao import BookAlvo, Candidato, calcular_alocacao
+from app.models import Ativo
+from app.services.alocacao import BookAlvo, Candidato, calcular_alocacao, calcular_metodologias
 
 
 def _cand(ativo_id, ticker, valor, book, preco=D(10), **extra):
@@ -83,3 +84,71 @@ def test_ativo_distribuido_entre_books(books):
 def test_modo_invalido(books):
     with pytest.raises(ValueError):
         calcular_alocacao([], books, modo="vender")
+
+
+def test_metodologias_calculam_valores_percentuais_e_nao_classificados():
+    posicoes = [
+        (Ativo(classe="AÇÃO", mercado="BVMF"), D(400)),
+        (Ativo(classe="FII", mercado="BVMF"), D(200)),
+        (Ativo(classe="R.FIXA"), D(100)),
+        (Ativo(classe="ETF_US", mercado="NASDAQ"), D(100)),
+        (Ativo(classe="BDR", mercado="BVMF"), D(100)),
+        (Ativo(classe="ETF", mercado="BVMF"), D(100)),
+        (Ativo(classe="ETF", mercado="NYSE"), D(100)),
+        (Ativo(classe="CRIPTO"), D(100)),
+        (Ativo(classe="FIAGRO"), D(100)),
+        (Ativo(classe="OPÇÃO"), D(100)),
+    ]
+
+    resultados = {m.nome: m for m in calcular_metodologias(posicoes, caixa_brl=D(200))}
+    arca = {c.nome: c for c in resultados["ARCA"].categorias}
+    kraken = {c.nome: c for c in resultados["KRAKEN"].categorias}
+
+    assert resultados["ARCA"].total_atual == resultados["KRAKEN"].total_atual == D(1600)
+    assert resultados["ARCA"].peso_total == resultados["KRAKEN"].peso_total == D(1)
+    assert arca["Ações BR"].valor_atual == D(400)
+    assert arca["Exterior"].valor_atual == D(300)
+    assert arca["FIIs"].valor_atual == D(200)
+    assert arca["Caixa"].valor_atual == D(300)
+    assert arca["Não classificado"].valor_atual == D(400)
+    assert arca["Caixa"].peso_atual == D("0.1875")
+    assert kraken["FIIs"].valor_atual == D(200)
+    assert kraken["Ações BR"].valor_atual == D(400)
+    assert kraken["Exterior"].valor_atual == D(200)
+    assert kraken["Cripto"].valor_atual == D(100)
+    assert kraken["Negócios"].valor_atual == 0
+    assert kraken["Não classificado"].valor_atual == D(400)
+    assert sum((c.peso_atual for c in arca.values()), D(0)) == D(1)
+    assert sum((c.peso_atual for c in kraken.values()), D(0)) == D(1)
+
+
+def test_metodologia_oculta_nao_classificado_quando_nao_ha_valor():
+    resultados = calcular_metodologias([(Ativo(classe="AÇÃO", mercado="BVMF"), D(100))])
+
+    assert all("Não classificado" not in {categoria.nome for categoria in metodologia.categorias} for metodologia in resultados)
+
+
+def test_cripto_na_arca_e_gpus11_em_ambas_como_exterior():
+    posicoes = [
+        (Ativo(ticker="BTC", classe="CRIPTO", moeda="BRL"), D(100)),
+        (Ativo(ticker="ETH", classe="CRIPTO", moeda="USD"), D(200)),
+        (Ativo(ticker="GPUS11", classe="ETF", mercado="BVMF"), D(300)),
+        (Ativo(ticker="OUTRO11", classe="ETF", mercado="BVMF"), D(400)),
+    ]
+    resultados = {m.nome: {c.nome: c for c in m.categorias} for m in calcular_metodologias(posicoes)}
+
+    assert resultados["ARCA"]["Exterior"].valor_atual == D(600)
+    assert resultados["ARCA"]["Exterior"].peso_atual == D("0.6")
+    assert resultados["ARCA"]["Não classificado"].valor_atual == D(400)
+    assert resultados["KRAKEN"]["Cripto"].valor_atual == D(300)
+    assert resultados["KRAKEN"]["Exterior"].valor_atual == D(300)
+    assert resultados["KRAKEN"]["Não classificado"].valor_atual == D(400)
+
+
+def test_kraken_classifica_negocios_apenas_quando_explicitamente_identificados():
+    resultados = calcular_metodologias([(Ativo(classe="NEGÓCIO"), D(50))])
+    kraken = next(m for m in resultados if m.nome == "KRAKEN")
+    categorias = {categoria.nome: categoria for categoria in kraken.categorias}
+
+    assert categorias["Negócios"].valor_atual == D(50)
+    assert "Não classificado" not in categorias

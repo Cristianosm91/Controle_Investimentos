@@ -5,8 +5,10 @@ import { api, query } from "../api";
 import { useAtivos } from "../cadastros";
 import { GraficoBarras, GraficoLinhas } from "../components/Graficos";
 import { AjudaIndicador } from "../components/AjudaIndicador";
+import { FiltroMultisselecao } from "../components/FiltroMultisselecao";
 import { SeloCotacaoAntiga } from "../components/SeloCotacaoAntiga";
 import { cotacaoDesatualizada } from "../cotacao";
+import { valorFiltro } from "../filtrosAtivos";
 import { classeSinal, data, moeda, moedaCompacta, percentual } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
 import { BENCHMARKS, NOMES_BENCHMARK } from "../referencias";
@@ -26,15 +28,17 @@ function idadeCotacaoDias(cotacao: string): number {
 export function Resumo() {
   const { filtro, investidores } = useInvestidor();
   const { data: ativos = [] } = useAtivos();
-  const [classe, setClasse] = useState("");
-  const classes = [...new Set(ativos.map((ativo) => ativo.classe))].sort();
+  const [classesSelecionadas, setClassesSelecionadas] = useState<string[] | null>(null);
+  const opcoesClasses = [...new Set(ativos.map((ativo) => ativo.classe))].sort()
+    .map((classe) => ({ valor: classe, rotulo: classe }));
+  const classes = valorFiltro(classesSelecionadas);
   const resumo = useQuery({
-    queryKey: ["resumo", filtro, classe],
-    queryFn: () => api.get<TResumo>(`/rentabilidade/resumo${query({ investidores: filtro, classe })}`),
+    queryKey: ["resumo", filtro, classes],
+    queryFn: () => api.get<TResumo>(`/rentabilidade/resumo${query({ investidores: filtro, classes })}`),
   });
   const mensal = useQuery({
-    queryKey: ["rentabilidade", filtro, classe, "todos"],
-    queryFn: () => api.get<MesRentabilidade[]>(`/rentabilidade/mensal${query({ investidores: filtro, classe })}`),
+    queryKey: ["rentabilidade", filtro, classes, "todos"],
+    queryFn: () => api.get<MesRentabilidade[]>(`/rentabilidade/mensal${query({ investidores: filtro, classes })}`),
   });
   const posicoes = useQuery({
     queryKey: ["posicoes", filtro, false],
@@ -44,7 +48,9 @@ export function Resumo() {
   const r = resumo.data;
   const meses = mensal.data ?? [];
   const automaticos = new Set(ativos.filter((a) => a.cotacao_automatica).map((a) => a.id));
-  const posicoesAbertas = (posicoes.data ?? []).filter((p) => p.quantidade > 0 && (!classe || p.classe === classe));
+  const posicoesAbertas = (posicoes.data ?? []).filter(
+    (p) => p.quantidade > 0 && (classesSelecionadas === null || classesSelecionadas.includes(p.classe)),
+  );
   const cotacoesMonitoradas = posicoesAbertas.filter((p) => automaticos.has(p.ativo_id));
   const cotacoesAusentes = cotacoesMonitoradas.filter((p) => !p.cotacao_data);
   const cotacoesDefasadas = cotacoesMonitoradas.filter(
@@ -67,9 +73,7 @@ export function Resumo() {
   const primeiroAcessoSemInvestidor = posicoes.isSuccess && investidores.filter((i) => i.ativo).length === 0;
   const carteiraSemPosicoes =
     posicoes.isSuccess && investidores.some((i) => i.ativo) && (posicoes.data ?? []).length === 0;
-  const abertas = (posicoes.data ?? []).filter(
-    (p) => p.quantidade > 0 && p.variacao_dia_pct !== null && (!classe || p.classe === classe),
-  );
+  const abertas = posicoesAbertas.filter((p) => p.variacao_dia_pct !== null);
   const defasada = (p: Posicao) => automaticos.has(p.ativo_id) && cotacaoDesatualizada(p.cotacao_data, p.classe);
   const destaques = [...abertas].sort((a, b) => (b.variacao_dia_pct ?? 0) - (a.variacao_dia_pct ?? 0));
   const lucroTotal = r ? r.lucro_aberto + r.lucro_realizado + r.proventos_total + r.aluguel_total : 0;
@@ -79,17 +83,15 @@ export function Resumo() {
       <div className="titulo-linha">
         <h1>Resumo</h1>
         <div className="acoes">
-          <label>
-            Classe
-            <select aria-label="Filtrar resumo por classe" value={classe} onChange={(e) => setClasse(e.target.value)}>
-              <option value="">Todas as classes</option>
-              {classes.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </label>
+          <FiltroMultisselecao
+            rotulo="Classes"
+            resumoTodos="Todas as classes"
+            resumoNenhum="Nenhuma classe"
+            resumoMultiplos={(quantidade) => `${quantidade} classes selecionadas`}
+            opcoes={opcoesClasses}
+            selecionados={classesSelecionadas}
+            aoMudar={setClassesSelecionadas}
+          />
           {r?.data_referencia && <span className="sutil">Cotações até {data(r.data_referencia)}</span>}
         </div>
       </div>

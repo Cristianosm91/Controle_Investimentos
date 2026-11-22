@@ -13,9 +13,12 @@ from decimal import ROUND_DOWN, Decimal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..models import Ativo, Estrategia
+from ..models import Ativo, Estrategia, MetaMetodologia
+from . import caixa as servico_caixa
 from . import configuracao
-from .carteira import cambios_atuais, montar_carteira, ultimas_cotacoes
+from . import parametros as servico_parametros
+from .carteira import LinhaCarteira, cambios_atuais, montar_carteira, ultimas_cotacoes
+from .filtros_ativos import classificar_mercado
 
 ZERO = Decimal(0)
 UM = Decimal(1)
@@ -71,6 +74,21 @@ class GrupoAlocacao:
 
 
 @dataclass
+class CategoriaMetodologia:
+    nome: str
+    valor_atual: Decimal
+    peso_atual: Decimal
+
+
+@dataclass
+class MetodologiaAlocacao:
+    nome: str
+    categorias: list[CategoriaMetodologia]
+    total_atual: Decimal
+    peso_total: Decimal
+
+
+@dataclass
 class ResultadoAlocacao:
     total_atual: Decimal
     aporte: Decimal
@@ -80,6 +98,73 @@ class ResultadoAlocacao:
     ativos: list[ItemAlocacao]
     sem_book: list[str] = field(default_factory=list)
     avisos: list[str] = field(default_factory=list)
+    metodologias: list[MetodologiaAlocacao] = field(default_factory=list)
+
+
+_CATEGORIAS_ARCA = ("Ações BR", "FIIs", "Caixa", "Exterior")
+_CATEGORIAS_KRAKEN = ("Caixa", "FIIs", "Ações BR", "Cripto", "Exterior", "Negócios")
+CATEGORIAS_METODOLOGIAS = {"ARCA": _CATEGORIAS_ARCA, "KRAKEN": _CATEGORIAS_KRAKEN}
+_NAO_CLASSIFICADO = "Não classificado"
+
+
+def metas_do_investidor(sessao: Session, investidor_id: int) -> dict[tuple[str, str], Decimal]:
+    metas = sessao.scalars(select(MetaMetodologia).where(MetaMetodologia.investidor_id == investidor_id))
+    return {(meta.metodologia, meta.categoria): meta.peso_alvo for meta in metas}
+
+
+def _categoria_metodologia(ativo: Ativo, metodologia: str) -> str:
+    classe = ativo.classe.strip().upper()
+    mercado = classificar_mercado(ativo)
+    cripto = classe == "CRIPTO" or ativo.coingecko_id is not None
+
+    if cripto:
+        return "Cripto" if metodologia == "KRAKEN" else "Exterior"
+    if classe == "ETF" and ativo.ticker == "GPUS11":
+        return "Exterior"
+    if classe in {"CAIXA", "R.FIXA"}:
+        return "Caixa"
+    if classe == "FII":
+        return "FIIs"
+    if classe in {"BDR", "REIT", "ETF_US"}:
+        return "Exterior"
+    if classe in {"AÇÃO", "STOCK"}:
+        if mercado == "BRASIL":
+            return "Ações BR"
+        if mercado == "EUA":
+            return "Exterior"
+
+    if metodologia == "KRAKEN" and classe in {"NEGÓCIO", "NEGÓCIOS", "NEGOCIO", "NEGOCIOS"}:
+        return "Negócios"
+    if metodologia == "ARCA":
+        return _NAO_CLASSIFICADO
+
+    return _NAO_CLASSIFICADO
+
+
+def calcular_metodologias(posicoes: Sequence[tuple[Ativo, Decimal]], caixa_brl: Decimal = ZERO) -> list[MetodologiaAlocacao]:
+    configuracoes = (
+        ("ARCA", _CATEGORIAS_ARCA),
+        ("KRAKEN", _CATEGORIAS_KRAKEN),
+    )
+    resultados = []
+    for nome, categorias in configuracoes:
+        valores = {categoria: ZERO for categoria in (*categorias, _NAO_CLASSIFICADO)}
+        valores["Caixa"] += caixa_brl
+        for ativo, valor in posicoes:
+            valores[_categoria_metodologia(ativo, nome)] += valor
+
+        total = sum(valores.values(), ZERO)
+        linhas = [
+            CategoriaMetodologia(
+                categoria,
+                valor,
+                valor / total if total else ZERO,
+            )
+            for categoria, valor in valores.items()
+            if categoria != _NAO_CLASSIFICADO or valor != ZERO
+        ]
+        resultados.append(MetodologiaAlocacao(nome, linhas, total, Decimal(1) if total else ZERO))
+    return resultados
 
 
 def _quantidade(valor: Decimal, c: Candidato) -> Decimal | None:
@@ -191,6 +276,23 @@ def books_alvo(sessao: Session, classificacao: configuracao.Classificacao) -> li
     return [BookAlvo(b.id, b.nome, b.estrategia.nome, b.estrategia.peso * b.peso) for b in lista]
 
 
+def metodologias_da_carteira(
+    sessao: Session,
+    investidor_ids: Sequence[int] | None,
+    linhas: Sequence[LinhaCarteira],
+    classes_excluidas: Sequence[str] = (),
+) -> list[MetodologiaAlocacao]:
+    caixa_brl = ZERO
+    if not classes_excluidas and servico_parametros.carregar(sessao).caixa_no_portfolio:
+        caixa_brl = servico_caixa.calcular(sessao, investidor_ids).total_brl
+    valores_posicoes = [
+        (linha.ativo, linha.valor_mercado if linha.valor_mercado is not None else linha.posicao.custo)
+        for linha in linhas
+        if linha.ativo.classe not in classes_excluidas
+    ]
+    return calcular_metodologias(valores_posicoes, caixa_brl)
+
+
 def calcular(
     sessao: Session,
     investidor_ids: Sequence[int] | None,
@@ -227,4 +329,6 @@ def calcular(
             cot = cotacoes.get(ativo.id)
             candidatos[ativo.id] = candidato(ativo, ZERO, cot.preco if cot else None)
 
-    return calcular_alocacao(list(candidatos.values()), books_alvo(sessao, classificacao), aporte, modo, respeitar_teto)
+    resultado = calcular_alocacao(list(candidatos.values()), books_alvo(sessao, classificacao), aporte, modo, respeitar_teto)
+    resultado.metodologias = metodologias_da_carteira(sessao, investidor_ids, linhas)
+    return resultado

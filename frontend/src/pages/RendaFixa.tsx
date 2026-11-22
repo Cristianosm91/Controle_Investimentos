@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api, query } from "../api";
 import { AjudaIndicador } from "../components/AjudaIndicador";
+import { CabecalhoAjuda } from "../components/AjudaTabela";
 import { classeSinal, data, moeda, numero, percentual } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
 import type { AgendaProventos, ItemRendaFixa, RendaFixa as TRendaFixa } from "../tipos";
@@ -170,10 +171,10 @@ export function RendaFixa() {
                   <th>Vencimento</th>
                   <th className="num">Aplicado</th>
                   <th className="num">Bruto</th>
-                  <th className="num">IOF</th>
-                  <th className="num">IR</th>
-                  <th className="num">Líquido hoje</th>
-                  <th className="num">Líquido no vencimento</th>
+                  <th className="num"><CabecalhoAjuda titulo="IOF" texto="IOF estimado e descontado do valor bruto conforme o prazo da aplicação." /></th>
+                  <th className="num"><CabecalhoAjuda titulo="IR" texto="Imposto de Renda estimado e descontado do valor bruto conforme o prazo e o tipo de aplicação." /></th>
+                  <th className="num"><CabecalhoAjuda titulo="Líquido hoje" texto="Valor líquido estimado na data atual, após os tributos aplicáveis." /></th>
+                  <th className="num"><CabecalhoAjuda titulo="Líquido no vencimento" texto="Estimativa do valor líquido na data de vencimento cadastrada. Não é um valor garantido." /></th>
                 </tr>
               </thead>
               <tbody>

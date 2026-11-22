@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api, query } from "../api";
 import { AjudaIndicador } from "../components/AjudaIndicador";
+import { CabecalhoAjuda } from "../components/AjudaTabela";
 import { AcoesLinha } from "../components/AcoesLinha";
 import { FormCaixa } from "../components/FormLancamentos";
 import { ListaPaginada, type ColunaLista } from "../components/ListaPaginada";
@@ -45,7 +46,7 @@ function Saldos() {
               {integrado && <th className="num">Operações</th>}
               {integrado && <th className="num">Proventos</th>}
               <th className="num">Saldo</th>
-              <th className="num">Saldo (R$)</th>
+              <th className="num"><CabecalhoAjuda titulo="Saldo (R$)" texto="Saldo da corretora convertido para reais; o total soma os saldos convertidos de todas as corretoras e moedas." /></th>
             </tr>
           </thead>
           <tbody>

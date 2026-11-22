@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { api } from "../../api";
 import { invalidarDerivados, paraFracao, paraPercentual, useAtivos, useBooks, useEstrategias } from "../../cadastros";
+import { CabecalhoAjuda } from "../AjudaTabela";
 import { percentual } from "../../formato";
 import type { Ativo, Book, ExcecaoBook } from "../../tipos";
 import { CampoAtivo } from "../Campos";
@@ -70,7 +71,7 @@ function Estrategias() {
           <tr>
             <th />
             <th>Estratégia</th>
-            <th className="num">Peso no portfólio</th>
+            <th className="num"><CabecalhoAjuda titulo="Peso no portfólio" texto="Participação-alvo da estratégia no portfólio. Os pesos das estratégias devem somar 100%." /></th>
             <th />
           </tr>
         </thead>
@@ -253,8 +254,8 @@ function Books() {
             <tr>
               <th />
               <th>Book</th>
-              <th className="num">Peso na estratégia</th>
-              <th className="num">Peso no portfólio</th>
+              <th className="num"><CabecalhoAjuda titulo="Peso na estratégia" texto="Participação-alvo do book dentro da estratégia. Os pesos dos books de cada estratégia devem somar 100%." /></th>
+              <th className="num"><CabecalhoAjuda titulo="Peso no portfólio" texto="Peso calculado pela multiplicação do peso da estratégia pelo peso do book dentro dela." /></th>
               <th>Classes</th>
               <th />
             </tr>

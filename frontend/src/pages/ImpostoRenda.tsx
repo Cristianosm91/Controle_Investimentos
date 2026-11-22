@@ -3,6 +3,7 @@ import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 import { api, query } from "../api";
 import { AjudaIndicador } from "../components/AjudaIndicador";
+import { CabecalhoAjuda } from "../components/AjudaTabela";
 import { Modal } from "../components/Modal";
 import { useExclusaoEmLote } from "../components/ExclusaoEmLote";
 import { CampoData } from "../components/CampoData";
@@ -191,13 +192,13 @@ function Apuracao({ investidor }: { investidor: number }) {
                 </th>
               ))}
               <th className="num">Base tributável <AjudaIndicador titulo="Base tributável" texto="Lucro fiscal antes do IRRF, após isenções e compensação de prejuízos. O IRRF reduz o imposto calculado, não esta base." /></th>
-              <th className="num">IR devido</th>
-              <th className="num">IRRF retido</th>
-              <th className="num">IRRF abatido</th>
-              <th className="num">IRRF a compensar</th>
-              <th className="num">DARF</th>
-              <th className="num">Pago</th>
-              <th className="num">Saldo</th>
+              <th className="num"><CabecalhoAjuda titulo="IR devido" texto="Imposto apurado para a competência, antes de considerar pagamentos registrados." /></th>
+              <th className="num"><CabecalhoAjuda titulo="IRRF retido" texto="Total de imposto retido na fonte informado para as operações da competência." /></th>
+              <th className="num"><CabecalhoAjuda titulo="IRRF abatido" texto="Crédito de IRRF utilizado para reduzir o imposto apurado; não é deduzido novamente da base tributável." /></th>
+              <th className="num"><CabecalhoAjuda titulo="IRRF a compensar" texto="Saldo acumulado de IRRF ainda não utilizado. É um saldo, não a soma dos saldos mensais." /></th>
+              <th className="num"><CabecalhoAjuda titulo="DARF" texto="Valor estimado para recolhimento após a apuração e as compensações; confira antes de pagar." /></th>
+              <th className="num"><CabecalhoAjuda titulo="Pago" texto="Pagamentos de DARF registrados para a competência." /></th>
+              <th className="num"><CabecalhoAjuda titulo="Saldo" texto="Valor de DARF ainda a pagar após considerar os pagamentos registrados." /></th>
               <th />
             </tr>
           </thead>

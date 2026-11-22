@@ -18,8 +18,8 @@ const ROTAS = [
   { caminho: "/cripto", rotulo: "Cripto" },
   { caminho: "/status", rotulo: "Status do ativo" },
   { caminho: "/ir", rotulo: "Imposto de Renda" },
-  { caminho: "/valuation", rotulo: "Valuation" },
-  { caminho: "/valuations-salvos", rotulo: "Valuations salvos" },
+  { caminho: "/novo-valuation", rotulo: "Novo valuation" },
+  { caminho: "/meus-valuations", rotulo: "Meus valuations" },
   { caminho: "/configuracoes", rotulo: "Configurações" },
 ] as const;
 
@@ -85,11 +85,11 @@ test.describe("Smoke: navegação", { tag: "@smoke" }, () => {
   });
 
   test("E2E-T-051 tela vazia de valuations orienta a próxima ação", async ({ page }) => {
-    await page.goto("/valuations-salvos");
-    await expect(page.locator(".estado-vazio")).toContainText("Ainda não há valuations salvos");
+    await page.goto("/meus-valuations");
+    await expect(page.locator(".estado-vazio")).toContainText("Ainda não há cálculos de valuation");
     await expect(page.locator(".estado-vazio").getByRole("link", { name: "Calcular valuation" })).toHaveAttribute(
       "href",
-      "/valuation",
+      "/novo-valuation",
     );
     await expect(page.getByRole("link", { name: /Calcular novo/ })).toHaveCount(0);
     await expect(page.getByText(/Selecionar todos/)).toHaveCount(0);

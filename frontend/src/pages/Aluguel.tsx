@@ -6,6 +6,7 @@ import { AcoesLinha } from "../components/AcoesLinha";
 import { FormProvento } from "../components/FormLancamentos";
 import { GraficoBarras } from "../components/Graficos";
 import { AjudaIndicador } from "../components/AjudaIndicador";
+import { CabecalhoAjuda } from "../components/AjudaTabela";
 import { ListaPaginada, type ColunaLista } from "../components/ListaPaginada";
 import { Modal } from "../components/Modal";
 import { ModelosImportacao } from "../components/ModelosImportacao";
@@ -116,10 +117,10 @@ function ImportarAluguel({ aoFechar }: { aoFechar: () => void }) {
                       <th>Situação</th>
                       <th>Data</th>
                       <th>Ativo</th>
-                      <th className="num">Remuneração</th>
-                      <th className="num">Taxa</th>
-                      <th className="num">IRRF</th>
-                      <th className="num">Líquido</th>
+                      <th className="num"><CabecalhoAjuda titulo="Remuneração" texto="Valor bruto de aluguel informado no lançamento importado." /></th>
+                      <th className="num"><CabecalhoAjuda titulo="Taxa" texto="Taxas de intermediação informadas no lançamento de aluguel." /></th>
+                      <th className="num"><CabecalhoAjuda titulo="IRRF" texto="Imposto de Renda Retido na Fonte informado para o lançamento." /></th>
+                      <th className="num"><CabecalhoAjuda titulo="Líquido" texto="Remuneração bruta menos taxa de intermediação e IRRF." /></th>
                       <th>Linhas</th>
                       <th>Observação</th>
                     </tr>
@@ -240,10 +241,10 @@ function Resumo({ filtro }: { filtro: string | undefined }) {
               <thead>
                 <tr>
                   <th>Ativo</th>
-                  <th className="num">Bruto</th>
-                  <th className="num">Taxa</th>
-                  <th className="num">IRRF</th>
-                  <th className="num">Líquido</th>
+                  <th className="num"><CabecalhoAjuda titulo="Bruto" texto="Soma da remuneração bruta dos lançamentos de aluguel para o ativo no período." /></th>
+                  <th className="num"><CabecalhoAjuda titulo="Taxa" texto="Soma das taxas de intermediação registradas para o ativo no período." /></th>
+                  <th className="num"><CabecalhoAjuda titulo="IRRF" texto="Soma do imposto retido na fonte registrado para o ativo no período." /></th>
+                  <th className="num"><CabecalhoAjuda titulo="Líquido" texto="Remuneração bruta menos taxas de intermediação e IRRF." /></th>
                   <th className="num">Lanç.</th>
                   <th>Último</th>
                 </tr>

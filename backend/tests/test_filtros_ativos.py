@@ -156,6 +156,45 @@ def test_proventos_matriz_agenda_e_rentabilidade_respeitam_filtros(cliente, cart
     assert resumo["proventos_total"] == pytest.approx(22)
 
 
+@pytest.mark.parametrize(
+    ("classes", "investido", "proventos"),
+    [(None, 690, 33), ("AÇÃO", 420, 21), ("AÇÃO,CRIPTO", 640, 32), ("__NENHUM__", 0, 0)],
+)
+def test_filtro_de_classes_no_resumo_e_na_serie(cliente, carteira_multimercado, classes, investido, proventos):
+    ativo = cliente.post("/api/ativos", json={"ticker": "TEST11", "classe": "FII"}).json()["id"]
+    investidor = carteira_multimercado["investidor"]
+    operacao = cliente.post("/api/operacoes", json={
+        "investidor_id": investidor,
+        "ativo_id": ativo,
+        "data": (date.today() - timedelta(days=40)).isoformat(),
+        "evento": "C",
+        "quantidade": 1,
+        "preco": 50,
+    })
+    provento = cliente.post("/api/proventos", json={
+        "investidor_id": investidor,
+        "ativo_id": ativo,
+        "data_pagamento": (date.today() - timedelta(days=5)).isoformat(),
+        "evento": "DIVIDENDO",
+        "valor": 1,
+    })
+    assert operacao.status_code == provento.status_code == 201
+    params = {"investidores": carteira_multimercado["investidor"]}
+    if classes is not None:
+        params["classes"] = classes
+
+    resumo = cliente.get("/api/rentabilidade/resumo", params=params)
+    mensal = cliente.get("/api/rentabilidade/mensal", params=params)
+    assert resumo.status_code == mensal.status_code == 200
+    assert resumo.json()["investido"] == pytest.approx(investido)
+    assert resumo.json()["proventos_total"] == pytest.approx(proventos)
+    meses = mensal.json()
+    if classes == "__NENHUM__":
+        assert meses == []
+    else:
+        assert meses[-1]["investido"] == pytest.approx(investido)
+
+
 def test_filtro_vazio_e_mercado_invalido(cliente, carteira_multimercado):
     base = {"investidores": carteira_multimercado["investidor"]}
     vazio = cliente.get("/api/operacoes", params={**base, "mercados": "__NENHUM__"}).json()

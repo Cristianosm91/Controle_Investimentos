@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api, query } from "../api";
 import { AjudaIndicador } from "../components/AjudaIndicador";
+import { CabecalhoAjuda } from "../components/AjudaTabela";
 import { AjudaInfo } from "../components/AjudaInfo";
 import { classeSinal, data, moeda, numero, percentual } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
@@ -165,10 +166,10 @@ export function Valuation() {
   return (
     <section className="valuation">
       <div className="titulo-linha">
-        <h1>Valuation</h1>
+        <h1>Novo valuation</h1>
         <span className="sutil">Modelos indicativos por ativo; não constituem recomendação de investimento</span>
-        <Link to="/valuations-salvos" className="link">
-          Ver valuations salvos →
+        <Link to="/meus-valuations" className="link">
+          Ver meus valuations →
         </Link>
       </div>
 
@@ -322,8 +323,8 @@ export function Valuation() {
                   <thead>
                     <tr>
                       <th>Modelo</th>
-                      <th className="num">Preço justo</th>
-                      <th className="num">Diferença vs. cotação</th>
+                      <th className="num"><CabecalhoAjuda titulo="Preço justo" texto="Mediana dos modelos calculáveis para o ativo; não representa preço-alvo ou recomendação." /></th>
+                      <th className="num"><CabecalhoAjuda titulo="Diferença vs. cotação" texto="Preço justo dividido pela cotação atual, menos um; mostra a diferença percentual." /></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -401,8 +402,8 @@ export function Valuation() {
                         <th>Mês</th>
                         <th className="num">Investido</th>
                         <th className="num">Mercado</th>
-                        <th className="num">TWR mensal</th>
-                        <th className="num">TWR acumulado</th>
+                        <th className="num"><CabecalhoAjuda titulo="TWR mensal" texto="Retorno mensal do ativo calculado separando o efeito dos fluxos." /></th>
+                        <th className="num"><CabecalhoAjuda titulo="TWR acumulado" texto="Composição dos retornos mensais do ativo, separando o efeito dos fluxos." /></th>
                         <th>Cotação</th>
                       </tr>
                     </thead>

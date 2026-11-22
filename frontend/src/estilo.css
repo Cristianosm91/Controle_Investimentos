@@ -660,6 +660,16 @@ button.ajuda-info svg {
   top: 0;
 }
 
+.ajuda-tabela-cabecalho {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.tabela th.num .ajuda-tabela-cabecalho {
+  justify-content: flex-end;
+}
+
 .tabela tbody tr:hover {
   background: #f9fafb;
 }
@@ -1203,6 +1213,15 @@ span.texto-limitado {
   font-size: 0.8rem;
 }
 
+.barra-linha.com-meta {
+  grid-template-columns: minmax(0, 1.4fr) minmax(2rem, 1fr) 3.4rem 3.4rem;
+}
+
+.barra-cabecalho {
+  color: var(--sutil);
+  font-size: 0.72rem;
+}
+
 .barra-rotulo {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1272,6 +1291,55 @@ span.texto-limitado {
 
 .paineis.alinhado-topo {
   align-items: start;
+}
+
+.alocacao-estrategias {
+  min-width: 0;
+}
+
+.alocacao-metodologias {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 315px), 1fr));
+  gap: 0.8rem;
+  align-items: start;
+}
+
+@media (min-width: 1200px) {
+  .paineis.alocacao-paineis {
+    grid-template-columns: minmax(0, 3fr) minmax(420px, 2fr);
+  }
+}
+
+.alocacao-metodologias .painel {
+  margin-bottom: 0;
+  padding: 0.8rem;
+}
+
+.alocacao-metodologias .tabela th,
+.alocacao-metodologias .tabela td {
+  padding: 0.5rem 0.4rem;
+}
+
+.alocacao-metodologias .tabela th:first-child,
+.alocacao-metodologias .tabela td:first-child {
+  white-space: normal;
+}
+
+.alocacao-metodologias .portfolio-ajuda-gatilho {
+  position: relative;
+  flex-basis: 14px;
+  width: 14px;
+  height: 18px;
+}
+
+.alocacao-metodologias .portfolio-ajuda-gatilho::before {
+  position: absolute;
+  inset: -3px -5px;
+  content: "";
+}
+
+.alocacao-metodologias .ajuda-tabela-cabecalho {
+  gap: 0;
 }
 
 .painel {
@@ -2291,6 +2359,33 @@ a.botao.botao-primario:hover {
   min-width: 100%;
   border-collapse: separate;
   border-spacing: 0;
+}
+
+.tabela-posicoes.portfolio-tabela-valuation {
+  width: 100%;
+  min-width: 860px;
+  table-layout: fixed;
+}
+
+.valuation-referencia {
+  flex-wrap: wrap;
+}
+
+.valuation-referencia select {
+  max-width: 100%;
+}
+
+.portfolio-tabela-valuation th,
+.portfolio-tabela-valuation td {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.portfolio-tabela-valuation .portfolio-cabecalho,
+.portfolio-tabela-valuation .ordenar {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .tabela-posicoes th,

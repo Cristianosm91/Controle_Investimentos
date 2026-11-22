@@ -5,6 +5,7 @@ import { api, query } from "../api";
 import { invalidarDerivados, useAtivos } from "../cadastros";
 import { GraficoLinhas } from "../components/Graficos";
 import { AjudaIndicador } from "../components/AjudaIndicador";
+import { CabecalhoAjuda } from "../components/AjudaTabela";
 import { classeSinal, data, mesAno, moeda, numero, percentual } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
 import type { Ativo, MoedaCripto, MonitorCripto, PainelCripto, PontoCripto } from "../tipos";
@@ -170,8 +171,8 @@ export function Cripto() {
       {painel.isLoading && <p>Carregando cripto…</p>}
       {!painel.isLoading && !itens.length && <p>Nenhum ativo CRIPTO cadastrado. Busque uma moeda para começar.</p>}
       {!!itens.length && <div className="tabela-container"><table className="tabela">
-        <thead><tr><th>Ativo / fonte</th><th className="num">USD / {moedaVisualizacao}</th><th className="num">24h / 7d / 30d (USD)</th>
-          <th className="num">Market cap (USD)</th><th className="num">Quantidade / PM ({moedaVisualizacao})</th><th className="num">Investido / mercado ({moedaVisualizacao})</th><th className="num">Lucro aberto ({moedaVisualizacao})</th></tr></thead>
+        <thead><tr><th>Ativo / fonte</th><th className="num"><CabecalhoAjuda titulo={`USD / ${moedaVisualizacao}`} texto={`Preço da moeda em USD e convertido para ${moedaVisualizacao} para exibição.`} /></th><th className="num"><CabecalhoAjuda titulo="24h / 7d / 30d (USD)" texto="Variação percentual do preço em dólares em cada intervalo." /></th>
+          <th className="num"><CabecalhoAjuda titulo="Market cap (USD)" texto="Capitalização de mercado em dólares informada pela fonte de dados." /></th><th className="num"><CabecalhoAjuda titulo={`Quantidade / PM (${moedaVisualizacao})`} texto={`Quantidade mantida e preço médio de aquisição convertido para ${moedaVisualizacao}.`} /></th><th className="num"><CabecalhoAjuda titulo={`Investido / mercado (${moedaVisualizacao})`} texto={`Custo histórico das posições e valor atual pela cotação, ambos em ${moedaVisualizacao}.`} /></th><th className="num"><CabecalhoAjuda titulo={`Lucro aberto (${moedaVisualizacao})`} texto="Diferença entre o valor de mercado atual e o custo histórico da posição." /></th></tr></thead>
         <tbody>{itens.map((i) => <tr key={i.ativo_id}>
           <td><strong>{i.ticker}</strong><div className="sutil">{i.nome}</div><div className="sutil">{i.fonte ?? "Sem fonte"} · {
             i.atualizado_em ? new Date(i.atualizado_em).toLocaleString("pt-BR") : "sem snapshot"}</div></td>
@@ -216,8 +217,8 @@ export function Cripto() {
         {monitor.isLoading && <p>Carregando monitor…</p>}
         {monitor.data && !monitor.data.meses.length && <p>Sem vendas de cripto no ano selecionado.</p>}
         {!!monitor.data?.meses.length && <div className="tabela-container"><table className="tabela">
-          <thead><tr><th>Investidor / mês</th><th className="num">Vendas brutas</th><th className="num">Ganhos / perdas</th>
-            <th className="num">Resultado</th><th className="num">Saldo do limite</th><th>Referência de R$ 35 mil</th></tr></thead>
+          <thead><tr><th>Investidor / mês</th><th className="num"><CabecalhoAjuda titulo="Vendas brutas" texto="Soma das vendas de cripto no mês, antes de considerar ganhos ou perdas." /></th><th className="num"><CabecalhoAjuda titulo="Ganhos / perdas" texto="Valores de ganhos e perdas apurados nas vendas do mês; exibidos separadamente." /></th>
+            <th className="num"><CabecalhoAjuda titulo="Resultado" texto="Resultado das vendas de cripto do investidor no mês, conforme a apuração exibida." /></th><th className="num"><CabecalhoAjuda titulo="Saldo do limite" texto="Saldo usado para acompanhar as vendas em relação ao limite de referência apresentado nesta tela." /></th><th><CabecalhoAjuda titulo="Referência de R$ 35 mil" texto="Indicador informativo de vendas brutas; ficar abaixo do valor não confirma isenção fiscal." /></th></tr></thead>
           <tbody>{monitor.data.meses.map((m) => <tr key={`${m.investidor_id}-${m.competencia}`}>
             <td>{m.investidor}<div className="sutil">{mesAno(m.competencia)}</div></td>
             <td className="num">{moeda(m.vendas_brl)}</td>

@@ -25,6 +25,7 @@ from app.models import (
     Investidor,
     LoteImportacao,
     Meta,
+    MetaMetodologia,
     MovCaixa,
     Operacao,
     PrejuizoInicial,
@@ -108,6 +109,8 @@ def _popular(Sessao) -> dict[str, int]:
             MovCaixa(investidor_id=ana.id, data=hoje, evento="APORTE", valor=Decimal(50)),
             DarfPago(investidor_id=ana.id, competencia=hoje, data_pagamento=hoje, valor=Decimal(10)),
             PrejuizoInicial(investidor_id=ana.id, grupo="COMUM", valor=Decimal(3)),
+            MetaMetodologia(investidor_id=ana.id, metodologia="ARCA", categoria="Ações BR", peso_alvo=Decimal("0.25")),
+            MetaMetodologia(investidor_id=bia.id, metodologia="ARCA", categoria="Ações BR", peso_alvo=Decimal("0.5")),
             Meta(nome="Só Ana", tipo="PATRIMONIO", valor_alvo=Decimal(1), data_alvo=hoje, rentabilidade_aa=Decimal(0),
                  investidores=str(ana.id)),
             Meta(nome="Família", tipo="PATRIMONIO", valor_alvo=Decimal(1), data_alvo=hoje, rentabilidade_aa=Decimal(0),
@@ -124,6 +127,7 @@ ESPERADO = {
     "Movimentações de caixa": 2,
     "DARFs pagos": 1,
     "Prejuízos a compensar": 1,
+    "Metas de metodologias": 1,
     "Metas só deste investidor": 1,
     "Lotes de importação": 1,
 }
@@ -163,6 +167,7 @@ def test_exclusao_completa_gera_backup_e_remove_tudo_do_investidor(ambiente, ban
         assert sorted((m.nome, m.investidores) for m in s.scalars(select(Meta))) == [
             ("Família", str(ids["bia"])), ("Todos", None)
         ]
+        assert [m.investidor_id for m in s.scalars(select(MetaMetodologia))] == [ids["bia"]]
         historico = s.scalars(select(HistoricoLancamento)).all()
         assert sum(item.acao == "excluido" for item in historico) == 5
         alterado = next(item for item in historico if item.acao == "alterado")

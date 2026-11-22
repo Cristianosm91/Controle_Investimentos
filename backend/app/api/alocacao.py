@@ -2,12 +2,100 @@ from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query
+from sqlalchemy import delete
 
-from ..schemas import AlocacaoOut, CaixaSaldosOut, GrupoAlocacaoOut, ItemAlocacaoOut, SaldoCaixaOut
+from ..models import Investidor, MetaMetodologia
+from ..schemas import (
+    AlocacaoOut,
+    CaixaSaldosOut,
+    CategoriaMetaMetodologiaOut,
+    CategoriaMetodologiaOut,
+    GrupoAlocacaoOut,
+    ItemAlocacaoOut,
+    MetasMetodologiaIn,
+    MetasMetodologiaOut,
+    MetodologiaAlocacaoOut,
+    SaldoCaixaOut,
+)
 from ..services import alocacao, caixa
-from .deps import InvestidoresDep, SessaoDep
+from ..services.carteira import montar_carteira
+from .deps import InvestidoresDep, SessaoDep, obter_ou_404
 
 router = APIRouter(tags=["alocação"])
+
+
+def _metodologias_out(
+    metodologias: list[alocacao.MetodologiaAlocacao],
+    metas: dict[tuple[str, str], Decimal],
+) -> list[MetodologiaAlocacaoOut]:
+    return [
+        MetodologiaAlocacaoOut(
+            nome=m.nome,
+            categorias=[
+                CategoriaMetodologiaOut(**vars(c), peso_alvo=metas.get((m.nome, c.nome)))
+                for c in m.categorias
+            ],
+            total_atual=m.total_atual,
+            peso_total=m.peso_total,
+        )
+        for m in metodologias
+    ]
+
+
+def _metas_selecionadas(sessao: SessaoDep, investidores: list[int] | None) -> dict[tuple[str, str], Decimal]:
+    if investidores is None or len(investidores) != 1:
+        return {}
+    return alocacao.metas_do_investidor(sessao, investidores[0])
+
+
+@router.get(
+    "/investidores/{investidor_id}/metas-metodologias",
+    response_model=list[MetasMetodologiaOut],
+    description="Metas individuais; categorias ainda não configuradas são retornadas sem peso-alvo.",
+)
+def consultar_metas_metodologias(investidor_id: int, sessao: SessaoDep):
+    obter_ou_404(sessao, Investidor, investidor_id)
+    metas = alocacao.metas_do_investidor(sessao, investidor_id)
+    return [
+        MetasMetodologiaOut(
+            nome=nome,
+            categorias=[
+                CategoriaMetaMetodologiaOut(nome=categoria, peso_alvo=metas.get((nome, categoria)))
+                for categoria in categorias
+            ],
+        )
+        for nome, categorias in alocacao.CATEGORIAS_METODOLOGIAS.items()
+    ]
+
+
+@router.put(
+    "/investidores/{investidor_id}/metas-metodologias/{metodologia}",
+    response_model=MetasMetodologiaOut,
+    description="Substitui todas as metas da metodologia para um investidor; os pesos devem somar 100%.",
+)
+def salvar_metas_metodologia(investidor_id: int, metodologia: str, dados: MetasMetodologiaIn, sessao: SessaoDep):
+    obter_ou_404(sessao, Investidor, investidor_id)
+    categorias = alocacao.CATEGORIAS_METODOLOGIAS.get(metodologia)
+    if categorias is None:
+        raise HTTPException(422, "Metodologia inválida")
+    nomes = [categoria.nome for categoria in dados.categorias]
+    if len(nomes) != len(categorias) or set(nomes) != set(categorias):
+        raise HTTPException(422, "Informe todas as categorias da metodologia, sem duplicatas")
+    if sum((categoria.peso_alvo for categoria in dados.categorias), Decimal(0)) != Decimal(1):
+        raise HTTPException(422, "As metas da metodologia devem somar 100%")
+    sessao.execute(delete(MetaMetodologia).where(
+        MetaMetodologia.investidor_id == investidor_id, MetaMetodologia.metodologia == metodologia,
+    ))
+    sessao.add_all([
+        MetaMetodologia(investidor_id=investidor_id, metodologia=metodologia, categoria=c.nome, peso_alvo=c.peso_alvo)
+        for c in dados.categorias
+    ])
+    sessao.commit()
+    pesos = {categoria.nome: categoria.peso_alvo for categoria in dados.categorias}
+    return MetasMetodologiaOut(
+        nome=metodologia,
+        categorias=[CategoriaMetaMetodologiaOut(nome=nome, peso_alvo=pesos[nome]) for nome in categorias],
+    )
 
 
 @router.get("/alocacao", response_model=AlocacaoOut)
@@ -38,7 +126,27 @@ def calcular_alocacao(
             )
             for i in r.ativos
         ],
+        metodologias=_metodologias_out(r.metodologias, _metas_selecionadas(sessao, investidores)),
         avisos=r.avisos,
+    )
+
+
+@router.get(
+    "/alocacao/metodologias",
+    response_model=list[MetodologiaAlocacaoOut],
+    description="Exposição ARCA e KRAKEN das posições abertas dos investidores selecionados. "
+    "Ao excluir classes, o caixa não é incluído; caso contrário, segue a configuração do Portfólio.",
+)
+def consultar_metodologias(
+    sessao: SessaoDep,
+    investidores: InvestidoresDep,
+    classes_excluidas: str | None = None,
+):
+    classes = [classe.strip() for classe in (classes_excluidas or "").split(",") if classe.strip()]
+    linhas = montar_carteira(sessao, investidores, consolidado=True)
+    return _metodologias_out(
+        alocacao.metodologias_da_carteira(sessao, investidores, linhas, classes),
+        _metas_selecionadas(sessao, investidores),
     )
 
 

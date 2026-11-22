@@ -7,6 +7,8 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 ## [Não lançado]
 
 ### Adicionado
+- Metas individuais por categoria em ARCA e KRAKEN, configuráveis por investidor e exibidas ao lado da exposição atual.
+- Exposições ARCA e KRAKEN no Portfólio, com filtros de investidor e classe.
 - Resumo da qualidade das cotações, comparativo detalhado de divergências antes da importação, histórico local de alterações financeiras e agenda apenas de eventos futuros cadastrados.
 - Rentabilidade: exibe os componentes mensais já existentes sem criar nova fórmula de atribuição de retorno; o câmbio aplicado pode ser conferido nos relatórios.
 - Resumo orienta o primeiro cadastro e a primeira importação quando não há investidores ou posições.

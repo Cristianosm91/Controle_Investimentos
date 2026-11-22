@@ -100,6 +100,128 @@ def test_alocacao_inclui_ativo_de_carteira_sem_posicao(cliente, base):
     assert cliente.get("/api/alocacao", params={"modo": "vender"}).status_code == 422
 
 
+def test_metodologias_usam_posicoes_sem_book_e_caixa_do_portfolio(cliente, base):
+    bdr = cliente.post("/api/ativos", json={"ticker": "BDR1", "classe": "BDR"}).json()["id"]
+    _compra(cliente, base, base["petr"], qtd=100, preco=10, taxas=0)
+    _compra(cliente, base, base["hglg"], qtd=100, preco=10, taxas=0)
+    _compra(cliente, base, bdr, qtd=50, preco=20, taxas=0)
+    cliente.post(
+        "/api/caixa",
+        json={
+            "investidor_id": base["inv"],
+            "corretora_id": base["corretora"],
+            "data": "2026-01-02",
+            "evento": "APORTE",
+            "valor": 5000,
+        },
+    )
+    cliente.put("/api/parametros", json={"caixa_no_portfolio": True})
+
+    resposta = cliente.get("/api/alocacao")
+    assert resposta.status_code == 200
+    dados = resposta.json()
+    metodologias = {m["nome"]: m for m in dados["metodologias"]}
+    arca = {c["nome"]: c for c in metodologias["ARCA"]["categorias"]}
+    kraken = {c["nome"]: c for c in metodologias["KRAKEN"]["categorias"]}
+
+    assert "BDR1" not in {ativo["ticker"] for ativo in dados["ativos"]}
+    assert metodologias["ARCA"]["total_atual"] == metodologias["KRAKEN"]["total_atual"] == 8000
+    assert arca["Caixa"]["valor_atual"] == 5000
+    assert arca["Exterior"]["valor_atual"] == 1000
+    assert arca["Caixa"]["peso_atual"] == pytest.approx(0.625)
+    assert kraken["Ações BR"]["valor_atual"] == 1000
+    assert kraken["Exterior"]["valor_atual"] == 1000
+    assert kraken["Caixa"]["peso_atual"] == pytest.approx(0.625)
+
+
+def test_metodologias_do_portfolio_respeitam_investidor_classe_e_caixa(cliente, base):
+    outro = cliente.post("/api/investidores", json={"nome": "Outro investidor fictício"}).json()["id"]
+    _compra(cliente, base, base["petr"], qtd=10, preco=10, taxas=0)
+    _compra(cliente, base, base["hglg"], qtd=10, preco=30, taxas=0)
+    _compra(cliente, {**base, "inv": outro}, base["petr"], qtd=90, preco=10, taxas=0)
+    cliente.post("/api/caixa", json={
+        "investidor_id": base["inv"], "corretora_id": base["corretora"],
+        "data": "2026-01-02", "evento": "APORTE", "valor": 200,
+    })
+    cliente.put("/api/parametros", json={"caixa_no_portfolio": True})
+
+    params = {"investidores": str(base["inv"])}
+    resposta = cliente.get("/api/alocacao/metodologias", params=params)
+    assert resposta.status_code == 200
+    assert resposta.json() == cliente.get("/api/alocacao", params=params).json()["metodologias"]
+    for metodo in resposta.json():
+        categorias = {categoria["nome"]: categoria for categoria in metodo["categorias"]}
+        assert metodo["total_atual"] == 600
+        assert categorias["Caixa"]["valor_atual"] == 200
+        assert categorias["FIIs"]["peso_atual"] == pytest.approx(0.5)
+
+    filtrado = cliente.get("/api/alocacao/metodologias", params={**params, "classes_excluidas": "FII"}).json()
+    for metodo in filtrado:
+        categorias = {categoria["nome"]: categoria for categoria in metodo["categorias"]}
+        assert metodo["total_atual"] == 100
+        assert categorias["Ações BR"]["peso_atual"] == 1
+        assert categorias["FIIs"]["valor_atual"] == categorias["Caixa"]["valor_atual"] == 0
+
+    outro_resultado = cliente.get("/api/alocacao/metodologias", params={"investidores": str(outro)}).json()
+    assert all(metodo["total_atual"] == 900 for metodo in outro_resultado)
+    cliente.put("/api/parametros", json={"caixa_no_portfolio": False})
+    assert all(metodo["total_atual"] == 400 for metodo in cliente.get("/api/alocacao/metodologias", params=params).json())
+
+
+def test_metas_por_investidor_sao_validadas_e_exibidas_nas_duas_visoes(cliente, base):
+    outro = cliente.post("/api/investidores", json={"nome": "Outro investidor fictício"}).json()["id"]
+    _compra(cliente, base, base["petr"], qtd=10, preco=10, taxas=0)
+    _compra(cliente, base, base["hglg"], qtd=10, preco=30, taxas=0)
+    raiz = f"/api/investidores/{base['inv']}/metas-metodologias"
+    vazio = cliente.get(raiz)
+    assert vazio.status_code == 200
+    assert all(c["peso_alvo"] is None for m in vazio.json() for c in m["categorias"])
+    assert cliente.get("/api/investidores/999999/metas-metodologias").status_code == 404
+
+    arca = [
+        {"nome": "Ações BR", "peso_alvo": "0.40"}, {"nome": "FIIs", "peso_alvo": "0.20"},
+        {"nome": "Caixa", "peso_alvo": "0.10"}, {"nome": "Exterior", "peso_alvo": "0.30"},
+    ]
+    kraken = [
+        {"nome": "Caixa", "peso_alvo": "0.10"}, {"nome": "FIIs", "peso_alvo": "0.20"},
+        {"nome": "Ações BR", "peso_alvo": "0.30"}, {"nome": "Cripto", "peso_alvo": "0.15"},
+        {"nome": "Exterior", "peso_alvo": "0.25"}, {"nome": "Negócios", "peso_alvo": "0"},
+    ]
+    assert cliente.put(f"{raiz}/ARCA", json={"categorias": arca}).status_code == 200
+    assert cliente.put(f"{raiz}/KRAKEN", json={"categorias": kraken}).status_code == 200
+    for invalida in (
+        arca[:-1],
+        [*arca[:-1], {**arca[-1], "peso_alvo": "0.20"}],
+        [*arca[:-1], {**arca[-1], "nome": "FIIs"}],
+        [*arca[:-1], {**arca[-1], "peso_alvo": "-0.1"}],
+        [*arca[:-1], {**arca[-1], "peso_alvo": "0.300000001"}],
+    ):
+        assert cliente.put(f"{raiz}/ARCA", json={"categorias": invalida}).status_code == 422
+    assert cliente.put(f"{raiz}/OUTRA", json={"categorias": arca}).status_code == 422
+
+    params = {"investidores": str(base["inv"])}
+    for resposta in (
+        cliente.get("/api/alocacao", params=params).json()["metodologias"],
+        cliente.get("/api/alocacao/metodologias", params=params).json(),
+    ):
+        metodologias = {m["nome"]: {c["nome"]: c for c in m["categorias"]} for m in resposta}
+        assert metodologias["ARCA"]["Ações BR"]["peso_atual"] == pytest.approx(0.25)
+        assert metodologias["ARCA"]["Ações BR"]["peso_alvo"] == pytest.approx(0.4)
+        assert metodologias["KRAKEN"]["FIIs"]["peso_atual"] == pytest.approx(0.75)
+        assert metodologias["KRAKEN"]["FIIs"]["peso_alvo"] == pytest.approx(0.2)
+        assert metodologias["KRAKEN"]["Negócios"]["peso_alvo"] == 0
+
+    filtrado = cliente.get("/api/alocacao/metodologias", params={**params, "classes_excluidas": "FII"}).json()
+    fii = next(c for c in filtrado[0]["categorias"] if c["nome"] == "FIIs")
+    assert fii["peso_atual"] == 0 and fii["peso_alvo"] == pytest.approx(0.2)
+    for investidores in (None, str(outro), f"{base['inv']},{outro}"):
+        dados = cliente.get("/api/alocacao/metodologias", params={"investidores": investidores}).json()
+        assert all(c["peso_alvo"] is None for m in dados for c in m["categorias"])
+
+    assert cliente.put(f"/api/investidores/{outro}/metas-metodologias/ARCA", json={"categorias": arca}).status_code == 200
+    assert cliente.delete(f"/api/investidores/{outro}").status_code == 409
+
+
 def test_parametros_e_saldo_de_caixa(cliente, base):
     assert cliente.get("/api/parametros").json() == {
         "caixa_data_inicio": None, "caixa_no_portfolio": False,

@@ -89,6 +89,7 @@ test("ajuda nos cabeçalhos mantém ícone discreto e linha compacta", async ({ 
     preco: 10,
   });
   await page.goto("/portfolio");
+  await page.getByRole("group", { name: "Visões do portfólio" }).getByRole("button", { name: "Rentabilidade" }).click();
   const cabecalho = page.getByRole("columnheader", { name: "Custo ajustado" });
   const ajuda = cabecalho.getByRole("button", { name: "Ajuda sobre Custo ajustado" });
   const medidas = await ajuda.evaluate((elemento) => {

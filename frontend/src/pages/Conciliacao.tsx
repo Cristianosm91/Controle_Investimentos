@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { api } from "../api";
 import { useAtivos } from "../cadastros";
+import { CabecalhoAjuda } from "../components/AjudaTabela";
 import { CampoData } from "../components/CampoData";
 import { moeda, numero, data } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
@@ -127,7 +128,7 @@ export function Conciliacao() {
                   <th scope="col">Medida</th>
                   <th scope="col" className="num">Extrato informado</th>
                   <th scope="col" className="num">Calculado pelo app</th>
-                  <th scope="col" className="num">Diferença (app − extrato)</th>
+                  <th scope="col" className="num"><CabecalhoAjuda titulo="Diferença (app − extrato)" texto="Valor calculado pelo app menos o valor informado no extrato. Diferenças ajudam a localizar divergências, mas não alteram os lançamentos." /></th>
                 </tr>
               </thead>
               <tbody>
@@ -144,7 +145,7 @@ export function Conciliacao() {
                   <td className="num"><Diferenca valor={resultado.diferenca_custo} formato="moeda" /></td>
                 </tr>
                 <tr>
-                  <th scope="row">Preço médio implícito</th>
+                  <th scope="row"><CabecalhoAjuda titulo="Preço médio implícito" texto="Preço médio obtido a partir do custo total e da quantidade da posição informada ou calculada." /></th>
                   <td className="num">{resultado.preco_medio_informado === null ? "—" : moeda(resultado.preco_medio_informado)}</td>
                   <td className="num">{resultado.preco_medio_calculado === null ? "—" : moeda(resultado.preco_medio_calculado)}</td>
                   <td className="num"><Diferenca valor={resultado.diferenca_preco_medio} formato="moeda" /></td>
@@ -172,7 +173,7 @@ export function Conciliacao() {
                     <th scope="col" className="num">Taxas</th>
                     <th scope="col" className="num">IRRF</th>
                     <th scope="col">Moeda</th>
-                    <th scope="col" className="num">Câmbio</th>
+                    <th scope="col" className="num"><CabecalhoAjuda titulo="Câmbio" texto="Taxa de conversão registrada para o lançamento. Consulte também a moeda e os valores originais para rastrear a conversão." /></th>
                     <th scope="col">Origem / observação</th>
                   </tr>
                 </thead>

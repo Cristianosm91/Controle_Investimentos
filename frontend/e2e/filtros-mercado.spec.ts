@@ -44,6 +44,51 @@ test("filtros multisseleção combinam mercado, classe e ativos e persistem nas 
     moeda: "EUR",
     coingecko_id: `btc-${Date.now().toString(36)}`,
   });
+
+  test("resumo filtra uma, várias, nenhuma ou todas as classes", async ({ page, request }) => {
+    const investidor = await semear.investidor(request, nomeFicticio("Resumo"));
+    investidorId = investidor.id;
+    for (const [classe, preco] of [["AÇÃO", 10], ["FII", 20], ["ETF", 40]] as const) {
+      const ativo = await semear.ativo(request, undefined, { classe });
+      ativoIds.push(ativo.id);
+      const operacao = await semear.operacao(request, {
+        investidor_id: investidor.id, ativo_id: ativo.id, data: "2026-03-12", evento: "C", quantidade: 1, preco,
+      });
+      operacaoIds.push(operacao.id);
+    }
+
+    await page.goto("/");
+    await selecionarInvestidorNoTopo(page, investidor.nome);
+    const patrimonio = page.locator(".card").filter({ hasText: "Patrimônio" });
+    await expect(patrimonio).toContainText("70,00");
+    await page.getByLabel("Classes: Todas as classes").click();
+    const classes = page.getByRole("group", { name: "Classes" });
+    await classes.getByRole("button", { name: "Limpar seleção" }).click();
+    await expect(patrimonio).toContainText("0,00");
+    await classes.getByRole("checkbox", { name: "AÇÃO", exact: true }).check();
+    await expect(patrimonio).toContainText("10,00");
+
+    const respostaResumo = page.waitForResponse((resposta) => {
+      const url = new URL(resposta.url());
+      return url.pathname === "/api/rentabilidade/resumo" && url.searchParams.get("classes") === "AÇÃO,FII";
+    });
+    const respostaMensal = page.waitForResponse((resposta) => {
+      const url = new URL(resposta.url());
+      return url.pathname === "/api/rentabilidade/mensal" && url.searchParams.get("classes") === "AÇÃO,FII";
+    });
+    await classes.getByRole("checkbox", { name: "FII", exact: true }).check();
+    const resumo = await respostaResumo;
+    const mensal = await respostaMensal;
+    expect(resumo.ok()).toBe(true);
+    expect(mensal.ok()).toBe(true);
+    expect((await resumo.json()).investido).toBeCloseTo(30);
+    const meses = await mensal.json();
+    expect(meses[meses.length - 1].investido).toBeCloseTo(30);
+    await expect(patrimonio).toContainText("30,00");
+
+    await classes.getByRole("button", { name: "Todos" }).click();
+    await expect(patrimonio).toContainText("70,00");
+  });
   ativoIds.push(cripto.id);
   const ativos = [...brasileiros, americano, cripto];
   for (const ativo of ativos) {

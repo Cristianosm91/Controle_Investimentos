@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Fragment, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
+import { CabecalhoAjuda } from "../components/AjudaTabela";
 import { useExclusaoEmLote } from "../components/ExclusaoEmLote";
 import { Icone } from "../components/Icone";
 import { classeSinal, data, moeda, numero, percentual } from "../formato";
@@ -52,51 +53,54 @@ export function ValuationsSalvos() {
     queryKey: ["valuation-historico"],
     queryFn: () => api.get<HistoricoValuation[]>("/valuation/historico"),
   });
+  const itens = historico.data ?? [];
   const remover = useMutation({
     mutationFn: (ativoId: number) => api.del(`/valuation/${ativoId}/historico`),
     onSuccess: () => cliente.invalidateQueries({ queryKey: ["valuation-historico"] }),
   });
   const selecao = useExclusaoEmLote({
-    itens: historico.data ?? [],
+    itens,
     chave: (item) => item.ativo_id,
     remover: (id) => api.del(`/valuation/${id}/historico`),
-    titulo: "valuations salvos",
+    titulo: "meus valuations",
     consulta: "valuation-historico",
     aposExcluir: () => cliente.invalidateQueries({ queryKey: ["valuation-historico"] }),
   });
   const erro = historico.error ?? remover.error;
+  const carregando = historico.isLoading;
+  const pronto = !carregando && !historico.error && !!historico.data;
 
   return (
     <section className="valuation">
       <div className="titulo-linha">
-        <h1>Valuations salvos</h1>
+        <h1>Meus valuations</h1>
         <span className="sutil">Último cálculo de cada ativo e os dois anteriores; não constituem recomendação</span>
-        {!!historico.data?.length && (
-          <Link to="/valuation" className="link">
+        {!!itens.length && (
+          <Link to="/novo-valuation" className="link">
             Calcular novo →
           </Link>
         )}
       </div>
 
       {erro && <div className="erro">{(erro as Error).message}</div>}
-      {!!historico.data?.length && selecao.acoes}
-      {historico.isLoading && (
+      {pronto && !!itens.length && selecao.acoes}
+      {carregando && (
         <div className="estado-carregando" role="status" aria-busy="true">
           <span className="skeleton skeleton-lista" aria-hidden="true" />
-          <span className="visualmente-oculto">Carregando valuations salvos…</span>
+          <span className="visualmente-oculto">Carregando meus valuations…</span>
         </div>
       )}
-      {historico.data?.length === 0 && (
+      {pronto && itens.length === 0 && (
         <div className="estado-vazio">
           <Icone nome="folder" size={28} aria-hidden="true" />
-          <p>Ainda não há valuations salvos. Calcule um valuation para acompanhar e comparar seus resultados.</p>
-          <Link to="/valuation" className="botao botao-primario">
+          <p>Ainda não há cálculos de valuation. Calcule um valuation para acompanhar e comparar seus resultados.</p>
+          <Link to="/novo-valuation" className="botao botao-primario">
             Calcular valuation
           </Link>
         </div>
       )}
 
-      {!!historico.data?.length && (
+      {pronto && !!itens.length && (
         <div className="painel">
           <div className="tabela-container">
             <table className="tabela valuation-historico">
@@ -105,15 +109,13 @@ export function ValuationsSalvos() {
                   <th />
                   <th>Ativo</th>
                   <th className="num">Cotação atual</th>
-                  <th className="num">Diferença hoje</th>
-                  {ROTULOS_CALCULO.map((rotulo) => (
-                    <th key={rotulo}>{rotulo}</th>
-                  ))}
+                  <th className="num"><CabecalhoAjuda titulo="Diferença hoje" texto="Compara o último preço justo calculado com a cotação mais recente do ativo; não é uma recomendação." /></th>
+                  {ROTULOS_CALCULO.map((rotulo) => <th key={rotulo}>{rotulo}</th>)}
                   <th aria-label="Ações" />
                 </tr>
               </thead>
               <tbody>
-                {historico.data.map((item) => (
+                {itens.map((item) => (
                   <Fragment key={item.ativo_id}>
                     <tr>
                       <td>{selecao.checkbox(item.ativo_id)}</td>
@@ -136,7 +138,7 @@ export function ValuationsSalvos() {
                       ))}
                       <td>
                         <div className="acoes-linha">
-                          <Link to={`/valuation?ativo=${item.ativo_id}`} className="link">
+                          <Link to={`/novo-valuation?ativo=${item.ativo_id}`} className="link">
                             Recalcular
                           </Link>
                           <button
@@ -160,7 +162,7 @@ export function ValuationsSalvos() {
                     </tr>
                     {aberto === item.ativo_id && (
                       <tr>
-                        <td colSpan={7}>
+                        <td colSpan={8}>
                           <table className="tabela valuation-modelos">
                             <thead>
                               <tr>

@@ -45,6 +45,27 @@ def test_upgrade_preserva_dados_referenciados(tmp_path):
         assert any(i[2] == 1 for i in indices)
 
 
+def test_metas_metodologias_preservam_dados_e_impedem_downgrade_com_perda(tmp_path):
+    banco = tmp_path / "metas-metodologias.db"
+    cfg = _alembic(f"sqlite:///{banco.as_posix()}")
+    command.upgrade(cfg, "f3a7c9d1e542")
+    with closing(sqlite3.connect(banco)) as con:
+        con.execute("INSERT INTO investidor (id, nome, cor, ativo) VALUES (1, 'Investidor fictício', '#000000', 1)")
+        con.commit()
+    command.upgrade(cfg, "head")
+    with closing(sqlite3.connect(banco)) as con:
+        assert con.execute("SELECT nome FROM investidor WHERE id = 1").fetchone() == ("Investidor fictício",)
+        con.execute(
+            "INSERT INTO meta_metodologia (investidor_id, metodologia, categoria, peso_alvo) VALUES (1, 'ARCA', 'FIIs', 0.25)"
+        )
+        con.commit()
+        assert con.execute("PRAGMA foreign_key_check").fetchall() == []
+    with pytest.raises(RuntimeError, match="Downgrade indisponível"):
+        command.downgrade(cfg, "f3a7c9d1e542")
+    with closing(sqlite3.connect(banco)) as con:
+        assert con.execute("SELECT peso_alvo FROM meta_metodologia").fetchone() == (0.25,)
+
+
 def test_migracao_apelidos_preserva_corretoras_e_impede_downgrade_com_perda(tmp_path):
     banco = tmp_path / "corretoras.db"
     cfg = _alembic(f"sqlite:///{banco.as_posix()}")

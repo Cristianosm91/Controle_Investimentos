@@ -1,7 +1,20 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint, func
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Date,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -27,6 +40,18 @@ class Investidor(Base):
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
 
     grupo: Mapped[Grupo | None] = relationship()
+
+
+class MetaMetodologia(Base):
+    __tablename__ = "meta_metodologia"
+    __table_args__ = (
+        CheckConstraint("peso_alvo >= 0 AND peso_alvo <= 1", name="ck_meta_metodologia_peso"),
+    )
+
+    investidor_id: Mapped[int] = mapped_column(ForeignKey("investidor.id", ondelete="CASCADE"), primary_key=True)
+    metodologia: Mapped[str] = mapped_column(String(10), primary_key=True)
+    categoria: Mapped[str] = mapped_column(String(30), primary_key=True)
+    peso_alvo: Mapped[Decimal] = mapped_column(Valor)
 
 
 class Corretora(Base):

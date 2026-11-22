@@ -1,13 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { api, query } from "../api";
+import { api, ErroApi, query } from "../api";
 import { invalidarDerivados, useAtivos, useParametros } from "../cadastros";
 import { chaveGrupo, Exposicao, ROTULO_DIMENSAO, somarPor, valorExposicao, type Dimensao } from "../components/Exposicao";
-import { AjudaInfo } from "../components/AjudaInfo";
+import { AjudaTabela } from "../components/AjudaTabela";
 import { SeloCotacaoAntiga } from "../components/SeloCotacaoAntiga";
 import { AjudaIndicador } from "../components/AjudaIndicador";
+import { margemSeguranca, precoReferencia, SeletorReferenciaValuation, type ReferenciaValuation } from "../components/ReferenciaValuation";
 import { cotacaoDesatualizada } from "../cotacao";
 import { classeSinal, data, moeda, numero, percentual } from "../formato";
 import { useInvestidor } from "../InvestidorContext";
@@ -16,20 +16,25 @@ import type {
   CaixaSaldos,
   ExposicaoCorretora,
   HistoricoValuation,
-  ModeloValuation,
+  MetodologiaAlocacao,
   Posicao,
   ResumoAluguel,
   ValorInvestido,
 } from "../tipos";
 
 const AGRUPAMENTOS: Dimensao[] = ["estrategia", "book", "carteira", "classe", "setor", "moeda"];
-const EVENTO_ABERTURA_AJUDA = "investhub:abrir-ajuda";
-
 const AJUDAS_COLUNAS: Record<string, string> = {
+  peso: "Valor de mercado da posição dividido pelo valor de mercado total das posições consideradas.",
+  preco_medio: "Preço médio contábil da posição calculado a partir das operações e dos ajustes registrados.",
   custo: "Custo contábil atual da posição, calculado a partir das operações registradas e dos ajustes aplicáveis.",
+  valor_mercado: "Valor atual da posição pela cotação disponível. Se não houver cotação, o valor fica indisponível.",
+  lucro_aberto: "Diferença entre o valor de mercado atual das posições e o custo contábil das posições abertas.",
+  lucro_dia: "Variação do valor de mercado no dia, estimada pela variação percentual da cotação. Fica indisponível sem cotação ou variação diária.",
+  proventos: "Proventos líquidos registrados para o ativo; o percentual abaixo compara esse valor ao capital investido.",
   aluguel: "Soma dos rendimentos líquidos registrados como aluguel para este ativo. O percentual é dividido pelo capital investido.",
   yoc_12m: "Proventos líquidos pagos nos últimos 365 dias divididos pelo custo contábil atual da posição.",
   tir_aa: "TIR anualizada calculada a partir das operações, dos proventos líquidos (incluindo aluguel) e do valor de mercado atual como valor final.",
+  margem: "Diferença percentual entre o preço justo de referência selecionado e a cotação atual.",
 };
 
 type Coluna = {
@@ -39,115 +44,6 @@ type Coluna = {
   render: (p: Posicao) => React.ReactNode;
   numerica?: boolean;
 };
-
-function AjudaTabela({
-  label,
-  texto,
-  children,
-  classe,
-}: {
-  label: string;
-  texto: React.ReactNode;
-  children?: React.ReactNode;
-  classe: string;
-}) {
-  const id = useId();
-  const gatilho = useRef<HTMLButtonElement>(null);
-  const dica = useRef<HTMLDivElement>(null);
-  const fechamento = useRef<number | undefined>(undefined);
-  const [aberta, setAberta] = useState(false);
-  const [posicao, setPosicao] = useState<{ esquerda: number; topo: number; acima: boolean } | null>(null);
-
-  const cancelarFechamento = () => {
-    if (fechamento.current !== undefined) window.clearTimeout(fechamento.current);
-    fechamento.current = undefined;
-  };
-
-  const agendarFechamento = () => {
-    cancelarFechamento();
-    fechamento.current = window.setTimeout(() => {
-      const emFoco = gatilho.current === document.activeElement;
-      const sobMouse = gatilho.current?.matches(":hover") || dica.current?.matches(":hover");
-      if (!emFoco && !sobMouse) setAberta(false);
-    }, 120);
-  };
-
-  const abrir = (elemento: HTMLButtonElement) => {
-    cancelarFechamento();
-    const caixa = elemento.getBoundingClientRect();
-    const largura = Math.max(1, Math.min(280, window.innerWidth - 24));
-    const acima = caixa.bottom + 100 > window.innerHeight && caixa.top > 100;
-    setPosicao({
-      esquerda: Math.max(12, Math.min(caixa.left, window.innerWidth - largura - 12)),
-      topo: acima ? caixa.top - 8 : caixa.bottom + 8,
-      acima,
-    });
-    document.dispatchEvent(new CustomEvent(EVENTO_ABERTURA_AJUDA, { detail: id }));
-    setAberta(true);
-  };
-
-  useEffect(() => {
-    const fecharOutra = (evento: Event) => {
-      if (evento instanceof CustomEvent && evento.detail !== id) setAberta(false);
-    };
-    document.addEventListener(EVENTO_ABERTURA_AJUDA, fecharOutra);
-    return () => document.removeEventListener(EVENTO_ABERTURA_AJUDA, fecharOutra);
-  }, [id]);
-
-  useEffect(() => {
-    if (!aberta) return;
-    const fecharAoMover = () => setAberta(false);
-    window.addEventListener("scroll", fecharAoMover, true);
-    window.addEventListener("resize", fecharAoMover);
-    return () => {
-      window.removeEventListener("scroll", fecharAoMover, true);
-      window.removeEventListener("resize", fecharAoMover);
-      cancelarFechamento();
-    };
-  }, [aberta]);
-
-  const Gatilho = classe === "portfolio-ajuda-icone" ? AjudaInfo : "button";
-
-  return (
-    <>
-      <Gatilho
-        ref={gatilho}
-        type="button"
-        className={`portfolio-ajuda-gatilho ${classe}`}
-        aria-label={label}
-        aria-describedby={aberta ? id : undefined}
-        onMouseEnter={(evento) => abrir(evento.currentTarget)}
-        onMouseLeave={agendarFechamento}
-        onFocus={(evento) => abrir(evento.currentTarget)}
-        onBlur={agendarFechamento}
-        onClick={(evento) => abrir(evento.currentTarget)}
-        onKeyDown={(evento) => {
-          if (evento.key === "Escape") setAberta(false);
-        }}
-      >
-        {children}
-      </Gatilho>
-      {aberta && posicao && createPortal(
-        <div
-          ref={dica}
-          id={id}
-          role="tooltip"
-          className="portfolio-ajuda-tooltip"
-          style={{
-            left: posicao.esquerda,
-            top: posicao.topo,
-            transform: posicao.acima ? "translateY(-100%)" : undefined,
-          }}
-          onMouseEnter={cancelarFechamento}
-          onMouseLeave={agendarFechamento}
-        >
-          {texto}
-        </div>,
-        document.body,
-      )}
-    </>
-  );
-}
 
 const lucroAbertoPct = (p: Posicao) =>
   p.lucro_aberto !== null && p.valor_investido ? p.lucro_aberto / p.valor_investido : null;
@@ -310,107 +206,12 @@ function colunas(total: number, nomes: Map<number, string>, porInvestidor: boole
   return lista;
 }
 
-type EscolhaValuation = "" | "mediana" | "todos" | ModeloValuation["id"];
-
-const OPCOES_VALUATION: { id: Exclude<EscolhaValuation, "">; rotulo: string }[] = [
-  { id: "mediana", rotulo: "Mediana dos modelos" },
-  ...MODELOS_VALUATION,
-  { id: "todos", rotulo: "Todos os modelos" },
-];
-
-function precoValuation(item: HistoricoValuation | undefined, id: Exclude<EscolhaValuation, "" | "todos">) {
-  const calculo = item?.calculos[0];
-  if (!calculo) return null;
-  return id === "mediana" ? calculo.preco_mediano : calculo.modelos[id];
-}
-
-const diferenca = (preco: number | null, cotacao: number | null) =>
-  preco !== null && cotacao ? preco / cotacao - 1 : null;
-
-function colunaValuation(
-  id: Exclude<EscolhaValuation, "" | "todos">,
-  titulo: string,
-  valuations: Map<number, HistoricoValuation>,
-  alternar: (p: Posicao) => void,
-): Coluna {
-  return {
-    chave: `valuation-${id}`,
-    titulo,
-    numerica: true,
-    valor: (p) => precoValuation(valuations.get(p.ativo_id), id),
-    render: (p) => {
-      const preco = precoValuation(valuations.get(p.ativo_id), id);
-      const dif = diferenca(preco, p.cotacao);
-      return (
-        <button
-          type="button"
-          className="link valuation-celula"
-          title="Clique para ver todos os modelos deste ativo"
-          onClick={() => alternar(p)}
-        >
-          {moeda(preco, p.moeda)}
-          <span className={`sutil ${classeSinal(dif)}`}>{percentual(dif)}</span>
-        </button>
-      );
-    },
-  };
-}
-
-function DetalheValuation({ p, item }: { p: Posicao; item: HistoricoValuation | undefined }) {
-  const calculo = item?.calculos[0];
-  if (!calculo) {
-    return (
-      <div className="valuation-detalhe">
-        Sem valuation salvo para {p.ticker}.{" "}
-        <Link to={`/valuation?ativo=${p.ativo_id}`} className="link">
-          Calcular agora →
-        </Link>
-      </div>
-    );
-  }
-  const linhas = [
-    { rotulo: "Mediana dos modelos", preco: calculo.preco_mediano },
-    ...MODELOS_VALUATION.map((m) => ({ rotulo: m.rotulo, preco: calculo.modelos[m.id] })),
-  ];
-  return (
-    <div className="valuation-detalhe">
-      <div className="sutil">
-        Valuation de {p.ticker} calculado em {data(calculo.calculado_em)} {calculo.calculado_em.slice(11, 16)} ·
-        cotação de então {moeda(calculo.cotacao, p.moeda)} ·{" "}
-        <Link to={`/valuation?ativo=${p.ativo_id}`} className="link">
-          Recalcular
-        </Link>{" "}
-        ·{" "}
-        <Link to="/valuations-salvos" className="link">
-          Histórico
-        </Link>
-      </div>
-      <table className="tabela">
-        <thead>
-          <tr>
-            <th>Modelo</th>
-            <th className="num">Preço justo</th>
-            <th className="num">Diferença vs. cotação atual</th>
-          </tr>
-        </thead>
-        <tbody>
-          {linhas.map(({ rotulo, preco }) => {
-            const dif = diferenca(preco, p.cotacao);
-            return (
-              <tr key={rotulo}>
-                <td>{rotulo}</td>
-                <td className="num">{moeda(preco, p.moeda)}</td>
-                <td className="num">
-                  <span className={classeSinal(dif)}>{percentual(dif)}</span>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
-}
+type AbaPortfolio = "Resumo" | "Rentabilidade" | "Proventos" | "Valuation";
+const COLUNAS_ABAS: Record<Exclude<AbaPortfolio, "Valuation">, string[]> = {
+  Resumo: ["ticker", "investidor", "classe", "setor", "peso", "quantidade", "cotacao", "valor_mercado"],
+  Rentabilidade: ["ticker", "investidor", "classe", "quantidade", "preco_medio", "custo", "valor_mercado", "lucro_dia", "lucro_aberto", "tir_aa"],
+  Proventos: ["ticker", "investidor", "classe", "quantidade", "preco_medio", "proventos", "aluguel", "yoc_12m"],
+};
 
 function FiltroClasses({
   classes,
@@ -462,8 +263,8 @@ export function Portfolio() {
   const [verExposicao, setVerExposicao] = useState(true);
   const [ordem, setOrdem] = useState<{ chave: string; desc: boolean }>({ chave: "classe", desc: false });
   const [classesExcluidas, setClassesExcluidas] = useState<string[]>([]);
-  const [escolhaValuation, setEscolhaValuation] = useState<EscolhaValuation>("");
-  const [expandidos, setExpandidos] = useState<string[]>([]);
+  const [aba, setAba] = useState<AbaPortfolio>("Resumo");
+  const [referencia, setReferencia] = useState<ReferenciaValuation>("media");
   const cliente = useQueryClient();
 
   const { data: todasClasses = [], isLoading, error } = useQuery({
@@ -501,10 +302,10 @@ export function Portfolio() {
     [todasClasses, classesExcluidas, filtrandoClasses],
   );
   const posicoes = useMemo(() => todas.filter((p) => p.quantidade > 0), [todas]);
-  const { data: valuations } = useQuery({
+  const { data: valuations, isLoading: carregandoValuations, error: erroValuations } = useQuery({
     queryKey: ["valuation-historico"],
     queryFn: () => api.get<HistoricoValuation[]>("/valuation/historico"),
-    enabled: escolhaValuation !== "" || expandidos.length > 0,
+    enabled: aba === "Valuation",
     select: (lista) => new Map(lista.map((item) => [item.ativo_id, item])),
   });
   const { data: parametros } = useParametros();
@@ -519,6 +320,15 @@ export function Portfolio() {
     queryFn: () => api.get<ExposicaoCorretora[]>(`/exposicao/corretoras${query({ investidores: filtro })}`),
     enabled: verExposicao,
     select: (lista): [string, number][] => lista.map((e) => [e.corretora, e.valor]),
+  });
+  const metodologias = useQuery({
+    queryKey: ["alocacao", "metodologias", filtro, classesExcluidas],
+    queryFn: () =>
+      api.get<MetodologiaAlocacao[]>(
+        `/alocacao/metodologias${query({ investidores: filtro, classes_excluidas: classesExcluidas.join(",") })}`,
+      ),
+    enabled: verExposicao && posicoes.length > 0,
+    retry: false,
   });
 
   const atualizar = useMutation({
@@ -563,27 +373,30 @@ export function Portfolio() {
     [posicoes, defasadas],
   );
   const chaveLinha = (p: Posicao) => `${p.investidor_id ?? 0}-${p.ativo_id}`;
-  const alternarDetalhe = (p: Posicao) => {
-    const chave = chaveLinha(p);
-    setExpandidos((atual) => (atual.includes(chave) ? atual.filter((c) => c !== chave) : [...atual, chave]));
-  };
   const mapaValuations = valuations ?? new Map<number, HistoricoValuation>();
-  const colsValuation: Coluna[] =
-    escolhaValuation === ""
-      ? []
-      : escolhaValuation === "todos"
-        ? [{ id: "mediana" as const, rotulo: "Mediana" }, ...MODELOS_VALUATION].map((m) =>
-            colunaValuation(m.id, m.rotulo, mapaValuations, alternarDetalhe),
-          )
-        : [
-            colunaValuation(
-              escolhaValuation,
-              `Valuation · ${OPCOES_VALUATION.find((o) => o.id === escolhaValuation)?.rotulo ?? ""}`,
-              mapaValuations,
-              alternarDetalhe,
-            ),
-          ];
-  const cols = [...colunas(totais.mercado, nomes, porInvestidor, defasadas), ...colsValuation];
+  const colunasBase = colunas(totais.mercado, nomes, porInvestidor, defasadas);
+  const cols: Coluna[] = aba === "Valuation"
+    ? [
+        ...colunasBase.filter((coluna) => ["ticker", "investidor", "classe", "cotacao"].includes(coluna.chave)),
+        ...MODELOS_VALUATION.map((modelo): Coluna => ({
+          chave: `valuation-${modelo.id}`,
+          titulo: modelo.rotulo,
+          numerica: true,
+          valor: (p) => mapaValuations.get(p.ativo_id)?.calculos[0]?.modelos[modelo.id] ?? null,
+          render: (p) => moeda(mapaValuations.get(p.ativo_id)?.calculos[0]?.modelos[modelo.id] ?? null, p.moeda),
+        })),
+        {
+          chave: "margem",
+          titulo: "Margem de segurança",
+          numerica: true,
+          valor: (p) => margemSeguranca(precoReferencia(mapaValuations.get(p.ativo_id)?.calculos[0], referencia), p.cotacao),
+          render: (p) => {
+            const margem = margemSeguranca(precoReferencia(mapaValuations.get(p.ativo_id)?.calculos[0], referencia), p.cotacao);
+            return <span className={classeSinal(margem)}>{percentual(margem)}</span>;
+          },
+        },
+      ]
+    : colunasBase.filter((coluna) => COLUNAS_ABAS[aba].includes(coluna.chave));
 
   const ordenadas = useMemo(() => {
     const col = cols.find((c) => c.chave === ordem.chave) ?? cols[0];
@@ -609,7 +422,7 @@ export function Portfolio() {
     return somarPor(posicoes, agrupar).map(([nome]) => ({ nome, itens: mapa.get(nome) ?? [] }));
   }, [agrupar, ordenadas, posicoes]);
 
-  const linha = (p: Posicao) => [
+  const linha = (p: Posicao) => (
     <tr key={chaveLinha(p)}>
       {cols.map((c) => {
         const valor = c.valor(p);
@@ -630,43 +443,22 @@ export function Portfolio() {
           </td>
         );
       })}
-      <td className="portfolio-acoes-celula">
-        <details className="portfolio-acoes">
-          <summary role="button" aria-label={`Ações de ${p.ticker}`} title={`Ações de ${p.ticker}`}>
-            <span aria-hidden="true">⋯</span>
-          </summary>
-          <div className="portfolio-acoes-menu">
-            <Link to={`/valuation?ativo=${p.ativo_id}`} onClick={(evento) => evento.currentTarget.closest("details")?.removeAttribute("open")}>
-              Abrir valuation
-            </Link>
-            <button
-              type="button"
-              aria-expanded={expandidos.includes(chaveLinha(p))}
-              onClick={(evento) => {
-                alternarDetalhe(p);
-                const detalhes = evento.currentTarget.closest("details");
-                if (detalhes) {
-                  detalhes.open = false;
-                  detalhes.querySelector("summary")?.focus();
-                }
-              }}
-            >
-              {expandidos.includes(chaveLinha(p)) ? "Ocultar modelos" : "Ver modelos"}
-            </button>
-          </div>
-        </details>
-      </td>
-    </tr>,
-    ...(expandidos.includes(chaveLinha(p))
-      ? [
-          <tr key={`${chaveLinha(p)}-valuation`} id={`modelos-${chaveLinha(p)}`} className="linha-detalhe">
-            <td colSpan={cols.length + 1}>
-              {valuations ? <DetalheValuation p={p} item={valuations.get(p.ativo_id)} /> : <p>Carregando valuation…</p>}
-            </td>
-          </tr>,
-        ]
-      : []),
-  ];
+      {aba === "Valuation" && (
+        <td className="portfolio-acoes-celula">
+          <details className="portfolio-acoes">
+            <summary role="button" aria-label={`Ações de ${p.ticker}`} title={`Ações de ${p.ticker}`}>
+              <span aria-hidden="true">⋯</span>
+            </summary>
+            <div className="portfolio-acoes-menu">
+              <Link to={`/novo-valuation?ativo=${p.ativo_id}`} onClick={(evento) => evento.currentTarget.closest("details")?.removeAttribute("open")}>
+                Abrir valuation
+              </Link>
+            </div>
+          </details>
+        </td>
+      )}
+    </tr>
+  );
 
   const totalExposicao = useMemo(() => posicoes.reduce((s, p) => s + valorExposicao(p), 0), [posicoes]);
 
@@ -679,7 +471,7 @@ export function Portfolio() {
         : itens.reduce((s, p) => s + (p.lucro_aberto ?? 0), 0);
     return (
       <tr key={`grupo-${nome}`} className="linha-grupo">
-        <td colSpan={cols.length + 1}>
+        <td colSpan={cols.length + (aba === "Valuation" ? 1 : 0)}>
           <strong>{nome}</strong> · {itens.length} ativo(s) · {percentual(totalExposicao ? mercado / totalExposicao : null)} ·
           Investido {moeda(investido)} · Mercado {moeda(mercado)} ·{" "}
           <span className={classeSinal(lucro)}>Lucro aberto {moeda(lucro)}</span>
@@ -696,20 +488,6 @@ export function Portfolio() {
           {classes.length > 1 && (
             <FiltroClasses classes={classes} excluidas={classesExcluidas} setExcluidas={setClassesExcluidas} />
           )}
-          <label className="check" title="Mostra o preço justo do último valuation salvo de cada ativo">
-            Valuation
-            <select
-              value={escolhaValuation}
-              onChange={(e) => setEscolhaValuation(e.target.value as EscolhaValuation)}
-            >
-              <option value="">—</option>
-              {OPCOES_VALUATION.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.rotulo}
-                </option>
-              ))}
-            </select>
-          </label>
           <label className="check">
             Agrupar
             <select value={agrupar} onChange={(e) => setAgrupar(e.target.value as typeof agrupar)}>
@@ -814,7 +592,24 @@ export function Portfolio() {
       {!isLoading && posicoes.length === 0 && <div className="aviso">Nenhuma posição aberta.</div>}
 
       {verExposicao && posicoes.length > 0 && (
-        <Exposicao posicoes={posicoes} corretoras={filtrandoClasses ? undefined : corretoras} />
+        <>
+          <Exposicao posicoes={posicoes} corretoras={filtrandoClasses ? undefined : corretoras} metodologias={metodologias.error ? undefined : metodologias.data} />
+          {metodologias.data && !metodologias.error && (
+            <p className="sutil">
+              As metas são individuais e aparecem ao selecionar um único investidor. Defina-as em{" "}
+              <Link to="/configuracoes?secao=metas-metodologias">Configurações → Metas ARCA e KRAKEN</Link>.
+              {filtrandoClasses && " O percentual atual considera as classes visíveis; as metas permanecem iguais."}
+            </p>
+          )}
+          {metodologias.isLoading && <p>Carregando exposições ARCA e KRAKEN…</p>}
+          {metodologias.error && (
+            <div className="erro">
+              {metodologias.error instanceof ErroApi && metodologias.error.status === 404
+                ? "Não foi possível carregar ARCA e KRAKEN. Atualize e reinicie o servidor da aplicação."
+                : `Não foi possível carregar ARCA e KRAKEN: ${metodologias.error.message}`}
+            </div>
+          )}
+        </>
       )}
 
       {posicoes.length > 0 && (
@@ -827,8 +622,24 @@ export function Portfolio() {
             : {tickersDefasados.join(", ")}. A data da última cotação aparece abaixo do preço.
           </div>
         )}
+        <div className="abas" role="group" aria-label="Visões do portfólio">
+          {(["Resumo", "Rentabilidade", "Proventos", "Valuation"] as const).map((visao) => (
+            <button key={visao} type="button" className={`aba${aba === visao ? " ativa" : ""}`}
+              aria-pressed={aba === visao} onClick={() => { setAba(visao); setOrdem({ chave: "ticker", desc: false }); }}>
+              {visao}
+            </button>
+          ))}
+        </div>
+        {aba === "Valuation" && (
+          <>
+            <SeletorReferenciaValuation valor={referencia} onChange={setReferencia} />
+            <p className="sutil">Margem = (preço justo de referência − cotação atual) / preço justo de referência. Média dos modelos disponíveis quando selecionada.</p>
+            {carregandoValuations && <p>Carregando valuations…</p>}
+            {erroValuations && <div className="erro">{(erroValuations as Error).message}</div>}
+          </>
+        )}
         <div className="tabela-container portfolio-tabela-container" role="region" aria-label="Posições do portfólio" tabIndex={0}>
-          <table className="tabela tabela-posicoes" aria-label="Posições do portfólio">
+          <table className={`tabela tabela-posicoes${aba === "Valuation" ? " portfolio-tabela-valuation" : ""}`} aria-label="Posições do portfólio">
             <thead>
               <tr>
                 {cols.map((c) => (
@@ -853,10 +664,10 @@ export function Portfolio() {
                     </span>
                   </th>
                 ))}
-                <th scope="col" className="portfolio-acoes-cabecalho">Ações</th>
+                {aba === "Valuation" && <th scope="col" className="portfolio-acoes-cabecalho">Ações</th>}
               </tr>
             </thead>
-            <tbody>{grupos.flatMap((g) => [...(g.nome ? [subtotal(g.nome, g.itens)] : []), ...g.itens.flatMap(linha)])}</tbody>
+            <tbody>{grupos.flatMap((g) => [...(g.nome ? [subtotal(g.nome, g.itens)] : []), ...g.itens.map(linha)])}</tbody>
           </table>
         </div>
         </>

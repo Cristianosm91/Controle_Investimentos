@@ -24,8 +24,8 @@ export const PAGINAS = [
   { caminho: "/cripto", rotulo: "Cripto", icone: "bitcoin" },
   { caminho: "/status", rotulo: "Status do ativo", icone: "search" },
   { caminho: "/ir", rotulo: "Imposto de Renda", icone: "receipt" },
-  { caminho: "/valuation", rotulo: "Valuation", icone: "calculator" },
-  { caminho: "/valuations-salvos", rotulo: "Valuations salvos", icone: "folder" },
+  { caminho: "/novo-valuation", rotulo: "Novo valuation", icone: "calculator" },
+  { caminho: "/meus-valuations", rotulo: "Meus valuations", icone: "folder" },
 ] as const;
 
 export function Layout() {
