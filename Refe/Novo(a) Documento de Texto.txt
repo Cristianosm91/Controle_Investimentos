@@ -1,0 +1,48 @@
+
+A Ward traz uma "calculadorinha" em cada ativo que mostra transação a transação (compra, bonificação, fração, exercício de opção etc.) como se chegou ao preço médio. Dá para conferir e não precisa confiar às cegas.
+Os dados vêm da B3, tratados ativo por ativo, incluindo eventos corporativos (bonificação, incorporação, cisão, amortização). Amortização, por exemplo, abate o preço médio em vez de contar como provento.
+
+2. Tipos de preço médio
+
+PM real: mede sua qualidade como investidor e é o foco da Ward.
+PM ajustado: por dividendos ou por prêmios de opções.
+PM contábil: usado só na declaração de IR, com bonificações pelo valor do fato relevante.
+
+3. As três rentabilidades
+
+O apresentador defende olhar as três juntas:
+
+Simples (retorno total): quanto você ganhou sobre o que aportou. Os aportes "amassam" o número.
+
+TWR (retorno ponderado pelo tempo): funciona como cotização de fundo, ignora aportes e permite comparar com índices (CDI, Ibovespa). Pode enganar para cima ou para baixo, porque não considera quando nem quanto você aportou.
+
+TIR (taxa interna de retorno): considera cada fluxo, seu valor e seu momento. É anualizada e pode distorcer em períodos menores que um ano.
+
+Ele ilustra com dois exemplos numéricos, em que a TWR dava +20% enquanto a simples dava −16% e a TIR −15%, e o inverso.
+
+
+Resumo e rentabilidade
+
+Patrimônio, dividendos, "outros proventos" (cupons de Tesouro, aluguel), valorização e retorno simples, com configurações (sobre custo ou aportado, considerar ou ignorar vendas passadas).
+Cada número tem explicação ao passar o mouse.
+
+Uma IA que analisa a carteira e explica por que a TWR ou a TIR estão onde estão.
+
+Maiores perdas e ganhos por ativo e evolução do patrimônio.
+Benchmarks (CDI, IPCA, Ibovespa, IFIX etc.), índice de Sharpe, volatilidade e drawdown.
+
+Ativos
+
+Visão por classe (ações, FIIs, exterior, renda fixa, cripto) com yield mensal e anual, yield on cost e quantidade alugada.
+Posições encerradas, com o histórico de tudo que já foi vendido.
+
+Alocação e rebalanceamento
+
+Alocação-alvo por classe, por ativo, por setor e por tipo de FII (papel ou tijolo).
+Bandas de desbalanceamento, mostrando o que está dentro ou fora para orientar os próximos aportes.
+Classificação pela exposição real. Um ETF de renda fixa, por exemplo, aparece em renda fixa.
+
+Proventos
+
+Gráfico de evolução e média mensal, yield, valores a receber e calendário de dividendos.
+Proventos por ativo e por classe.
